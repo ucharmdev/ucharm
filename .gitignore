@@ -12,7 +12,7 @@ build/
 # Virtual environments
 venv/
 .venv/
-ENV/
+/ENV/
 
 # IDE
 .idea/
