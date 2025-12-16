@@ -27,3 +27,11 @@ Thumbs.db
 
 # Project specific
 *.mpy
+
+# Zig
+.zig-cache/
+zig-out/
+
+# Native libraries (build artifacts)
+*.dylib
+native/dist/
