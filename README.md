@@ -53,7 +53,8 @@ sys.path.insert(0, "/path/to/microcharm")
 from microcharm import (
     style, box, spinner, progress,
     success, error, warning, info,
-    select, confirm, prompt, table
+    select, confirm, prompt, table,
+    args, env, path
 )
 
 # Styled text
@@ -92,6 +93,28 @@ table(
     headers=["Name", "Age"],
     header_style={"bold": True, "fg": "cyan"}
 )
+
+# CLI argument parsing
+opts = args.parse({
+    '--name': str,
+    '--count': (int, 1),
+    '--verbose': bool,
+    '-v': '--verbose',
+})
+print(f"Hello {opts['name']}!")
+
+# Environment variables
+print(f"User: {env.user()}")
+print(f"Home: {env.home()}")
+if env.is_ci():
+    print("Running in CI")
+if env.should_use_color():
+    print(style("Colors enabled!", fg="green"))
+
+# Path manipulation
+print(path.basename("/foo/bar/baz.txt"))  # "baz.txt"
+print(path.join("src", "lib", "main.py")) # "src/lib/main.py"
+print(path.normalize("a/../b/./c"))       # "b/c"
 ```
 
 ## Building Standalone Binaries
@@ -192,6 +215,23 @@ style("Background", bg="blue", fg="white")
 - `simple_table()` - Borderless tables
 - `key_value()` - Key-value pair display
 
+### Args
+- `args.parse()` - Parse CLI arguments with type coercion
+- `args.has()` - Check if flag exists
+- `args.value()` - Get value after a flag
+- `args.positional()` - Get non-flag arguments
+
+### Env
+- `env.get()`, `env.has()` - Access environment variables
+- `env.home()`, `env.user()`, `env.shell()` - System info
+- `env.is_ci()`, `env.is_debug()` - Common checks
+- `env.no_color()`, `env.force_color()`, `env.should_use_color()` - Color support
+
+### Path
+- `path.basename()`, `path.dirname()`, `path.extname()` - Path components
+- `path.join()`, `path.normalize()` - Path manipulation
+- `path.is_absolute()`, `path.is_relative()` - Path checks
+
 ## API Reference
 
 ### style(text, **kwargs)
@@ -241,6 +281,86 @@ Render a table.
 - `header_style` - Dict of style kwargs for headers
 - `column_alignments` - List of "left", "right", "center"
 
+### args.parse(spec)
+Parse CLI arguments according to a specification.
+
+```python
+opts = args.parse({
+    '--name': str,           # required string
+    '--count': (int, 1),     # int with default
+    '--verbose': bool,       # boolean flag
+    '-v': '--verbose',       # alias
+})
+# Returns: {'name': 'value', 'count': 5, 'verbose': True, '_': ['positional']}
+```
+
+### env module
+Access environment variables and common checks.
+
+```python
+env.get("HOME")              # Get variable (returns None if not set)
+env.get("FOO", "default")    # Get with default
+env.has("PATH")              # Check if set
+env.get_int("PORT", 8080)    # Get as integer with default
+env.is_truthy("DEBUG")       # Check if truthy (1, true, yes, on)
+
+# System info
+env.home()                   # Home directory
+env.user()                   # Current username
+env.shell()                  # Current shell
+env.editor()                 # VISUAL or EDITOR
+
+# Common checks
+env.is_ci()                  # Running in CI?
+env.is_debug()               # DEBUG=1?
+env.no_color()               # NO_COLOR set?
+env.force_color()            # FORCE_COLOR set?
+env.should_use_color()       # Smart color detection
+```
+
+### path module
+Path manipulation utilities.
+
+```python
+path.basename("/foo/bar.txt")     # "bar.txt"
+path.dirname("/foo/bar.txt")      # "/foo"
+path.extname("file.tar.gz")       # ".gz"
+path.stem("file.tar.gz")          # "file.tar"
+
+path.join("a", "b", "c")          # "a/b/c"
+path.normalize("a/../b/./c")      # "b/c"
+path.relative("/a/b", "/a/c/d")   # "../c/d"
+
+path.is_absolute("/foo")          # True
+path.is_relative("foo")           # True
+path.has_ext("file.py", ".py")    # True
+
+path.split("/foo/bar.txt")        # ("/foo", "bar.txt")
+path.splitext("file.tar.gz")      # ("file.tar", ".gz")
+```
+
+## Architecture
+
+μcharm uses a hybrid architecture for maximum performance:
+
+```
+┌─────────────────────────────────────┐
+│         Your Python Code            │
+│   (standard Python syntax)          │
+├─────────────────────────────────────┤
+│        Python Thin Wrappers         │
+│   (microcharm/*.py)                 │
+├─────────────────────────────────────┤
+│   Native Zig Modules (C ABI)        │
+│   ansi, args, ui, env, path         │
+├─────────────────────────────────────┤
+│     libmicrocharm.dylib/.so         │
+│   (shared library for CPython)      │
+└─────────────────────────────────────┘
+```
+
+The Python library is a thin wrapper over native Zig code. All heavy lifting (ANSI code generation, path manipulation, UI rendering) happens in Zig for maximum performance.
+
 ## Project Structure
 
 ```
@@ -255,19 +375,48 @@ microcharm/
 │   │   └── tests.zig     # Unit tests
 │   ├── build.zig         # Zig build configuration
 │   └── test_e2e.sh       # End-to-end tests
-├── microcharm/           # Python TUI library
+├── native/               # Native Zig modules
+│   ├── bridge/           # Shared library build system
+│   │   ├── shared_lib.zig
+│   │   └── build.zig
+│   ├── ansi/             # ANSI color codes
+│   │   └── ansi.zig
+│   ├── args/             # CLI argument parsing
+│   │   └── args.zig
+│   ├── ui/               # UI rendering (boxes, tables, progress)
+│   │   └── ui.zig
+│   ├── env/              # Environment variables
+│   │   └── env.zig
+│   └── path/             # Path manipulation
+│       └── path.zig
+├── microcharm/           # Python library (thin wrappers)
 │   ├── __init__.py       # Public API
-│   ├── terminal.py       # Terminal utilities
-│   ├── style.py          # Text styling (colors, bold, etc.)
-│   ├── components.py     # UI components (box, spinner, progress)
-│   ├── input.py          # Interactive input (select, confirm, prompt)
-│   └── table.py          # Table rendering
+│   ├── _native.py        # ctypes bindings to libmicrocharm
+│   ├── style.py          # Text styling
+│   ├── components.py     # UI components
+│   ├── input.py          # Interactive input
+│   ├── table.py          # Table rendering
+│   ├── args.py           # Argument parsing
+│   ├── env.py            # Environment utilities
+│   └── path.py           # Path utilities
 └── examples/
     ├── demo.py           # Feature showcase
     └── simple_cli.py     # Example CLI application
 ```
 
 ## Development
+
+### Building the Native Library
+
+The native Zig modules are compiled into a shared library for use with CPython:
+
+```bash
+cd native/bridge
+zig build
+
+# Copy to dist (for development)
+cp zig-out/lib/libmicrocharm.dylib ../dist/
+```
 
 ### Building the CLI
 

@@ -27,12 +27,13 @@ C modules compiled into custom MicroPython build
 
 - [x] `term` - Terminal size, raw mode, cursor control, key reading
 - [x] `ansi` - ANSI escape code generation (fg, bg, rgb, styles)
+- [x] `args` - CLI argument parsing (int/float validation, flag parsing)
+- [x] `env` - Environment variables (get, has, is_ci, no_color, etc.)
+- [x] `path` - Path manipulation (join, basename, dirname, normalize, etc.)
+- [x] `ui` - UI rendering (progress bars, boxes, tables, spinners, symbols)
 - [ ] `utf8` - UTF-8 string operations, display width
 - [ ] `io` - Buffered stdin/stdout
-- [ ] `args` - CLI argument parsing
-- [ ] `env` - Environment variables
 - [ ] `fs` - File operations
-- [ ] `path` - Path manipulation
 - [ ] `json` - Fast JSON parse/stringify
 - [ ] `fetch` - HTTP client
 - [ ] `sqlite` - SQLite database (optional, larger)
@@ -49,6 +50,32 @@ C modules compiled into custom MicroPython build
 - `fg()`, `bg()`, `rgb()` - Color codes (names, 0-255, #hex, RGB)
 - `bold()`, `dim()`, `italic()`, `underline()`, `strikethrough()`
 - `blink()`, `reverse()`, `hidden()`, `reset()`
+
+**args** (14 functions):
+- `is_valid_int()`, `is_valid_float()`, `parse_int()` - Number validation
+- `is_long_flag()`, `is_short_flag()`, `get_flag_name()` - Flag parsing
+- `is_truthy()`, `is_falsy()`, `is_negated_flag()` - Boolean handling
+
+**env** (18 functions):
+- `get()`, `has()`, `get_or()`, `get_int()` - Variable access
+- `is_truthy()`, `is_falsy()` - Boolean checks
+- `is_ci()`, `is_debug()`, `no_color()`, `force_color()` - Common checks
+- `home()`, `user()`, `shell()`, `pwd()`, `path()`, `editor()` - System paths
+
+**path** (14 functions):
+- `basename()`, `dirname()`, `extname()`, `stem()` - Path components
+- `join()`, `join3()`, `normalize()`, `relative()` - Path manipulation
+- `is_absolute()`, `is_relative()`, `has_extension()`, `has_ext()` - Checks
+- `component_count()`, `component()` - Path splitting
+
+**ui** (40+ functions):
+- Text: `visible_len()`, `pad()`, `repeat_str()`
+- Progress: `progress_bar()`, `percent_str()`
+- Boxes: `box_top()`, `box_middle()`, `box_bottom()`, `box_chars()`
+- Tables: `table_top()`, `table_divider()`, `table_bottom()`, `table_cell()`
+- Spinners: `spinner_frame()`, `spinner_frame_count()`
+- Symbols: `symbol_success()`, `symbol_error()`, `symbol_warning()`, etc.
+- Cursor: `cursor_up()`, `cursor_down()`, `hide_cursor()`, `show_cursor()`
 
 ## Phase 2: Rebuild microcharm on Native Modules
 
@@ -99,6 +126,6 @@ Static analysis for MicroPython compatibility
 
 ## Next Steps
 
-- [ ] Add more native modules: `utf8`, `io`, `args`
+- [ ] Add more native modules: `utf8`, `io`, `fs`, `json`
 - [ ] Implement tree-shaking for smaller binaries
 - [ ] Add `mcharm check` command for compatibility checking
