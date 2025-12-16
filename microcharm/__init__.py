@@ -9,6 +9,7 @@ from .components import box, spinner, progress, success, error, warning, info, r
 from .input import select, confirm, prompt, password
 from .table import table
 from .terminal import get_size, clear, hide_cursor, show_cursor
+from . import args
 
 __all__ = [
     # Styling
@@ -36,4 +37,6 @@ __all__ = [
     "clear",
     "hide_cursor",
     "show_cursor",
+    # Args
+    "args",
 ]

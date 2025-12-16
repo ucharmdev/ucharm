@@ -1,5 +1,6 @@
 #!/bin/bash
 # Build custom MicroPython with microcharm native modules
+# Uses Zig for core logic, C bridge for MicroPython API
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -37,9 +38,32 @@ if [ ! -f "$MPY_DIR/mpy-cross/build/mpy-cross" ]; then
     echo ""
 fi
 
+# Build Zig modules
+echo "Building Zig modules..."
+for module_dir in "$SCRIPT_DIR"/*/; do
+    if [ -f "$module_dir/build.zig" ]; then
+        module_name=$(basename "$module_dir")
+        echo "  Building $module_name (Zig)..."
+        cd "$module_dir"
+        
+        # Run tests first
+        zig build test
+        
+        # Build the object file
+        zig build
+        
+        echo "    Built: $module_dir/zig-out/args.o"
+        cd "$SCRIPT_DIR"
+    fi
+done
+echo ""
+
 # Build MicroPython Unix port with our modules
 echo "Building MicroPython with native modules..."
 cd "$MPY_DIR/ports/unix"
+
+# Clean previous build to ensure fresh link
+make clean > /dev/null 2>&1 || true
 
 # Build with our user modules
 make -j$NCPU USER_C_MODULES="$SCRIPT_DIR"
@@ -56,9 +80,26 @@ ls -lh "$OUTPUT_DIR/micropython-mcharm"
 
 echo ""
 echo "Modules included:"
-"$OUTPUT_DIR/micropython-mcharm" -c "import term, ansi; print('  - term:', len([x for x in dir(term) if not x.startswith('_')]), 'functions'); print('  - ansi:', len([x for x in dir(ansi) if not x.startswith('_')]), 'functions')"
+"$OUTPUT_DIR/micropython-mcharm" -c "
+modules = []
+try:
+    import term
+    modules.append(('term', len([x for x in dir(term) if not x.startswith('_')])))
+except: pass
+try:
+    import ansi
+    modules.append(('ansi', len([x for x in dir(ansi) if not x.startswith('_')])))
+except: pass
+try:
+    import args
+    modules.append(('args', len([x for x in dir(args) if not x.startswith('_')])))
+except: pass
+for name, count in modules:
+    print(f'  - {name}: {count} functions')
+"
 
 echo ""
 echo "Test with:"
 echo "  $OUTPUT_DIR/micropython-mcharm -c 'import term; print(term.size())'"
 echo "  $OUTPUT_DIR/micropython-mcharm -c 'import ansi; print(ansi.fg(\"cyan\") + \"Hello!\" + ansi.reset())'"
+echo "  $OUTPUT_DIR/micropython-mcharm -c 'import args; print(args.raw())'"
