@@ -1,6 +1,6 @@
 # μcharm (microcharm)
 
-Beautiful CLIs for MicroPython. Fast startup, tiny binaries, Python syntax.
+Beautiful CLIs with MicroPython. Fast startup, tiny binaries, Python syntax.
 
 ```
 ╭─ μcharm ─────────────────────────╮
@@ -28,7 +28,7 @@ brew install micropython  # macOS
 # or: apt install micropython  # Linux
 
 # Clone μcharm
-git clone https://github.com/yourname/microcharm
+git clone https://github.com/niklas-heer/microcharm
 cd microcharm
 ```
 
@@ -108,6 +108,44 @@ The universal binary embeds MicroPython and caches extraction for fast subsequen
 | Subsequent runs (warm) | **~6ms** |
 
 Cache location: `~/.cache/microcharm/`
+
+### How Universal Binary Packaging Works
+
+The universal binary is a self-contained executable that bundles everything needed to run your app:
+
+```
+┌─────────────────────────────────────────┐
+│ Shell Script Header (4KB)               │  ← Bootstraps extraction & execution
+├─────────────────────────────────────────┤
+│ MicroPython Binary (~668KB)             │  ← Complete interpreter
+├─────────────────────────────────────────┤
+│ Bundled Python Code (~35KB)             │  ← Your app + μcharm library
+└─────────────────────────────────────────┘
+         Total: ~690KB standalone
+```
+
+**How it works:**
+
+1. **First run (cold start):**
+   - Shell header extracts MicroPython binary using `dd` with 4KB block alignment
+   - Extracts bundled Python code using `tail`
+   - Caches both to `~/.cache/microcharm/<hash>/`
+   - Executes your app with the extracted MicroPython
+
+2. **Subsequent runs (warm start):**
+   - Detects cached files exist
+   - Directly executes from cache
+   - Achieves ~6ms startup (same as native MicroPython)
+
+**The bundled Python code includes:**
+- Your application source
+- The entire μcharm library (style, components, input, tables)
+- All inlined into a single `.py` file with imports resolved
+
+**Cache invalidation:**
+- Each build generates a unique hash based on content
+- Different versions coexist in separate cache directories
+- No conflicts between different apps or versions
 
 ## Features
 
