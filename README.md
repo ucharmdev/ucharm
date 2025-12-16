@@ -30,7 +30,18 @@ brew install micropython  # macOS
 # Clone μcharm
 git clone https://github.com/niklas-heer/microcharm
 cd microcharm
+
+# Build the CLI (requires Zig 0.15+)
+cd cli
+zig build -Doptimize=ReleaseSmall
+
+# Add to PATH (optional)
+export PATH="$PWD/zig-out/bin:$PATH"
 ```
+
+### Pre-built Binaries
+
+Coming soon! For now, build from source using Zig.
 
 ## Quick Start
 
@@ -234,20 +245,66 @@ Render a table.
 
 ```
 microcharm/
-├── microcharm/           # The library
+├── cli/                  # Zig CLI tool (mcharm)
+│   ├── src/
+│   │   ├── main.zig      # Entry point, argument parsing
+│   │   ├── build_cmd.zig # Build command implementation
+│   │   ├── new_cmd.zig   # Project scaffolding
+│   │   ├── run_cmd.zig   # Run with micropython
+│   │   ├── io.zig        # I/O helpers
+│   │   └── tests.zig     # Unit tests
+│   ├── build.zig         # Zig build configuration
+│   └── test_e2e.sh       # End-to-end tests
+├── microcharm/           # Python TUI library
 │   ├── __init__.py       # Public API
 │   ├── terminal.py       # Terminal utilities
 │   ├── style.py          # Text styling (colors, bold, etc.)
 │   ├── components.py     # UI components (box, spinner, progress)
 │   ├── input.py          # Interactive input (select, confirm, prompt)
 │   └── table.py          # Table rendering
-├── tools/
-│   └── build.py          # Build/bundle tool
-├── examples/
-│   ├── demo.py           # Feature showcase
-│   └── simple_cli.py     # Example CLI application
-└── dist/                 # Built executables
+└── examples/
+    ├── demo.py           # Feature showcase
+    └── simple_cli.py     # Example CLI application
 ```
+
+## Development
+
+### Building the CLI
+
+The `mcharm` CLI is written in Zig for fast startup (~1.7ms) and small binary size (120KB).
+
+```bash
+cd cli
+
+# Debug build
+zig build
+
+# Release build (smaller, faster)
+zig build -Doptimize=ReleaseSmall
+
+# Run directly
+zig build run -- --help
+```
+
+### Running Tests
+
+```bash
+cd cli
+
+# Unit tests
+zig build test
+
+# End-to-end tests
+./test_e2e.sh
+```
+
+### CLI Performance
+
+| Metric | Value |
+|--------|-------|
+| mcharm binary size | ~120KB |
+| mcharm startup | ~1.7ms |
+| Built app (warm) | ~6ms |
 
 ## Limitations
 
@@ -273,6 +330,13 @@ MIT
 PRs welcome! Areas of interest:
 - Windows support
 - More components (file picker, autocomplete, markdown rendering)
-- Linux `libc.so.6` support for universal binaries
+- Linux `libc.so.6` support for input.py
+- Cross-compilation support in the Zig CLI
 - Performance optimizations
 - Better error messages
+
+## Requirements
+
+- **Runtime:** MicroPython 1.20+
+- **Build:** Zig 0.15+ (for building the CLI from source)
+- **Platforms:** macOS, Linux (no Windows support yet)
