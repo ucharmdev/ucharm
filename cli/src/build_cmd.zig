@@ -23,6 +23,7 @@ pub fn run(allocator: Allocator, args: []const [:0]const u8) !void {
     var script_path: ?[]const u8 = null;
     var output_path: ?[]const u8 = null;
     var mode: Mode = .universal;
+    var prefer_native: bool = true; // Default to native if available
 
     // Parse arguments
     var i: usize = 0;
@@ -53,6 +54,10 @@ pub fn run(allocator: Allocator, args: []const [:0]const u8) !void {
                 io.eprint("\x1b[31mError:\x1b[0m Unknown mode '{s}'. Use: single, executable, universal\n", .{mode_str});
                 std.process.exit(1);
             }
+        } else if (std.mem.eql(u8, arg, "--native")) {
+            prefer_native = true;
+        } else if (std.mem.eql(u8, arg, "--no-native")) {
+            prefer_native = false;
         } else if (std.mem.startsWith(u8, arg, "-")) {
             io.eprint("\x1b[31mError:\x1b[0m Unknown option '{s}'\n", .{arg});
             std.process.exit(1);
@@ -60,6 +65,8 @@ pub fn run(allocator: Allocator, args: []const [:0]const u8) !void {
             script_path = arg;
         }
     }
+    
+
 
     if (script_path == null) {
         io.eprint("\x1b[31mError:\x1b[0m No input script specified\n", .{});
@@ -87,8 +94,8 @@ pub fn run(allocator: Allocator, args: []const [:0]const u8) !void {
 
     switch (mode) {
         .single => try buildSingle(allocator, script, output_path.?),
-        .executable => try buildExecutable(allocator, script, output_path.?),
-        .universal => try buildUniversal(allocator, script, output_path.?),
+        .executable => try buildExecutable(allocator, script, output_path.?, prefer_native),
+        .universal => try buildUniversal(allocator, script, output_path.?, prefer_native),
     }
 
     io.print("\n\x1b[32mDone!\x1b[0m\n", .{});
@@ -220,7 +227,7 @@ fn buildSingle(allocator: Allocator, script: []const u8, output: []const u8) !vo
     io.print("Created: {s} ({d} bytes)\n", .{ output, output_buffer.items.len });
 }
 
-fn buildExecutable(allocator: Allocator, script: []const u8, output: []const u8) !void {
+fn buildExecutable(allocator: Allocator, script: []const u8, output: []const u8, prefer_native: bool) !void {
     // First build single file to temp
     const temp_path = "/tmp/mcharm_bundle.py";
     try buildSingle(allocator, script, temp_path);
@@ -237,7 +244,7 @@ fn buildExecutable(allocator: Allocator, script: []const u8, output: []const u8)
     _ = encoder.encode(encoded, bundled);
 
     // Find micropython
-    const mpy_path = findMicropython() catch "/opt/homebrew/bin/micropython";
+    const mpy_path = findMicropython(prefer_native) catch "/opt/homebrew/bin/micropython";
 
     // Create shell wrapper
     var wrapper: std.ArrayList(u8) = .empty;
@@ -272,7 +279,7 @@ fn buildExecutable(allocator: Allocator, script: []const u8, output: []const u8)
     io.print("Created: {s} ({d} bytes)\n", .{ output, wrapper.items.len });
 }
 
-fn buildUniversal(allocator: Allocator, script: []const u8, output: []const u8) !void {
+fn buildUniversal(allocator: Allocator, script: []const u8, output: []const u8, prefer_native: bool) !void {
     // First build single file
     const temp_path = "/tmp/mcharm_bundle.py";
     try buildSingle(allocator, script, temp_path);
@@ -281,13 +288,21 @@ fn buildUniversal(allocator: Allocator, script: []const u8, output: []const u8) 
     const py_content = try fs.cwd().readFileAlloc(allocator, temp_path, 2 * 1024 * 1024);
     defer allocator.free(py_content);
 
-    // Find and read micropython binary
-    const mpy_path = findMicropython() catch {
-        io.eprint("\x1b[31mError:\x1b[0m micropython not found\n", .{});
-        std.process.exit(1);
-    };
+    // Find and read micropython binary (prefer native build with term/ansi modules)
+    const mpy_info = findMicropythonWithInfo(prefer_native);
+    const mpy_path = mpy_info.path;
+    
+    if (mpy_info.is_native) {
+        io.print("Using: \x1b[32mmicropython-mcharm\x1b[0m (with native modules)\n", .{});
+    } else {
+        io.print("Using: \x1b[33mstandard micropython\x1b[0m (native modules not available)\n", .{});
+    }
 
-    const mpy_file = try fs.openFileAbsolute(mpy_path, .{});
+    // Open micropython binary (handle both absolute and relative paths)
+    const mpy_file = if (mpy_path[0] == '/')
+        try fs.openFileAbsolute(mpy_path, .{})
+    else
+        try fs.cwd().openFile(mpy_path, .{});
     defer mpy_file.close();
 
     const mpy_stat = try mpy_file.stat();
@@ -353,17 +368,109 @@ fn buildUniversal(allocator: Allocator, script: []const u8, output: []const u8) 
     io.print("This is a universal binary - no dependencies required!\n", .{});
 }
 
-fn findMicropython() ![]const u8 {
-    const paths = [_][]const u8{
+fn findMicropython(prefer_native: bool) ![]const u8 {
+    // Custom micropython-mcharm locations (with native modules)
+    const native_paths = [_][]const u8{
+        // Installed location
+        "/usr/local/bin/micropython-mcharm",
+        "/opt/homebrew/bin/micropython-mcharm",
+        // Development location (relative to mcharm binary)
+        "../native/dist/micropython-mcharm",
+        "native/dist/micropython-mcharm",
+    };
+
+    // Standard micropython locations
+    const standard_paths = [_][]const u8{
         "/opt/homebrew/bin/micropython",
         "/usr/local/bin/micropython",
         "/usr/bin/micropython",
     };
 
-    for (paths) |path| {
+    // Try native first if preferred
+    if (prefer_native) {
+        for (native_paths) |path| {
+            if (path[0] == '/') {
+                fs.accessAbsolute(path, .{}) catch continue;
+                return path;
+            } else {
+                fs.cwd().access(path, .{}) catch continue;
+                return path;
+            }
+        }
+    }
+
+    // Try standard paths
+    for (standard_paths) |path| {
         fs.accessAbsolute(path, .{}) catch continue;
         return path;
     }
 
+    // Fall back to native paths if not preferred but nothing else found
+    if (!prefer_native) {
+        for (native_paths) |path| {
+            if (path[0] == '/') {
+                fs.accessAbsolute(path, .{}) catch continue;
+                return path;
+            } else {
+                fs.cwd().access(path, .{}) catch continue;
+                return path;
+            }
+        }
+    }
+
     return error.NotFound;
+}
+
+fn findMicropythonWithInfo(prefer_native: bool) struct { path: []const u8, is_native: bool } {
+    // Custom micropython-mcharm locations (with native modules)
+    const native_abs_paths = [_][]const u8{
+        "/usr/local/bin/micropython-mcharm",
+        "/opt/homebrew/bin/micropython-mcharm",
+    };
+    
+    const native_rel_paths = [_][]const u8{
+        "native/dist/micropython-mcharm",
+        "../native/dist/micropython-mcharm",
+    };
+
+    // Standard micropython locations
+    const standard_paths = [_][]const u8{
+        "/opt/homebrew/bin/micropython",
+        "/usr/local/bin/micropython",
+        "/usr/bin/micropython",
+    };
+
+    // Try native first if preferred
+    if (prefer_native) {
+        // Absolute paths
+        for (native_abs_paths) |path| {
+            fs.accessAbsolute(path, .{}) catch continue;
+            return .{ .path = path, .is_native = true };
+        }
+        // Relative paths
+        for (native_rel_paths) |path| {
+            fs.cwd().access(path, .{}) catch continue;
+            return .{ .path = path, .is_native = true };
+        }
+    }
+
+    // Try standard paths
+    for (standard_paths) |path| {
+        fs.accessAbsolute(path, .{}) catch continue;
+        return .{ .path = path, .is_native = false };
+    }
+
+    // Fall back to native paths
+    if (!prefer_native) {
+        for (native_abs_paths) |path| {
+            fs.accessAbsolute(path, .{}) catch continue;
+            return .{ .path = path, .is_native = true };
+        }
+        for (native_rel_paths) |path| {
+            fs.cwd().access(path, .{}) catch continue;
+            return .{ .path = path, .is_native = true };
+        }
+    }
+
+    return .{ .path = "/opt/homebrew/bin/micropython", .is_native = false };
 }
