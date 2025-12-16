@@ -54,9 +54,9 @@ C modules compiled into custom MicroPython build
 
 Use native modules for performance, keep Python API
 
-- [ ] Rewrite terminal.py → native `term` module
-- [ ] Rewrite style.py → native `ansi` module
-- [ ] Rewrite input.py → native `term` + `io`
+- [x] Rewrite terminal.py → native `term` module (with fallback)
+- [x] Rewrite style.py → native `ansi` module (with fallback)
+- [x] Rewrite input.py → native `term` for raw mode (with fallback)
 - [ ] Full Charm Bracelet API parity (lipgloss, bubbles, huh)
 
 ## Phase 3: Smart Builds
@@ -93,6 +93,12 @@ Static analysis for MicroPython compatibility
 
 ## Immediate Tasks
 
-- [ ] Clean up `cli/src/root.zig` (unused file)
-- [ ] Integrate custom MicroPython build into `mcharm build`
-- [ ] Update microcharm Python library to use native modules when available
+- [x] Clean up `cli/src/root.zig` (unused file)
+- [x] Integrate custom MicroPython build into `mcharm build`
+- [x] Update microcharm Python library to use native modules when available
+
+## Next Steps
+
+- [ ] Add more native modules: `utf8`, `io`, `args`
+- [ ] Implement tree-shaking for smaller binaries
+- [ ] Add `mcharm check` command for compatibility checking
