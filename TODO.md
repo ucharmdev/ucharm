@@ -23,10 +23,10 @@ Python syntax + Zig native modules + tiny binaries = Go killer for CLI tools
 
 ## Phase 1: Native Module Foundation
 
-Zig modules that compile to C ABI for MicroPython
+C modules compiled into custom MicroPython build
 
-- [ ] `term` - Terminal size, raw mode, cursor control
-- [ ] `ansi` - ANSI escape code generation
+- [x] `term` - Terminal size, raw mode, cursor control, key reading
+- [x] `ansi` - ANSI escape code generation (fg, bg, rgb, styles)
 - [ ] `utf8` - UTF-8 string operations, display width
 - [ ] `io` - Buffered stdin/stdout
 - [ ] `args` - CLI argument parsing
@@ -36,6 +36,19 @@ Zig modules that compile to C ABI for MicroPython
 - [ ] `json` - Fast JSON parse/stringify
 - [ ] `fetch` - HTTP client
 - [ ] `sqlite` - SQLite database (optional, larger)
+
+### Completed Native Modules
+
+**term** (14 functions):
+- `size()`, `raw_mode()`, `read_key()`, `write()`
+- `cursor_pos()`, `cursor_up/down/left/right()`
+- `clear()`, `clear_line()`, `hide_cursor()`, `show_cursor()`
+- `is_tty()`
+
+**ansi** (13 functions):
+- `fg()`, `bg()`, `rgb()` - Color codes (names, 0-255, #hex, RGB)
+- `bold()`, `dim()`, `italic()`, `underline()`, `strikethrough()`
+- `blink()`, `reverse()`, `hidden()`, `reset()`
 
 ## Phase 2: Rebuild microcharm on Native Modules
 
@@ -81,5 +94,5 @@ Static analysis for MicroPython compatibility
 ## Immediate Tasks
 
 - [ ] Clean up `cli/src/root.zig` (unused file)
-- [ ] Research MicroPython C module API for Zig integration
-- [ ] Prototype native `term` module in Zig
+- [ ] Integrate custom MicroPython build into `mcharm build`
+- [ ] Update microcharm Python library to use native modules when available
