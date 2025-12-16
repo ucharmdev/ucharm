@@ -1,7 +1,7 @@
 /*
  * modargs - Native argument parsing module for microcharm
  * 
- * This is the thin C bridge that wraps the Zig core (args.zig) for MicroPython.
+ * C bridge that wraps Zig core (args.zig) for MicroPython.
  * All parsing logic is in Zig - this file only handles MicroPython API.
  * 
  * Usage in Python:
@@ -9,32 +9,29 @@
  *   opts = args.parse({'--name': str, '--count': int, '--verbose': bool})
  */
 
-#include "py/runtime.h"
-#include "py/obj.h"
-#include "py/objstr.h"
+#include "../bridge/mpy_bridge.h"
 
 #include <string.h>
-#include <stdlib.h>
 #include <stdio.h>
 
 // ============================================================================
-// Zig function declarations (implemented in args.zig, exported with C ABI)
+// Zig Function Declarations
 // ============================================================================
 
-extern bool args_is_valid_int(const char *str);
-extern bool args_is_valid_float(const char *str);
-extern int64_t args_parse_int(const char *str);
-extern bool args_is_long_flag(const char *str);
-extern bool args_is_short_flag(const char *str);
-extern bool args_is_dashdash(const char *str);
-extern bool args_is_negative_number(const char *str);
-extern const char *args_get_flag_name(const char *str);
-extern bool args_streq(const char *a, const char *b);
-extern size_t args_strlen(const char *str);
-extern bool args_is_truthy(const char *str);
-extern bool args_is_falsy(const char *str);
-extern bool args_is_negated_flag(const char *name);
-extern const char *args_get_negated_base(const char *name);
+ZIG_EXTERN bool args_is_valid_int(const char *str);
+ZIG_EXTERN bool args_is_valid_float(const char *str);
+ZIG_EXTERN int64_t args_parse_int(const char *str);
+ZIG_EXTERN bool args_is_long_flag(const char *str);
+ZIG_EXTERN bool args_is_short_flag(const char *str);
+ZIG_EXTERN bool args_is_dashdash(const char *str);
+ZIG_EXTERN bool args_is_negative_number(const char *str);
+ZIG_EXTERN const char *args_get_flag_name(const char *str);
+ZIG_EXTERN bool args_streq(const char *a, const char *b);
+ZIG_EXTERN size_t args_strlen(const char *str);
+ZIG_EXTERN bool args_is_truthy(const char *str);
+ZIG_EXTERN bool args_is_falsy(const char *str);
+ZIG_EXTERN bool args_is_negated_flag(const char *name);
+ZIG_EXTERN const char *args_get_negated_base(const char *name);
 
 // ============================================================================
 // Helper: Get sys.argv
@@ -48,26 +45,24 @@ static mp_obj_t get_sys_argv(void) {
 
 // ============================================================================
 // args.raw() -> list
-// Returns raw sys.argv as a list
 // ============================================================================
 
-static mp_obj_t mod_args_raw(void) {
+MPY_FUNC_0(args, raw) {
     return get_sys_argv();
 }
-static MP_DEFINE_CONST_FUN_OBJ_0(mod_args_raw_obj, mod_args_raw);
+MPY_FUNC_OBJ_0(args, raw);
 
 // ============================================================================
 // args.get(index, default=None) -> str
-// Get argument by index with optional default
 // ============================================================================
 
-static mp_obj_t mod_args_get(size_t n_args, const mp_obj_t *args_in) {
+MPY_FUNC_VAR(args, get, 1, 2) {
     mp_obj_t argv = get_sys_argv();
     size_t len;
     mp_obj_t *items;
     mp_obj_list_get(argv, &len, &items);
     
-    int idx = mp_obj_get_int(args_in[0]);
+    int idx = mpy_int(args[0]);
     
     // Handle negative indices
     if (idx < 0) {
@@ -79,34 +74,29 @@ static mp_obj_t mod_args_get(size_t n_args, const mp_obj_t *args_in) {
     }
     
     // Return default if provided, else None
-    if (n_args > 1) {
-        return args_in[1];
-    }
-    return mp_const_none;
+    return (n_args > 1) ? args[1] : mpy_none();
 }
-static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mod_args_get_obj, 1, 2, mod_args_get);
+MPY_FUNC_OBJ_VAR(args, get, 1, 2);
 
 // ============================================================================
 // args.count() -> int
-// Return number of arguments
 // ============================================================================
 
-static mp_obj_t mod_args_count(void) {
+MPY_FUNC_0(args, count) {
     mp_obj_t argv = get_sys_argv();
     size_t len;
     mp_obj_t *items;
     mp_obj_list_get(argv, &len, &items);
-    return MP_OBJ_NEW_SMALL_INT(len);
+    return mpy_new_int(len);
 }
-static MP_DEFINE_CONST_FUN_OBJ_0(mod_args_count_obj, mod_args_count);
+MPY_FUNC_OBJ_0(args, count);
 
 // ============================================================================
-// args.has(flag) -> bool  
-// Check if a flag exists (e.g., args.has('--verbose'))
+// args.has(flag) -> bool
 // ============================================================================
 
-static mp_obj_t mod_args_has(mp_obj_t flag_obj) {
-    const char *flag = mp_obj_str_get_str(flag_obj);
+MPY_FUNC_1(args, has) {
+    const char *flag = mpy_str(arg0);
     
     mp_obj_t argv = get_sys_argv();
     size_t len;
@@ -114,22 +104,21 @@ static mp_obj_t mod_args_has(mp_obj_t flag_obj) {
     mp_obj_list_get(argv, &len, &items);
     
     for (size_t i = 0; i < len; i++) {
-        const char *arg = mp_obj_str_get_str(items[i]);
+        const char *arg = mpy_str(items[i]);
         if (args_streq(arg, flag)) {
-            return mp_const_true;
+            return mpy_bool(true);
         }
     }
-    return mp_const_false;
+    return mpy_bool(false);
 }
-static MP_DEFINE_CONST_FUN_OBJ_1(mod_args_has_obj, mod_args_has);
+MPY_FUNC_OBJ_1(args, has);
 
 // ============================================================================
 // args.value(flag, default=None) -> str
-// Get the value after a flag (e.g., args.value('--name') for --name World)
 // ============================================================================
 
-static mp_obj_t mod_args_value(size_t n_args, const mp_obj_t *args_in) {
-    const char *flag = mp_obj_str_get_str(args_in[0]);
+MPY_FUNC_VAR(args, value, 1, 2) {
+    const char *flag = mpy_str(args[0]);
     size_t flag_len = args_strlen(flag);
     
     mp_obj_t argv = get_sys_argv();
@@ -138,7 +127,7 @@ static mp_obj_t mod_args_value(size_t n_args, const mp_obj_t *args_in) {
     mp_obj_list_get(argv, &len, &items);
     
     for (size_t i = 0; i < len; i++) {
-        const char *arg = mp_obj_str_get_str(items[i]);
+        const char *arg = mpy_str(items[i]);
         
         // Check for exact match with next arg as value
         if (args_streq(arg, flag) && i + 1 < len) {
@@ -147,59 +136,46 @@ static mp_obj_t mod_args_value(size_t n_args, const mp_obj_t *args_in) {
         
         // Handle --flag=value syntax
         if (strncmp(arg, flag, flag_len) == 0 && arg[flag_len] == '=') {
-            return mp_obj_new_str(arg + flag_len + 1, strlen(arg + flag_len + 1));
+            return mpy_new_str(arg + flag_len + 1);
         }
     }
     
-    // Return default if provided
-    if (n_args > 1) {
-        return args_in[1];
-    }
-    return mp_const_none;
+    return (n_args > 1) ? args[1] : mpy_none();
 }
-static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mod_args_value_obj, 1, 2, mod_args_value);
+MPY_FUNC_OBJ_VAR(args, value, 1, 2);
 
 // ============================================================================
 // args.int_value(flag, default=0) -> int
-// Get integer value after a flag
 // ============================================================================
 
-static mp_obj_t mod_args_int_value(size_t n_args, const mp_obj_t *args_in) {
-    mp_obj_t val_args[2] = { args_in[0], mp_const_none };
+MPY_FUNC_VAR(args, int_value, 1, 2) {
+    mp_obj_t val_args[2] = { args[0], mpy_none() };
     mp_obj_t val = mod_args_value(2, val_args);
     
-    if (val == mp_const_none) {
-        if (n_args > 1) {
-            return args_in[1];
-        }
-        return MP_OBJ_NEW_SMALL_INT(0);
+    if (val == mpy_none()) {
+        return (n_args > 1) ? args[1] : mpy_new_int(0);
     }
     
-    const char *str = mp_obj_str_get_str(val);
+    const char *str = mpy_str(val);
     if (args_is_valid_int(str)) {
-        return mp_obj_new_int(args_parse_int(str));
+        return mpy_new_int64(args_parse_int(str));
     }
     
-    // Invalid integer - return default
-    if (n_args > 1) {
-        return args_in[1];
-    }
-    return MP_OBJ_NEW_SMALL_INT(0);
+    return (n_args > 1) ? args[1] : mpy_new_int(0);
 }
-static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mod_args_int_value_obj, 1, 2, mod_args_int_value);
+MPY_FUNC_OBJ_VAR(args, int_value, 1, 2);
 
 // ============================================================================
 // args.positional() -> list
-// Get all positional arguments (non-flag arguments)
 // ============================================================================
 
-static mp_obj_t mod_args_positional(void) {
+MPY_FUNC_0(args, positional) {
     mp_obj_t argv = get_sys_argv();
     size_t len;
     mp_obj_t *items;
     mp_obj_list_get(argv, &len, &items);
     
-    mp_obj_t result = mp_obj_new_list(0, NULL);
+    mp_obj_t result = mpy_new_list();
     int after_dashdash = 0;
     int skip_next = 0;
     
@@ -210,11 +186,11 @@ static mp_obj_t mod_args_positional(void) {
             continue;
         }
         
-        const char *arg = mp_obj_str_get_str(items[i]);
+        const char *arg = mpy_str(items[i]);
         
         // After --, everything is positional
         if (after_dashdash) {
-            mp_obj_list_append(result, items[i]);
+            mpy_list_append(result, items[i]);
             continue;
         }
         
@@ -226,11 +202,9 @@ static mp_obj_t mod_args_positional(void) {
         
         // Skip flags and their values
         if (args_is_long_flag(arg)) {
-            // Check if it has = in it
             if (strchr(arg, '=') == NULL) {
-                // Might have a value after it - skip next if it's not a flag
                 if (i + 1 < len) {
-                    const char *next = mp_obj_str_get_str(items[i + 1]);
+                    const char *next = mpy_str(items[i + 1]);
                     if (!args_is_long_flag(next) && !args_is_short_flag(next)) {
                         skip_next = 1;
                     }
@@ -240,9 +214,8 @@ static mp_obj_t mod_args_positional(void) {
         }
         
         if (args_is_short_flag(arg) && !args_is_negative_number(arg)) {
-            // Short flag might have value after
             if (i + 1 < len) {
-                const char *next = mp_obj_str_get_str(items[i + 1]);
+                const char *next = mpy_str(items[i + 1]);
                 if (!args_is_long_flag(next) && !args_is_short_flag(next)) {
                     skip_next = 1;
                 }
@@ -251,48 +224,36 @@ static mp_obj_t mod_args_positional(void) {
         }
         
         // It's a positional argument
-        mp_obj_list_append(result, items[i]);
+        mpy_list_append(result, items[i]);
     }
     
     return result;
 }
-static MP_DEFINE_CONST_FUN_OBJ_0(mod_args_positional_obj, mod_args_positional);
+MPY_FUNC_OBJ_0(args, positional);
 
 // ============================================================================
 // args.parse(spec) -> dict
-// Parse arguments according to a specification dict
-// 
-// spec format:
-//   {'--name': str, '--count': int, '--verbose': bool, '-n': '--name'}
-// 
-// Returns dict with clean names (no dashes):
-//   {'name': 'World', 'count': 5, 'verbose': True, '_': ['file1', 'file2']}
 // ============================================================================
 
-static mp_obj_t mod_args_parse(mp_obj_t spec_obj) {
-    // Get argv
+MPY_FUNC_1(args, parse) {
     mp_obj_t argv = get_sys_argv();
     size_t argc;
     mp_obj_t *argv_items;
     mp_obj_list_get(argv, &argc, &argv_items);
     
-    // Result dict
-    mp_obj_t result = mp_obj_new_dict(0);
-    mp_obj_t positional = mp_obj_new_list(0, NULL);
+    mp_obj_t result = mpy_new_dict();
+    mp_obj_t positional = mpy_new_list();
     
-    // Get spec dict
-    mp_map_t *spec_map = mp_obj_dict_get_map(spec_obj);
+    mp_map_t *spec_map = mp_obj_dict_get_map(arg0);
     
     // Build alias map (short -> long)
-    mp_obj_t aliases = mp_obj_new_dict(0);
+    mp_obj_t aliases = mpy_new_dict();
     for (size_t i = 0; i < spec_map->alloc; i++) {
         if (mp_map_slot_is_filled(spec_map, i)) {
             mp_obj_t key = spec_map->table[i].key;
             mp_obj_t val = spec_map->table[i].value;
-            
-            // If value is a string, it's an alias
             if (mp_obj_is_str(val)) {
-                mp_obj_dict_store(aliases, key, val);
+                mpy_dict_store(aliases, key, val);
             }
         }
     }
@@ -302,21 +263,18 @@ static mp_obj_t mod_args_parse(mp_obj_t spec_obj) {
     int after_dashdash = 0;
     
     for (size_t i = 1; i < argc; i++) {
-        const char *arg = mp_obj_str_get_str(argv_items[i]);
+        const char *arg = mpy_str(argv_items[i]);
         
-        // After --, everything is positional
         if (after_dashdash) {
-            mp_obj_list_append(positional, argv_items[i]);
+            mpy_list_append(positional, argv_items[i]);
             continue;
         }
         
-        // Check for --
         if (args_is_dashdash(arg)) {
             after_dashdash = 1;
             continue;
         }
         
-        // Handle flags
         if (args_is_long_flag(arg) || (args_is_short_flag(arg) && !args_is_negative_number(arg))) {
             mp_obj_t flag_key = argv_items[i];
             
@@ -330,7 +288,7 @@ static mp_obj_t mod_args_parse(mp_obj_t spec_obj) {
                 if (flag_len < sizeof(flag_buf)) {
                     memcpy(flag_buf, arg, flag_len);
                     flag_buf[flag_len] = '\0';
-                    flag_key = mp_obj_new_str(flag_buf, flag_len);
+                    flag_key = mpy_new_str(flag_buf);
                     value_str = eq + 1;
                 }
             }
@@ -345,26 +303,24 @@ static mp_obj_t mod_args_parse(mp_obj_t spec_obj) {
             mp_map_elem_t *spec_elem = mp_map_lookup(spec_map, flag_key, MP_MAP_LOOKUP);
             if (spec_elem == NULL) {
                 // Check for --no-flag (boolean negation)
-                const char *flag_name = args_get_flag_name(mp_obj_str_get_str(flag_key));
+                const char *flag_name = args_get_flag_name(mpy_str(flag_key));
                 if (args_is_negated_flag(flag_name)) {
                     const char *base = args_get_negated_base(flag_name);
                     char full_flag[128];
                     snprintf(full_flag, sizeof(full_flag), "--%s", base);
-                    mp_obj_t base_key = mp_obj_new_str(full_flag, strlen(full_flag));
+                    mp_obj_t base_key = mpy_new_str(full_flag);
                     spec_elem = mp_map_lookup(spec_map, base_key, MP_MAP_LOOKUP);
                     if (spec_elem != NULL) {
-                        // It's a negated boolean
-                        mp_obj_dict_store(result, mp_obj_new_str(base, strlen(base)), mp_const_false);
+                        mpy_dict_store_str(result, base, mpy_bool(false));
                         continue;
                     }
                 }
-                // Unknown flag - skip
                 continue;
             }
             
             mp_obj_t type_obj = spec_elem->value;
-            const char *clean_name = args_get_flag_name(mp_obj_str_get_str(flag_key));
-            mp_obj_t name_key = mp_obj_new_str(clean_name, strlen(clean_name));
+            const char *clean_name = args_get_flag_name(mpy_str(flag_key));
+            mp_obj_t name_key = mpy_new_str(clean_name);
             
             // Handle tuple (type, default) format
             if (mp_obj_is_type(type_obj, &mp_type_tuple)) {
@@ -378,36 +334,31 @@ static mp_obj_t mod_args_parse(mp_obj_t spec_obj) {
             
             // Check type and get value
             if (type_obj == (mp_obj_t)&mp_type_bool) {
-                // Boolean flag - presence means true
-                mp_obj_dict_store(result, name_key, mp_const_true);
+                mpy_dict_store(result, name_key, mpy_bool(true));
             } else {
-                // Get value
                 mp_obj_t value;
                 if (value_str != NULL) {
-                    value = mp_obj_new_str(value_str, strlen(value_str));
+                    value = mpy_new_str(value_str);
                 } else if (i + 1 < argc) {
                     i++;
                     value = argv_items[i];
                 } else {
-                    continue; // No value available
+                    continue;
                 }
                 
-                // Convert type
                 if (type_obj == (mp_obj_t)&mp_type_int) {
-                    const char *vs = mp_obj_str_get_str(value);
+                    const char *vs = mpy_str(value);
                     if (args_is_valid_int(vs)) {
-                        mp_obj_dict_store(result, name_key, mp_obj_new_int(args_parse_int(vs)));
+                        mpy_dict_store(result, name_key, mpy_new_int64(args_parse_int(vs)));
                     }
                 } else if (type_obj == (mp_obj_t)&mp_type_str) {
-                    mp_obj_dict_store(result, name_key, value);
+                    mpy_dict_store(result, name_key, value);
                 } else {
-                    // Unknown type, store as string
-                    mp_obj_dict_store(result, name_key, value);
+                    mpy_dict_store(result, name_key, value);
                 }
             }
         } else {
-            // Positional argument
-            mp_obj_list_append(positional, argv_items[i]);
+            mpy_list_append(positional, argv_items[i]);
         }
     }
     
@@ -417,63 +368,50 @@ static mp_obj_t mod_args_parse(mp_obj_t spec_obj) {
             mp_obj_t key = spec_map->table[i].key;
             mp_obj_t val = spec_map->table[i].value;
             
-            // Skip aliases
             if (mp_obj_is_str(val)) continue;
             
-            const char *key_str = mp_obj_str_get_str(key);
+            const char *key_str = mpy_str(key);
             if (!args_is_long_flag(key_str) && !args_is_short_flag(key_str)) continue;
             
             const char *clean_name = args_get_flag_name(key_str);
-            mp_obj_t name_key = mp_obj_new_str(clean_name, strlen(clean_name));
+            mp_obj_t name_key = mpy_new_str(clean_name);
             
-            // Check if already set
             mp_map_t *result_map = mp_obj_dict_get_map(result);
             mp_map_elem_t *existing = mp_map_lookup(result_map, name_key, MP_MAP_LOOKUP);
             if (existing != NULL) continue;
             
-            // Apply default
             if (mp_obj_is_type(val, &mp_type_tuple)) {
                 size_t tuple_len;
                 mp_obj_t *tuple_items;
                 mp_obj_tuple_get(val, &tuple_len, &tuple_items);
                 if (tuple_len >= 2) {
-                    mp_obj_dict_store(result, name_key, tuple_items[1]);
+                    mpy_dict_store(result, name_key, tuple_items[1]);
                 } else if (tuple_len == 1 && tuple_items[0] == (mp_obj_t)&mp_type_bool) {
-                    mp_obj_dict_store(result, name_key, mp_const_false);
+                    mpy_dict_store(result, name_key, mpy_bool(false));
                 }
             } else if (val == (mp_obj_t)&mp_type_bool) {
-                mp_obj_dict_store(result, name_key, mp_const_false);
+                mpy_dict_store(result, name_key, mpy_bool(false));
             }
         }
     }
     
-    // Add positional args as '_'
-    mp_obj_dict_store(result, mp_obj_new_str("_", 1), positional);
+    mpy_dict_store_str(result, "_", positional);
     
     return result;
 }
-static MP_DEFINE_CONST_FUN_OBJ_1(mod_args_parse_obj, mod_args_parse);
+MPY_FUNC_OBJ_1(args, parse);
 
 // ============================================================================
-// Module definition
+// Module Definition
 // ============================================================================
 
-static const mp_rom_map_elem_t args_module_globals_table[] = {
-    { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_args) },
-    { MP_ROM_QSTR(MP_QSTR_raw), MP_ROM_PTR(&mod_args_raw_obj) },
-    { MP_ROM_QSTR(MP_QSTR_get), MP_ROM_PTR(&mod_args_get_obj) },
-    { MP_ROM_QSTR(MP_QSTR_count), MP_ROM_PTR(&mod_args_count_obj) },
-    { MP_ROM_QSTR(MP_QSTR_has), MP_ROM_PTR(&mod_args_has_obj) },
-    { MP_ROM_QSTR(MP_QSTR_value), MP_ROM_PTR(&mod_args_value_obj) },
-    { MP_ROM_QSTR(MP_QSTR_int_value), MP_ROM_PTR(&mod_args_int_value_obj) },
-    { MP_ROM_QSTR(MP_QSTR_positional), MP_ROM_PTR(&mod_args_positional_obj) },
-    { MP_ROM_QSTR(MP_QSTR_parse), MP_ROM_PTR(&mod_args_parse_obj) },
-};
-static MP_DEFINE_CONST_DICT(args_module_globals, args_module_globals_table);
-
-const mp_obj_module_t mp_module_args = {
-    .base = { &mp_type_module },
-    .globals = (mp_obj_dict_t *)&args_module_globals,
-};
-
-MP_REGISTER_MODULE(MP_QSTR_args, mp_module_args);
+MPY_MODULE_BEGIN(args)
+    MPY_MODULE_FUNC(args, raw)
+    MPY_MODULE_FUNC(args, get)
+    MPY_MODULE_FUNC(args, count)
+    MPY_MODULE_FUNC(args, has)
+    MPY_MODULE_FUNC(args, value)
+    MPY_MODULE_FUNC(args, int_value)
+    MPY_MODULE_FUNC(args, positional)
+    MPY_MODULE_FUNC(args, parse)
+MPY_MODULE_END(args)

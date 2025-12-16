@@ -67,7 +67,7 @@ fn strlen(str: [*:0]const u8) usize {
 // ============================================================================
 
 /// Check if a string is a valid integer
-export fn args_is_valid_int(str: [*:0]const u8) bool {
+pub export fn args_is_valid_int(str: [*:0]const u8) bool {
     var i: usize = 0;
 
     // Skip leading minus
@@ -83,7 +83,7 @@ export fn args_is_valid_int(str: [*:0]const u8) bool {
 }
 
 /// Check if a string is a valid float
-export fn args_is_valid_float(str: [*:0]const u8) bool {
+pub export fn args_is_valid_float(str: [*:0]const u8) bool {
     var i: usize = 0;
     var has_dot = false;
     var has_digit = false;
@@ -104,7 +104,7 @@ export fn args_is_valid_float(str: [*:0]const u8) bool {
 }
 
 /// Parse an integer from string
-export fn args_parse_int(str: [*:0]const u8) i64 {
+pub export fn args_parse_int(str: [*:0]const u8) i64 {
     var result: i64 = 0;
     var i: usize = 0;
     var negative = false;
@@ -124,23 +124,23 @@ export fn args_parse_int(str: [*:0]const u8) i64 {
 }
 
 /// Check if string starts with "--"
-export fn args_is_long_flag(str: [*:0]const u8) bool {
+pub export fn args_is_long_flag(str: [*:0]const u8) bool {
     return str[0] == '-' and str[1] == '-' and str[2] != 0;
 }
 
 /// Check if string starts with "-" (but not "--")
-export fn args_is_short_flag(str: [*:0]const u8) bool {
+pub export fn args_is_short_flag(str: [*:0]const u8) bool {
     return str[0] == '-' and str[1] != '-' and str[1] != 0;
 }
 
 /// Check if string is "--"
-export fn args_is_dashdash(str: [*:0]const u8) bool {
+pub export fn args_is_dashdash(str: [*:0]const u8) bool {
     return str[0] == '-' and str[1] == '-' and str[2] == 0;
 }
 
 /// Get flag name without dashes (returns pointer into original string)
 /// "--name" -> "name", "-n" -> "n"
-export fn args_get_flag_name(str: [*:0]const u8) [*:0]const u8 {
+pub export fn args_get_flag_name(str: [*:0]const u8) [*:0]const u8 {
     if (str[0] == '-' and str[1] == '-') {
         // Long flag: skip "--"
         return @ptrCast(str + 2);
@@ -152,7 +152,7 @@ export fn args_get_flag_name(str: [*:0]const u8) [*:0]const u8 {
 }
 
 /// Check if this looks like a negative number (not a flag)
-export fn args_is_negative_number(str: [*:0]const u8) bool {
+pub export fn args_is_negative_number(str: [*:0]const u8) bool {
     if (str[0] != '-') return false;
     if (str[1] == 0) return false;
     // Check if second char is a digit
@@ -160,12 +160,12 @@ export fn args_is_negative_number(str: [*:0]const u8) bool {
 }
 
 /// Compare two strings for equality
-export fn args_streq(a: [*:0]const u8, b: [*:0]const u8) bool {
+pub export fn args_streq(a: [*:0]const u8, b: [*:0]const u8) bool {
     return streql(a, b);
 }
 
 /// Get string length
-export fn args_strlen(str: [*:0]const u8) usize {
+pub export fn args_strlen(str: [*:0]const u8) usize {
     return strlen(str);
 }
 
@@ -174,7 +174,7 @@ export fn args_strlen(str: [*:0]const u8) usize {
 // ============================================================================
 
 /// Check if string represents a truthy value
-export fn args_is_truthy(str: [*:0]const u8) bool {
+pub export fn args_is_truthy(str: [*:0]const u8) bool {
     // true, yes, 1, on
     if (streql(str, "true") or streql(str, "True") or streql(str, "TRUE")) return true;
     if (streql(str, "yes") or streql(str, "Yes") or streql(str, "YES")) return true;
@@ -184,7 +184,7 @@ export fn args_is_truthy(str: [*:0]const u8) bool {
 }
 
 /// Check if string represents a falsy value
-export fn args_is_falsy(str: [*:0]const u8) bool {
+pub export fn args_is_falsy(str: [*:0]const u8) bool {
     // false, no, 0, off
     if (streql(str, "false") or streql(str, "False") or streql(str, "FALSE")) return true;
     if (streql(str, "no") or streql(str, "No") or streql(str, "NO")) return true;
@@ -194,12 +194,12 @@ export fn args_is_falsy(str: [*:0]const u8) bool {
 }
 
 /// Check if flag name starts with "no-" (for boolean negation)
-export fn args_is_negated_flag(name: [*:0]const u8) bool {
+pub export fn args_is_negated_flag(name: [*:0]const u8) bool {
     return name[0] == 'n' and name[1] == 'o' and name[2] == '-' and name[3] != 0;
 }
 
 /// Get the base name of a negated flag ("no-verbose" -> "verbose")
-export fn args_get_negated_base(name: [*:0]const u8) [*:0]const u8 {
+pub export fn args_get_negated_base(name: [*:0]const u8) [*:0]const u8 {
     if (args_is_negated_flag(name)) {
         return @ptrCast(name + 3);
     }

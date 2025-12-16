@@ -1,229 +1,200 @@
 /*
  * modansi - Native ANSI escape code module for microcharm
  * 
- * Provides fast ANSI code generation:
- *   - ansi.fg(color) -> str (foreground color code)
- *   - ansi.bg(color) -> str (background color code)
- *   - ansi.rgb(r, g, b, bg=False) -> str (24-bit color)
- *   - ansi.style(...) -> str (styled text with auto-reset)
- *   - ansi.bold() / dim() / italic() / underline() / strikethrough()
- *   - ansi.reset() -> str
+ * C bridge that wraps Zig core (ansi.zig) for MicroPython.
+ * 
+ * Usage in Python:
+ *   import ansi
+ *   ansi.fg("red")      # Named color
+ *   ansi.fg("#ff5500")  # Hex color
+ *   ansi.fg(196)        # 256-color index
+ *   ansi.rgb(255, 100, 0)  # 24-bit RGB
  */
 
-#include "py/runtime.h"
-#include "py/obj.h"
+#include "../bridge/mpy_bridge.h"
 
-#include <string.h>
-#include <stdio.h>
+// ============================================================================
+// Zig Function Declarations
+// ============================================================================
 
-// ANSI escape codes
-#define ESC "\x1b["
-#define RESET "\x1b[0m"
+// Color types from Zig
+typedef struct {
+    uint8_t r;
+    uint8_t g;
+    uint8_t b;
+    bool valid;
+} Color;
 
-// Standard colors (foreground codes)
-static const char *fg_codes[] = {
-    "30", "31", "32", "33", "34", "35", "36", "37",  // standard
-    "90", "91", "92", "93", "94", "95", "96", "97",  // bright
-};
+typedef struct {
+    int16_t index;  // -1 if not found
+    bool is_bright;
+} ColorIndex;
 
-// Standard colors (background codes)
-static const char *bg_codes[] = {
-    "40", "41", "42", "43", "44", "45", "46", "47",  // standard
-    "100", "101", "102", "103", "104", "105", "106", "107",  // bright
-};
+// Zig functions
+ZIG_EXTERN ColorIndex ansi_color_name_to_index(const char *name);
+ZIG_EXTERN Color ansi_parse_hex_color(const char *hex);
+ZIG_EXTERN bool ansi_is_hex_color(const char *str);
+ZIG_EXTERN size_t ansi_fg_256(uint8_t index, char *buf);
+ZIG_EXTERN size_t ansi_bg_256(uint8_t index, char *buf);
+ZIG_EXTERN size_t ansi_fg_rgb(uint8_t r, uint8_t g, uint8_t b, char *buf);
+ZIG_EXTERN size_t ansi_bg_rgb(uint8_t r, uint8_t g, uint8_t b, char *buf);
+ZIG_EXTERN size_t ansi_fg_standard(uint8_t index, char *buf);
+ZIG_EXTERN size_t ansi_bg_standard(uint8_t index, char *buf);
 
-// Color name lookup (returns -1 if not found)
-static int color_name_to_index(const char *name, size_t len) {
-    if (len == 5 && memcmp(name, "black", 5) == 0) return 0;
-    if (len == 3 && memcmp(name, "red", 3) == 0) return 1;
-    if (len == 5 && memcmp(name, "green", 5) == 0) return 2;
-    if (len == 6 && memcmp(name, "yellow", 6) == 0) return 3;
-    if (len == 4 && memcmp(name, "blue", 4) == 0) return 4;
-    if (len == 7 && memcmp(name, "magenta", 7) == 0) return 5;
-    if (len == 4 && memcmp(name, "cyan", 4) == 0) return 6;
-    if (len == 5 && memcmp(name, "white", 5) == 0) return 7;
-    if (len == 4 && (memcmp(name, "gray", 4) == 0 || memcmp(name, "grey", 4) == 0)) return 8;
-    
-    // Bright variants
-    if (len > 7 && memcmp(name, "bright_", 7) == 0) {
-        int base = color_name_to_index(name + 7, len - 7);
-        if (base >= 0 && base < 8) return base + 8;
-    }
-    return -1;
-}
+// ============================================================================
+// Constants
+// ============================================================================
 
-// Parse hex color (#RGB or #RRGGBB)
-static int parse_hex_color(const char *hex, size_t len, int *r, int *g, int *b) {
-    if (len < 1 || hex[0] != '#') return 0;
-    hex++; len--;
-    
-    #define HEX_DIGIT(c) ((c) >= 'a' ? (c) - 'a' + 10 : (c) >= 'A' ? (c) - 'A' + 10 : (c) - '0')
-    
-    if (len == 3) {
-        *r = HEX_DIGIT(hex[0]) * 17;
-        *g = HEX_DIGIT(hex[1]) * 17;
-        *b = HEX_DIGIT(hex[2]) * 17;
-        return 1;
-    } else if (len == 6) {
-        *r = HEX_DIGIT(hex[0]) * 16 + HEX_DIGIT(hex[1]);
-        *g = HEX_DIGIT(hex[2]) * 16 + HEX_DIGIT(hex[3]);
-        *b = HEX_DIGIT(hex[4]) * 16 + HEX_DIGIT(hex[5]);
-        return 1;
-    }
-    return 0;
-    #undef HEX_DIGIT
-}
+#define ANSI_RESET "\x1b[0m"
+
+// ============================================================================
+// MicroPython Wrappers
+// ============================================================================
 
 // ansi.reset() -> str
-static mp_obj_t ansi_reset(void) {
-    return mp_obj_new_str(RESET, 4);
+MPY_FUNC_0(ansi, reset) {
+    return mpy_new_str(ANSI_RESET);
 }
-static MP_DEFINE_CONST_FUN_OBJ_0(ansi_reset_obj, ansi_reset);
+MPY_FUNC_OBJ_0(ansi, reset);
 
 // ansi.fg(color) -> str
-static mp_obj_t ansi_fg(mp_obj_t color_obj) {
+// color can be: name ("red"), hex ("#ff5500"), or int (0-255)
+MPY_FUNC_1(ansi, fg) {
     char buf[32];
-    int len;
+    size_t len;
     
-    if (mp_obj_is_int(color_obj)) {
-        int idx = mp_obj_get_int(color_obj);
+    if (mp_obj_is_int(arg0)) {
+        int idx = mpy_int(arg0);
         if (idx >= 0 && idx < 16) {
-            len = snprintf(buf, sizeof(buf), ESC "%sm", fg_codes[idx]);
+            len = ansi_fg_standard((uint8_t)idx, buf);
         } else if (idx >= 0 && idx <= 255) {
-            len = snprintf(buf, sizeof(buf), ESC "38;5;%dm", idx);
+            len = ansi_fg_256((uint8_t)idx, buf);
         } else {
-            return mp_obj_new_str("", 0);
+            return mpy_new_str("");
         }
-        return mp_obj_new_str(buf, len);
+        return mpy_new_str_len(buf, len);
     }
     
-    size_t slen;
-    const char *str = mp_obj_str_get_data(color_obj, &slen);
+    const char *str = mpy_str(arg0);
     
-    if (slen > 0 && str[0] == '#') {
-        int r, g, b;
-        if (parse_hex_color(str, slen, &r, &g, &b)) {
-            len = snprintf(buf, sizeof(buf), ESC "38;2;%d;%d;%dm", r, g, b);
-            return mp_obj_new_str(buf, len);
+    if (ansi_is_hex_color(str)) {
+        Color color = ansi_parse_hex_color(str);
+        if (color.valid) {
+            len = ansi_fg_rgb(color.r, color.g, color.b, buf);
+            return mpy_new_str_len(buf, len);
         }
     } else {
-        int idx = color_name_to_index(str, slen);
-        if (idx >= 0) {
-            len = snprintf(buf, sizeof(buf), ESC "%sm", fg_codes[idx]);
-            return mp_obj_new_str(buf, len);
+        ColorIndex ci = ansi_color_name_to_index(str);
+        if (ci.index >= 0) {
+            len = ansi_fg_standard((uint8_t)ci.index, buf);
+            return mpy_new_str_len(buf, len);
         }
     }
     
-    return mp_obj_new_str("", 0);
+    return mpy_new_str("");
 }
-static MP_DEFINE_CONST_FUN_OBJ_1(ansi_fg_obj, ansi_fg);
+MPY_FUNC_OBJ_1(ansi, fg);
 
 // ansi.bg(color) -> str
-static mp_obj_t ansi_bg(mp_obj_t color_obj) {
+MPY_FUNC_1(ansi, bg) {
     char buf[32];
-    int len;
+    size_t len;
     
-    if (mp_obj_is_int(color_obj)) {
-        int idx = mp_obj_get_int(color_obj);
+    if (mp_obj_is_int(arg0)) {
+        int idx = mpy_int(arg0);
         if (idx >= 0 && idx < 16) {
-            len = snprintf(buf, sizeof(buf), ESC "%sm", bg_codes[idx]);
+            len = ansi_bg_standard((uint8_t)idx, buf);
         } else if (idx >= 0 && idx <= 255) {
-            len = snprintf(buf, sizeof(buf), ESC "48;5;%dm", idx);
+            len = ansi_bg_256((uint8_t)idx, buf);
         } else {
-            return mp_obj_new_str("", 0);
+            return mpy_new_str("");
         }
-        return mp_obj_new_str(buf, len);
+        return mpy_new_str_len(buf, len);
     }
     
-    size_t slen;
-    const char *str = mp_obj_str_get_data(color_obj, &slen);
+    const char *str = mpy_str(arg0);
     
-    if (slen > 0 && str[0] == '#') {
-        int r, g, b;
-        if (parse_hex_color(str, slen, &r, &g, &b)) {
-            len = snprintf(buf, sizeof(buf), ESC "48;2;%d;%d;%dm", r, g, b);
-            return mp_obj_new_str(buf, len);
+    if (ansi_is_hex_color(str)) {
+        Color color = ansi_parse_hex_color(str);
+        if (color.valid) {
+            len = ansi_bg_rgb(color.r, color.g, color.b, buf);
+            return mpy_new_str_len(buf, len);
         }
     } else {
-        int idx = color_name_to_index(str, slen);
-        if (idx >= 0) {
-            len = snprintf(buf, sizeof(buf), ESC "%sm", bg_codes[idx]);
-            return mp_obj_new_str(buf, len);
+        ColorIndex ci = ansi_color_name_to_index(str);
+        if (ci.index >= 0) {
+            len = ansi_bg_standard((uint8_t)ci.index, buf);
+            return mpy_new_str_len(buf, len);
         }
     }
     
-    return mp_obj_new_str("", 0);
+    return mpy_new_str("");
 }
-static MP_DEFINE_CONST_FUN_OBJ_1(ansi_bg_obj, ansi_bg);
+MPY_FUNC_OBJ_1(ansi, bg);
 
 // ansi.rgb(r, g, b, bg=False) -> str
-static mp_obj_t ansi_rgb(size_t n_args, const mp_obj_t *args) {
-    int r = mp_obj_get_int(args[0]);
-    int g = mp_obj_get_int(args[1]);
-    int b = mp_obj_get_int(args[2]);
-    int is_bg = n_args > 3 && mp_obj_is_true(args[3]);
+MPY_FUNC_VAR(ansi, rgb, 3, 4) {
+    uint8_t r = (uint8_t)mpy_int(args[0]);
+    uint8_t g = (uint8_t)mpy_int(args[1]);
+    uint8_t b = (uint8_t)mpy_int(args[2]);
+    bool is_bg = n_args > 3 && mpy_to_bool(args[3]);
     
     char buf[32];
-    int len;
+    size_t len;
+    
     if (is_bg) {
-        len = snprintf(buf, sizeof(buf), ESC "48;2;%d;%d;%dm", r, g, b);
+        len = ansi_bg_rgb(r, g, b, buf);
     } else {
-        len = snprintf(buf, sizeof(buf), ESC "38;2;%d;%d;%dm", r, g, b);
+        len = ansi_fg_rgb(r, g, b, buf);
     }
-    return mp_obj_new_str(buf, len);
+    
+    return mpy_new_str_len(buf, len);
 }
-static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(ansi_rgb_obj, 3, 4, ansi_rgb);
+MPY_FUNC_OBJ_VAR(ansi, rgb, 3, 4);
 
-// Style functions
-static mp_obj_t ansi_bold(void) { return mp_obj_new_str(ESC "1m", 4); }
-static MP_DEFINE_CONST_FUN_OBJ_0(ansi_bold_obj, ansi_bold);
+// ============================================================================
+// Style Functions
+// ============================================================================
 
-static mp_obj_t ansi_dim(void) { return mp_obj_new_str(ESC "2m", 4); }
-static MP_DEFINE_CONST_FUN_OBJ_0(ansi_dim_obj, ansi_dim);
+MPY_FUNC_0(ansi, bold) { return mpy_new_str("\x1b[1m"); }
+MPY_FUNC_OBJ_0(ansi, bold);
 
-static mp_obj_t ansi_italic(void) { return mp_obj_new_str(ESC "3m", 4); }
-static MP_DEFINE_CONST_FUN_OBJ_0(ansi_italic_obj, ansi_italic);
+MPY_FUNC_0(ansi, dim) { return mpy_new_str("\x1b[2m"); }
+MPY_FUNC_OBJ_0(ansi, dim);
 
-static mp_obj_t ansi_underline(void) { return mp_obj_new_str(ESC "4m", 4); }
-static MP_DEFINE_CONST_FUN_OBJ_0(ansi_underline_obj, ansi_underline);
+MPY_FUNC_0(ansi, italic) { return mpy_new_str("\x1b[3m"); }
+MPY_FUNC_OBJ_0(ansi, italic);
 
-static mp_obj_t ansi_blink(void) { return mp_obj_new_str(ESC "5m", 4); }
-static MP_DEFINE_CONST_FUN_OBJ_0(ansi_blink_obj, ansi_blink);
+MPY_FUNC_0(ansi, underline) { return mpy_new_str("\x1b[4m"); }
+MPY_FUNC_OBJ_0(ansi, underline);
 
-static mp_obj_t ansi_reverse(void) { return mp_obj_new_str(ESC "7m", 4); }
-static MP_DEFINE_CONST_FUN_OBJ_0(ansi_reverse_obj, ansi_reverse);
+MPY_FUNC_0(ansi, blink) { return mpy_new_str("\x1b[5m"); }
+MPY_FUNC_OBJ_0(ansi, blink);
 
-static mp_obj_t ansi_hidden(void) { return mp_obj_new_str(ESC "8m", 4); }
-static MP_DEFINE_CONST_FUN_OBJ_0(ansi_hidden_obj, ansi_hidden);
+MPY_FUNC_0(ansi, reverse) { return mpy_new_str("\x1b[7m"); }
+MPY_FUNC_OBJ_0(ansi, reverse);
 
-static mp_obj_t ansi_strikethrough(void) { return mp_obj_new_str(ESC "9m", 4); }
-static MP_DEFINE_CONST_FUN_OBJ_0(ansi_strikethrough_obj, ansi_strikethrough);
+MPY_FUNC_0(ansi, hidden) { return mpy_new_str("\x1b[8m"); }
+MPY_FUNC_OBJ_0(ansi, hidden);
 
-// Module globals table
-static const mp_rom_map_elem_t ansi_module_globals_table[] = {
-    { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_ansi) },
-    { MP_ROM_QSTR(MP_QSTR_reset), MP_ROM_PTR(&ansi_reset_obj) },
-    { MP_ROM_QSTR(MP_QSTR_fg), MP_ROM_PTR(&ansi_fg_obj) },
-    { MP_ROM_QSTR(MP_QSTR_bg), MP_ROM_PTR(&ansi_bg_obj) },
-    { MP_ROM_QSTR(MP_QSTR_rgb), MP_ROM_PTR(&ansi_rgb_obj) },
-    { MP_ROM_QSTR(MP_QSTR_bold), MP_ROM_PTR(&ansi_bold_obj) },
-    { MP_ROM_QSTR(MP_QSTR_dim), MP_ROM_PTR(&ansi_dim_obj) },
-    { MP_ROM_QSTR(MP_QSTR_italic), MP_ROM_PTR(&ansi_italic_obj) },
-    { MP_ROM_QSTR(MP_QSTR_underline), MP_ROM_PTR(&ansi_underline_obj) },
-    { MP_ROM_QSTR(MP_QSTR_blink), MP_ROM_PTR(&ansi_blink_obj) },
-    { MP_ROM_QSTR(MP_QSTR_reverse), MP_ROM_PTR(&ansi_reverse_obj) },
-    { MP_ROM_QSTR(MP_QSTR_hidden), MP_ROM_PTR(&ansi_hidden_obj) },
-    { MP_ROM_QSTR(MP_QSTR_strikethrough), MP_ROM_PTR(&ansi_strikethrough_obj) },
-    // Constants
-    { MP_ROM_QSTR(MP_QSTR_RESET), MP_ROM_QSTR(MP_QSTR_) },  // Will need string constant
-};
-static MP_DEFINE_CONST_DICT(ansi_module_globals, ansi_module_globals_table);
+MPY_FUNC_0(ansi, strikethrough) { return mpy_new_str("\x1b[9m"); }
+MPY_FUNC_OBJ_0(ansi, strikethrough);
 
-// Module definition
-const mp_obj_module_t mp_module_ansi = {
-    .base = { &mp_type_module },
-    .globals = (mp_obj_dict_t *)&ansi_module_globals,
-};
+// ============================================================================
+// Module Definition
+// ============================================================================
 
-// Register the module
-MP_REGISTER_MODULE(MP_QSTR_ansi, mp_module_ansi);
+MPY_MODULE_BEGIN(ansi)
+    MPY_MODULE_FUNC(ansi, reset)
+    MPY_MODULE_FUNC(ansi, fg)
+    MPY_MODULE_FUNC(ansi, bg)
+    MPY_MODULE_FUNC(ansi, rgb)
+    MPY_MODULE_FUNC(ansi, bold)
+    MPY_MODULE_FUNC(ansi, dim)
+    MPY_MODULE_FUNC(ansi, italic)
+    MPY_MODULE_FUNC(ansi, underline)
+    MPY_MODULE_FUNC(ansi, blink)
+    MPY_MODULE_FUNC(ansi, reverse)
+    MPY_MODULE_FUNC(ansi, hidden)
+    MPY_MODULE_FUNC(ansi, strikethrough)
+MPY_MODULE_END(ansi)

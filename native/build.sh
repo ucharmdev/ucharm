@@ -38,21 +38,47 @@ if [ ! -f "$MPY_DIR/mpy-cross/build/mpy-cross" ]; then
     echo ""
 fi
 
+# Build shared library for CPython development
+echo "Building shared library for CPython..."
+cd "$SCRIPT_DIR/bridge"
+zig build -Doptimize=ReleaseFast
+mkdir -p "$OUTPUT_DIR"
+if [ -f "zig-out/lib/libmicrocharm.dylib" ]; then
+    cp zig-out/lib/libmicrocharm.dylib "$OUTPUT_DIR/"
+    echo "  Built: $OUTPUT_DIR/libmicrocharm.dylib"
+elif [ -f "zig-out/lib/libmicrocharm.so" ]; then
+    cp zig-out/lib/libmicrocharm.so "$OUTPUT_DIR/"
+    echo "  Built: $OUTPUT_DIR/libmicrocharm.so"
+fi
+cd "$SCRIPT_DIR"
+echo ""
+
 # Build Zig modules
 echo "Building Zig modules..."
 for module_dir in "$SCRIPT_DIR"/*/; do
     if [ -f "$module_dir/build.zig" ]; then
         module_name=$(basename "$module_dir")
+        # Skip the bridge directory (already built above)
+        if [ "$module_name" = "bridge" ]; then
+            continue
+        fi
         echo "  Building $module_name (Zig)..."
         cd "$module_dir"
-        
+
         # Run tests first
-        zig build test
-        
+        if ! zig build test; then
+            echo "    ERROR: Tests failed for $module_name"
+            exit 1
+        fi
+
         # Build the object file
         zig build
-        
-        echo "    Built: $module_dir/zig-out/args.o"
+
+        if [ -f "zig-out/$module_name.o" ]; then
+            echo "    Built: zig-out/$module_name.o"
+        else
+            echo "    Built: zig-out/*.o"
+        fi
         cd "$SCRIPT_DIR"
     fi
 done
