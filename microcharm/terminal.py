@@ -1,13 +1,26 @@
 # microcharm/terminal.py - Terminal utilities
 import sys
 
-# ANSI escape sequences
+# Try to use native term module (much faster)
+try:
+    import term as _term
+
+    _HAS_NATIVE = True
+except ImportError:
+    _term = None
+    _HAS_NATIVE = False
+
+# ANSI escape sequences (fallback)
 ESC = "\033"
 CSI = ESC + "["
 
 
 def get_size():
     """Get terminal size (cols, rows). Returns (80, 24) as fallback."""
+    # Use native module if available
+    if _HAS_NATIVE:
+        return _term.size()
+
     # Try environment variables first
     import os
 
@@ -63,41 +76,82 @@ def get_size():
 
 def clear():
     """Clear the terminal screen."""
-    sys.stdout.write(CSI + "2J" + CSI + "H")
-    sys.stdout.flush()
+    if _HAS_NATIVE:
+        _term.clear()
+    else:
+        sys.stdout.write(CSI + "2J" + CSI + "H")
+        sys.stdout.flush()
 
 
 def hide_cursor():
     """Hide the terminal cursor."""
-    sys.stdout.write(CSI + "?25l")
-    sys.stdout.flush()
+    if _HAS_NATIVE:
+        _term.hide_cursor()
+    else:
+        sys.stdout.write(CSI + "?25l")
+        sys.stdout.flush()
 
 
 def show_cursor():
     """Show the terminal cursor."""
-    sys.stdout.write(CSI + "?25h")
-    sys.stdout.flush()
+    if _HAS_NATIVE:
+        _term.show_cursor()
+    else:
+        sys.stdout.write(CSI + "?25h")
+        sys.stdout.flush()
 
 
 def move_cursor(x, y):
     """Move cursor to position (1-indexed)."""
-    sys.stdout.write(CSI + str(y) + ";" + str(x) + "H")
-    sys.stdout.flush()
+    if _HAS_NATIVE:
+        # Native uses 0-indexed, convert
+        _term.cursor_pos(x - 1, y - 1)
+    else:
+        sys.stdout.write(CSI + str(y) + ";" + str(x) + "H")
+        sys.stdout.flush()
 
 
 def move_up(n=1):
     """Move cursor up n lines."""
-    sys.stdout.write(CSI + str(n) + "A")
-    sys.stdout.flush()
+    if _HAS_NATIVE:
+        _term.cursor_up(n)
+    else:
+        sys.stdout.write(CSI + str(n) + "A")
+        sys.stdout.flush()
 
 
 def move_down(n=1):
     """Move cursor down n lines."""
-    sys.stdout.write(CSI + str(n) + "B")
-    sys.stdout.flush()
+    if _HAS_NATIVE:
+        _term.cursor_down(n)
+    else:
+        sys.stdout.write(CSI + str(n) + "B")
+        sys.stdout.flush()
 
 
 def clear_line():
     """Clear current line."""
-    sys.stdout.write("\r" + CSI + "K")
-    sys.stdout.flush()
+    if _HAS_NATIVE:
+        _term.clear_line()
+    else:
+        sys.stdout.write("\r" + CSI + "K")
+        sys.stdout.flush()
+
+
+def is_tty():
+    """Check if stdout is a TTY."""
+    if _HAS_NATIVE:
+        return _term.is_tty()
+    try:
+        return sys.stdout.isatty()
+    except:
+        return False
+
+
+def write(text):
+    """Write text directly to terminal (unbuffered)."""
+    if _HAS_NATIVE:
+        _term.write(text)
+    else:
+        sys.stdout.write(text)
+        sys.stdout.flush()

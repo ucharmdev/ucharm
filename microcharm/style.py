@@ -1,5 +1,14 @@
 # microcharm/style.py - Text styling with ANSI codes
 
+# Try to use native ansi module (much faster)
+try:
+    import ansi as _ansi
+
+    _HAS_NATIVE = True
+except ImportError:
+    _ansi = None
+    _HAS_NATIVE = False
+
 
 class Color:
     """Color constants for easy access."""
@@ -25,7 +34,7 @@ class Color:
     BRIGHT_WHITE = "bright_white"
 
 
-# Color code mappings
+# Color code mappings (for fallback)
 _FG_COLORS = {
     "black": 30,
     "red": 31,
@@ -117,6 +126,45 @@ def style(
     Returns:
         Styled string with ANSI codes
     """
+    # Use native ansi module if available
+    if _HAS_NATIVE:
+        codes = ""
+
+        # Style attributes
+        if bold:
+            codes += _ansi.bold()
+        if dim:
+            codes += _ansi.dim()
+        if italic:
+            codes += _ansi.italic()
+        if underline:
+            codes += _ansi.underline()
+        if blink:
+            codes += _ansi.blink()
+        if reverse:
+            codes += _ansi.reverse()
+        if strikethrough:
+            codes += _ansi.strikethrough()
+
+        # Foreground color
+        if fg is not None:
+            if isinstance(fg, tuple) and len(fg) == 3:
+                codes += _ansi.rgb(fg[0], fg[1], fg[2])
+            else:
+                codes += _ansi.fg(fg)
+
+        # Background color
+        if bg is not None:
+            if isinstance(bg, tuple) and len(bg) == 3:
+                codes += _ansi.rgb(bg[0], bg[1], bg[2], True)
+            else:
+                codes += _ansi.bg(bg)
+
+        if codes:
+            return codes + str(text) + _ansi.reset()
+        return str(text)
+
+    # Fallback to pure Python implementation
     codes = []
 
     # Style attributes

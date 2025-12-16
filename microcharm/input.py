@@ -3,6 +3,15 @@ import sys
 from .style import style
 from .terminal import move_up, clear_line, hide_cursor, show_cursor
 
+# Try to use native term module
+try:
+    import term as _term
+
+    _HAS_NATIVE = True
+except ImportError:
+    _term = None
+    _HAS_NATIVE = False
+
 
 def _read_key(vim_nav=False):
     """Read a keypress, handling escape sequences for special keys.
@@ -10,6 +19,34 @@ def _read_key(vim_nav=False):
     Args:
         vim_nav: If True, j/k are mapped to down/up for menu navigation
     """
+    # Use native module if available (much faster, handles raw mode internally)
+    if _HAS_NATIVE:
+        _term.raw_mode(True)
+        try:
+            key = _term.read_key()
+            if key is None:
+                return None
+
+            # Handle Ctrl+C
+            if key == "ctrl-c":
+                raise KeyboardInterrupt()
+
+            # Map space character
+            if key == " ":
+                return "space"
+
+            # Vim-style navigation
+            if vim_nav:
+                if key == "j":
+                    return "down"
+                if key == "k":
+                    return "up"
+
+            return key
+        finally:
+            _term.raw_mode(False)
+
+    # Fallback to pure Python implementation
     import termios
 
     fd = sys.stdin.fileno()
