@@ -1,6 +1,7 @@
 # microcharm/args.py - CLI argument parsing
 """
 Simple, fast argument parsing inspired by Vercel's `arg` and Python's Typer.
+Uses native Zig helpers via libmicrocharm where possible.
 
 Usage:
     from microcharm import args
@@ -17,52 +18,94 @@ Usage:
     print(opts['count'])      # 1
     print(opts['verbose'])    # True or False
     print(opts['_'])          # positional args list
-
-Features:
-- Type coercion: str, int, bool
-- Defaults via tuple: (type, default)
-- Aliases: '-n': '--name'
-- Boolean flags: --verbose sets True, --no-verbose sets False
-- Positional args collected in '_'
-- =value syntax: --name=World
 """
 
 import sys
 
-# Try to use native args module (much faster)
+# Try to use native args module (MicroPython with native modules)
 try:
-    import args as _args
+    import args as _native_args
 
-    _HAS_NATIVE = True
+    _HAS_NATIVE_MODULE = True
 except ImportError:
-    _args = None
-    _HAS_NATIVE = False
+    _native_args = None
+    _HAS_NATIVE_MODULE = False
+
+# Use native shared library helpers for CPython
+if not _HAS_NATIVE_MODULE:
+    from ._native import _b, _load_library
+
+    _lib = None
+
+    def _get_lib():
+        global _lib
+        if _lib is None:
+            _lib = _load_library()
+        return _lib
+
+
+def _is_long_flag(s):
+    """Check if string is a long flag (--foo)."""
+    if _HAS_NATIVE_MODULE:
+        return _native_args.is_long_flag(s)
+    return _get_lib().args_is_long_flag(_b(s))
+
+
+def _is_short_flag(s):
+    """Check if string is a short flag (-f) but not a negative number."""
+    if _HAS_NATIVE_MODULE:
+        return _native_args.is_short_flag(s)
+    lib = _get_lib()
+    return lib.args_is_short_flag(_b(s)) and not lib.args_is_negative_number(_b(s))
+
+
+def _is_flag(s):
+    """Check if string is any flag."""
+    return _is_long_flag(s) or _is_short_flag(s)
+
+
+def _get_flag_name(flag):
+    """Extract clean name from flag (--name -> name, -n -> n)."""
+    if _HAS_NATIVE_MODULE:
+        return _native_args.get_flag_name(flag)
+    return _get_lib().args_get_flag_name(_b(flag)).decode("utf-8")
+
+
+def _is_negated_flag(name):
+    """Check if flag name starts with 'no-'."""
+    if _HAS_NATIVE_MODULE:
+        return _native_args.is_negated_flag(name)
+    return _get_lib().args_is_negated_flag(_b(name))
+
+
+def _parse_int(s):
+    """Parse integer from string."""
+    if _HAS_NATIVE_MODULE:
+        return _native_args.parse_int(s)
+    return _get_lib().args_parse_int(_b(s))
 
 
 def raw():
     """Get raw sys.argv as a list."""
-    if _HAS_NATIVE:
-        return _args.raw()
+    if _HAS_NATIVE_MODULE:
+        return _native_args.raw()
     return sys.argv[:]
 
 
 def count():
     """Return number of arguments."""
-    if _HAS_NATIVE:
-        return _args.count()
+    if _HAS_NATIVE_MODULE:
+        return _native_args.count()
     return len(sys.argv)
 
 
 def get(index, default=None):
     """Get argument by index with optional default."""
-    if _HAS_NATIVE:
-        return _args.get(index, default)
-
+    if _HAS_NATIVE_MODULE:
+        return _native_args.get(index, default)
     argv = sys.argv
-    # Handle negative indices
     if index < 0:
         index = len(argv) + index
-
     if 0 <= index < len(argv):
         return argv[index]
     return default
@@ -70,57 +113,51 @@ def get(index, default=None):
 
 def has(flag):
     """Check if a flag exists (e.g., has('--verbose'))."""
-    if _HAS_NATIVE:
-        return _args.has(flag)
+    if _HAS_NATIVE_MODULE:
+        return _native_args.has(flag)
     return flag in sys.argv
 
 
 def value(flag, default=None):
     """Get the value after a flag (e.g., value('--name') for --name World)."""
-    if _HAS_NATIVE:
-        return _args.value(flag, default)
+    if _HAS_NATIVE_MODULE:
+        return _native_args.value(flag, default)
 
     argv = sys.argv
     flag_len = len(flag)
 
     for i, arg in enumerate(argv):
-        # Check for exact match with next arg as value
         if arg == flag and i + 1 < len(argv):
             return argv[i + 1]
-
-        # Handle --flag=value syntax
         if arg.startswith(flag) and len(arg) > flag_len and arg[flag_len] == "=":
             return arg[flag_len + 1 :]
-
     return default
 
 
 def int_value(flag, default=0):
     """Get integer value after a flag."""
-    if _HAS_NATIVE:
-        return _args.int_value(flag, default)
+    if _HAS_NATIVE_MODULE:
+        return _native_args.int_value(flag, default)
 
     val = value(flag)
     if val is None:
         return default
-
     try:
-        return int(val)
-    except ValueError:
+        return _parse_int(val)
+    except:
         return default
 
 
 def positional():
     """Get all positional arguments (non-flag arguments)."""
-    if _HAS_NATIVE:
-        return _args.positional()
+    if _HAS_NATIVE_MODULE:
+        return _native_args.positional()
 
     argv = sys.argv
     result = []
     after_dashdash = False
     skip_next = False
 
-    # Start from index 1 to skip script name
     for i in range(1, len(argv)):
         if skip_next:
             skip_next = False
@@ -128,62 +165,27 @@ def positional():
 
         arg = argv[i]
 
-        # After --, everything is positional
         if after_dashdash:
             result.append(arg)
             continue
 
-        # Check for --
         if arg == "--":
             after_dashdash = True
             continue
 
-        # Skip flags and their values
-        if arg.startswith("--"):
-            # Check if it has = in it
-            if "=" not in arg:
-                # Might have a value after it - skip next if it's not a flag
-                if i + 1 < len(argv):
-                    next_arg = argv[i + 1]
-                    if not next_arg.startswith("-"):
-                        skip_next = True
+        if _is_long_flag(arg):
+            if "=" not in arg and i + 1 < len(argv) and not _is_flag(argv[i + 1]):
+                skip_next = True
             continue
 
-        if (
-            arg.startswith("-")
-            and len(arg) > 1
-            and not arg[1:].replace(".", "").replace("-", "", 1).isdigit()
-        ):
-            # Short flag might have value after
-            if i + 1 < len(argv):
-                next_arg = argv[i + 1]
-                if not next_arg.startswith("-"):
-                    skip_next = True
+        if _is_short_flag(arg):
+            if i + 1 < len(argv) and not _is_flag(argv[i + 1]):
+                skip_next = True
             continue
 
-        # It's a positional argument
         result.append(arg)
 
     return result
-
-
-def _is_flag(s):
-    """Check if string is a flag (--foo or -f)."""
-    if s.startswith("--"):
-        return len(s) > 2
-    if s.startswith("-") and len(s) > 1:
-        # Distinguish -f from -1 (negative number)
-        return not s[1:].replace(".", "").replace("-", "", 1).isdigit()
-    return False
-
-
-def _get_flag_name(flag):
-    """Extract clean name from flag (--name -> name, -n -> n)."""
-    if flag.startswith("--"):
-        return flag[2:]
-    if flag.startswith("-"):
-        return flag[1:]
-    return flag
 
 
 def parse(spec):
@@ -201,59 +203,48 @@ def parse(spec):
     Returns dict with clean names (no dashes):
         {'name': 'World', 'count': 5, 'verbose': True, '_': ['file1', 'file2']}
     """
-    if _HAS_NATIVE:
-        return _args.parse(spec)
+    if _HAS_NATIVE_MODULE:
+        return _native_args.parse(spec)
 
-    # Pure Python implementation
     argv = sys.argv
     result = {}
     positional_args = []
 
-    # Build alias map (short -> long)
-    aliases = {}
-    for key, val in spec.items():
-        if isinstance(val, str):
-            aliases[key] = val
+    # Build alias map
+    aliases = {k: v for k, v in spec.items() if isinstance(v, str)}
 
-    # Parse arguments
     after_dashdash = False
-    i = 1  # Skip script name
+    i = 1
 
     while i < len(argv):
         arg = argv[i]
 
-        # After --, everything is positional
         if after_dashdash:
             positional_args.append(arg)
             i += 1
             continue
 
-        # Check for --
         if arg == "--":
             after_dashdash = True
             i += 1
             continue
 
-        # Handle flags
         if _is_flag(arg):
             flag_key = arg
             value_str = None
 
-            # Handle --flag=value syntax
             if "=" in arg:
                 eq_pos = arg.index("=")
                 flag_key = arg[:eq_pos]
                 value_str = arg[eq_pos + 1 :]
 
-            # Resolve alias
             if flag_key in aliases:
                 flag_key = aliases[flag_key]
 
-            # Look up in spec
             if flag_key not in spec:
-                # Check for --no-flag (boolean negation)
+                # Check for --no-flag
                 flag_name = _get_flag_name(flag_key)
-                if flag_name.startswith("no-"):
+                if _is_negated_flag(flag_name):
                     base = flag_name[3:]
                     base_key = "--" + base
                     if base_key in spec:
@@ -264,26 +255,21 @@ def parse(spec):
                             result[base] = False
                             i += 1
                             continue
-                # Unknown flag - skip
                 i += 1
                 continue
 
             type_obj = spec[flag_key]
             clean_name = _get_flag_name(flag_key)
 
-            # Handle tuple (type, default) format
             default_val = None
             if isinstance(type_obj, tuple):
                 if len(type_obj) >= 2:
                     default_val = type_obj[1]
                 type_obj = type_obj[0]
 
-            # Check type and get value
             if type_obj is bool:
-                # Boolean flag - presence means true
                 result[clean_name] = True
             else:
-                # Get value
                 if value_str is not None:
                     val = value_str
                 elif i + 1 < len(argv):
@@ -291,40 +277,31 @@ def parse(spec):
                     val = argv[i]
                 else:
                     i += 1
-                    continue  # No value available
+                    continue
 
-                # Convert type
                 if type_obj is int:
                     try:
-                        result[clean_name] = int(val)
-                    except ValueError:
+                        result[clean_name] = _parse_int(val)
+                    except:
                         pass
-                elif type_obj is str:
-                    result[clean_name] = val
                 else:
                     result[clean_name] = val
         else:
-            # Positional argument
             positional_args.append(arg)
 
         i += 1
 
-    # Apply defaults from spec
+    # Apply defaults
     for key, val in spec.items():
-        # Skip aliases
         if isinstance(val, str):
             continue
-
         if not _is_flag(key):
             continue
 
         clean_name = _get_flag_name(key)
-
-        # Check if already set
         if clean_name in result:
             continue
 
-        # Apply default
         if isinstance(val, tuple):
             if len(val) >= 2:
                 result[clean_name] = val[1]
@@ -333,7 +310,5 @@ def parse(spec):
         elif val is bool:
             result[clean_name] = False
 
-    # Add positional args as '_'
     result["_"] = positional_args
-
     return result

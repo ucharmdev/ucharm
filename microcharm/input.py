@@ -1,101 +1,83 @@
 # microcharm/input.py - Interactive input components
-import sys
-from .style import style
-from .terminal import move_up, clear_line, hide_cursor, show_cursor
+"""
+Interactive input components for CLI applications.
+Uses native Zig via libmicrocharm for rendering.
+"""
 
-# Try to use native term module
+import sys
+
+from ._native import ui
+from .style import style
+from .terminal import clear_line, hide_cursor, move_up, show_cursor
+
+# Try to use native term module for key reading
 try:
     import term as _term
 
-    _HAS_NATIVE = True
+    _HAS_NATIVE_TERM = True
 except ImportError:
     _term = None
-    _HAS_NATIVE = False
+    _HAS_NATIVE_TERM = False
 
 
 def _read_key(vim_nav=False):
-    """Read a keypress, handling escape sequences for special keys.
-
-    Args:
-        vim_nav: If True, j/k are mapped to down/up for menu navigation
-    """
-    # Use native module if available (much faster, handles raw mode internally)
-    if _HAS_NATIVE:
+    """Read a keypress, handling escape sequences for special keys."""
+    if _HAS_NATIVE_TERM:
         _term.raw_mode(True)
         try:
             key = _term.read_key()
             if key is None:
                 return None
-
-            # Handle Ctrl+C
             if key == "ctrl-c":
                 raise KeyboardInterrupt()
-
-            # Map space character
             if key == " ":
                 return "space"
-
-            # Vim-style navigation
             if vim_nav:
                 if key == "j":
                     return "down"
                 if key == "k":
                     return "up"
-
             return key
         finally:
             _term.raw_mode(False)
 
-    # Fallback to pure Python implementation
+    # Fallback to pure Python
     import termios
 
     fd = sys.stdin.fileno()
     old = termios.tcgetattr(fd)
     try:
         termios.setraw(fd)
-
         ch = sys.stdin.read(1)
 
-        # Handle Ctrl+C
         if ch == "\x03":
             raise KeyboardInterrupt()
-
-        # If escape, read the rest of the sequence
         if ch == "\x1b":
-            # Read next two chars (escape sequences are ESC [ X)
             ch2 = sys.stdin.read(1)
             if ch2 == "[":
                 ch3 = sys.stdin.read(1)
-                if ch3 == "A":
-                    return "up"
-                elif ch3 == "B":
-                    return "down"
-                elif ch3 == "C":
-                    return "right"
-                elif ch3 == "D":
-                    return "left"
-                elif ch3 == "H":
-                    return "home"
-                elif ch3 == "F":
-                    return "end"
+                key_map = {
+                    "A": "up",
+                    "B": "down",
+                    "C": "right",
+                    "D": "left",
+                    "H": "home",
+                    "F": "end",
+                }
+                return key_map.get(ch3, "escape")
             return "escape"
-
-        if ch == "\n" or ch == "\r":
+        if ch in ("\n", "\r"):
             return "enter"
-        if ch == "\x7f" or ch == "\x08":
+        if ch in ("\x7f", "\x08"):
             return "backspace"
         if ch == "\t":
             return "tab"
         if ch == " ":
             return "space"
-
-        # Vim-style navigation (only in menus)
-        if vim_nav:
-            if ch == "j":
-                return "down"
-            if ch == "k":
-                return "up"
-
+        if vim_nav and ch == "j":
+            return "down"
+        if vim_nav and ch == "k":
+            return "up"
         return ch
     finally:
         termios.tcsetattr(fd, termios.TCSANOW, old)
@@ -114,17 +96,21 @@ def select(prompt, options, default=0):
         Selected option (string), or None if cancelled
     """
     selected = default
+    q_sym = ui.prompt_question()
+    s_sym = ui.prompt_success()
+    sel_sym = ui.select_indicator()
 
-    print(style("? ", fg="cyan", bold=True) + style(prompt, bold=True))
+    print(style(q_sym, fg="cyan", bold=True) + style(prompt, bold=True))
 
     hide_cursor()
     try:
         while True:
-            # Draw options
             for i, opt in enumerate(options):
                 if i == selected:
                     print(
-                        "  " + style("> ", fg="cyan") + style(opt, fg="cyan", bold=True)
+                        "  "
+                        + style(sel_sym, fg="cyan")
+                        + style(opt, fg="cyan", bold=True)
                     )
                 else:
                     print("    " + style(opt, dim=True))
@@ -132,53 +118,49 @@ def select(prompt, options, default=0):
             try:
                 key = _read_key(vim_nav=True)
             except KeyboardInterrupt:
-                # Clean up and exit
                 for _ in range(len(options)):
                     move_up(1)
                     clear_line()
                 move_up(1)
                 clear_line()
                 print(
-                    style("? ", fg="cyan", bold=True)
+                    style(q_sym, fg="cyan", bold=True)
                     + style(prompt, bold=True)
                     + style(" (cancelled)", dim=True)
                 )
                 show_cursor()
-                sys.exit(130)  # Standard exit code for Ctrl+C
+                sys.exit(130)
 
             if key == "up":
                 selected = (selected - 1) % len(options)
             elif key == "down":
                 selected = (selected + 1) % len(options)
             elif key == "enter":
-                # Clear options and show result
                 for _ in range(len(options)):
                     move_up(1)
                     clear_line()
                 move_up(1)
                 clear_line()
                 print(
-                    style("* ", fg="green", bold=True)
+                    style(s_sym, fg="green", bold=True)
                     + style(prompt, bold=True)
                     + " "
                     + style(options[selected], fg="cyan")
                 )
                 return options[selected]
             elif key == "escape":
-                # Cancel
                 for _ in range(len(options)):
                     move_up(1)
                     clear_line()
                 move_up(1)
                 clear_line()
                 print(
-                    style("? ", fg="cyan", bold=True)
+                    style(q_sym, fg="cyan", bold=True)
                     + style(prompt, bold=True)
                     + style(" (cancelled)", dim=True)
                 )
                 return None
 
-            # Move cursor back up to redraw
             for _ in range(len(options)):
                 move_up(1)
                 clear_line()
@@ -200,9 +182,14 @@ def multiselect(prompt, options, defaults=None):
     """
     selected_idx = 0
     checked = set(defaults or [])
+    q_sym = ui.prompt_question()
+    s_sym = ui.prompt_success()
+    sel_sym = ui.select_indicator()
+    cb_on = ui.checkbox_on()
+    cb_off = ui.checkbox_off()
 
     print(
-        style("? ", fg="cyan", bold=True)
+        style(q_sym, fg="cyan", bold=True)
         + style(prompt, bold=True)
         + style(" (space to select, enter to confirm)", dim=True)
     )
@@ -210,15 +197,14 @@ def multiselect(prompt, options, defaults=None):
     hide_cursor()
     try:
         while True:
-            # Draw options
             for i, opt in enumerate(options):
                 checkbox = (
-                    style("[x]", fg="cyan") if i in checked else style("[ ]", dim=True)
+                    style(cb_on, fg="cyan") if i in checked else style(cb_off, dim=True)
                 )
                 if i == selected_idx:
                     print(
                         "  "
-                        + style("> ", fg="cyan")
+                        + style(sel_sym, fg="cyan")
                         + checkbox
                         + " "
                         + style(
@@ -237,7 +223,7 @@ def multiselect(prompt, options, defaults=None):
                 move_up(1)
                 clear_line()
                 print(
-                    style("? ", fg="cyan", bold=True)
+                    style(q_sym, fg="cyan", bold=True)
                     + style(prompt, bold=True)
                     + style(" (cancelled)", dim=True)
                 )
@@ -254,7 +240,6 @@ def multiselect(prompt, options, defaults=None):
                 else:
                     checked.add(selected_idx)
             elif key == "enter":
-                # Clear and show result
                 for _ in range(len(options)):
                     move_up(1)
                     clear_line()
@@ -263,7 +248,7 @@ def multiselect(prompt, options, defaults=None):
                 selected = [options[i] for i in sorted(checked)]
                 result_str = ", ".join(selected) if selected else "(none)"
                 print(
-                    style("* ", fg="green", bold=True)
+                    style(s_sym, fg="green", bold=True)
                     + style(prompt, bold=True)
                     + " "
                     + style(result_str, fg="cyan")
@@ -276,13 +261,12 @@ def multiselect(prompt, options, defaults=None):
                 move_up(1)
                 clear_line()
                 print(
-                    style("? ", fg="cyan", bold=True)
+                    style(q_sym, fg="cyan", bold=True)
                     + style(prompt, bold=True)
                     + style(" (cancelled)", dim=True)
                 )
                 return []
 
-            # Redraw
             for _ in range(len(options)):
                 move_up(1)
                 clear_line()
@@ -301,9 +285,10 @@ def confirm(prompt, default=True):
     Returns:
         Boolean
     """
+    q_sym = ui.prompt_question()
     hint = "Y/n" if default else "y/N"
     sys.stdout.write(
-        style("? ", fg="cyan", bold=True)
+        style(q_sym, fg="cyan", bold=True)
         + style(prompt, bold=True)
         + " "
         + style("(" + hint + ") ", dim=True)
@@ -324,10 +309,7 @@ def confirm(prompt, default=True):
             print(style("No", fg="red"))
             return False
         elif key == "enter":
-            if default:
-                print(style("Yes", fg="green"))
-            else:
-                print(style("No", fg="red"))
+            print(style("Yes", fg="green") if default else style("No", fg="red"))
             return default
         elif key == "escape":
             print(style("(cancelled)", dim=True))
@@ -346,12 +328,14 @@ def prompt(message, default=None, validator=None):
     Returns:
         Entered text
     """
-    default_hint = ""
-    if default is not None:
-        default_hint = style(" (" + str(default) + ")", dim=True)
+    q_sym = ui.prompt_question()
+    s_sym = ui.prompt_success()
+    default_hint = (
+        style(" (" + str(default) + ")", dim=True) if default is not None else ""
+    )
 
     sys.stdout.write(
-        style("? ", fg="cyan", bold=True)
+        style(q_sym, fg="cyan", bold=True)
         + style(message, bold=True)
         + default_hint
         + " "
@@ -377,7 +361,7 @@ def prompt(message, default=None, validator=None):
                     error_msg = valid if isinstance(valid, str) else "Invalid input"
                     print(style("  x " + error_msg, fg="red"))
                     sys.stdout.write(
-                        style("? ", fg="cyan", bold=True)
+                        style(q_sym, fg="cyan", bold=True)
                         + style(message, bold=True)
                         + default_hint
                         + " "
@@ -386,11 +370,10 @@ def prompt(message, default=None, validator=None):
                     sys.stdout.flush()
                     continue
 
-            # Reprint with checkmark
             move_up(1)
             clear_line()
             print(
-                style("* ", fg="green", bold=True)
+                style(s_sym, fg="green", bold=True)
                 + style(message, bold=True)
                 + " "
                 + style(str(result), fg="cyan")
@@ -407,9 +390,7 @@ def prompt(message, default=None, validator=None):
             print(style("(cancelled)", dim=True))
             return None
 
-        elif (
-            isinstance(key, str) and len(key) == 1 and ord(key) >= 32 and ord(key) < 127
-        ):
+        elif isinstance(key, str) and len(key) == 1 and 32 <= ord(key) < 127:
             buffer += key
             sys.stdout.write(key)
             sys.stdout.flush()
@@ -425,8 +406,11 @@ def password(message):
     Returns:
         Entered password
     """
+    q_sym = ui.prompt_question()
+    s_sym = ui.prompt_success()
+
     sys.stdout.write(
-        style("? ", fg="cyan", bold=True) + style(message, bold=True) + " "
+        style(q_sym, fg="cyan", bold=True) + style(message, bold=True) + " "
     )
     sys.stdout.flush()
 
@@ -445,7 +429,7 @@ def password(message):
             clear_line()
             hidden = "*" * len(buffer) if buffer else "(empty)"
             print(
-                style("* ", fg="green", bold=True)
+                style(s_sym, fg="green", bold=True)
                 + style(message, bold=True)
                 + " "
                 + style(hidden, dim=True)

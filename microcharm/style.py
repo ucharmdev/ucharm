@@ -1,19 +1,26 @@
 # microcharm/style.py - Text styling with ANSI codes
+"""
+Text styling with ANSI codes.
+Uses native Zig via libmicrocharm - no Python fallbacks.
+"""
 
-# Try to use native ansi module (much faster)
+# Try to use native ansi module (MicroPython with native modules)
 try:
     import ansi as _ansi
 
-    _HAS_NATIVE = True
+    _HAS_NATIVE_MODULE = True
 except ImportError:
     _ansi = None
-    _HAS_NATIVE = False
+    _HAS_NATIVE_MODULE = False
+
+# Use native shared library (CPython)
+if not _HAS_NATIVE_MODULE:
+    from ._native import ansi as _ansi
 
 
 class Color:
     """Color constants for easy access."""
 
-    # Standard colors
     BLACK = "black"
     RED = "red"
     GREEN = "green"
@@ -22,8 +29,6 @@ class Color:
     MAGENTA = "magenta"
     CYAN = "cyan"
     WHITE = "white"
-
-    # Bright colors
     BRIGHT_BLACK = "bright_black"
     BRIGHT_RED = "bright_red"
     BRIGHT_GREEN = "bright_green"
@@ -32,68 +37,6 @@ class Color:
     BRIGHT_MAGENTA = "bright_magenta"
     BRIGHT_CYAN = "bright_cyan"
     BRIGHT_WHITE = "bright_white"
-
-
-# Color code mappings (for fallback)
-_FG_COLORS = {
-    "black": 30,
-    "red": 31,
-    "green": 32,
-    "yellow": 33,
-    "blue": 34,
-    "magenta": 35,
-    "cyan": 36,
-    "white": 37,
-    "bright_black": 90,
-    "bright_red": 91,
-    "bright_green": 92,
-    "bright_yellow": 93,
-    "bright_blue": 94,
-    "bright_magenta": 95,
-    "bright_cyan": 96,
-    "bright_white": 97,
-}
-
-_BG_COLORS = {
-    "black": 40,
-    "red": 41,
-    "green": 42,
-    "yellow": 43,
-    "blue": 44,
-    "magenta": 45,
-    "cyan": 46,
-    "white": 47,
-    "bright_black": 100,
-    "bright_red": 101,
-    "bright_green": 102,
-    "bright_yellow": 103,
-    "bright_blue": 104,
-    "bright_magenta": 105,
-    "bright_cyan": 106,
-    "bright_white": 107,
-}
-
-
-def _parse_color(color):
-    """Parse color - supports names, RGB tuples, and hex strings."""
-    if color is None:
-        return None
-
-    if isinstance(color, str):
-        # Named color
-        if color in _FG_COLORS:
-            return ("named", color)
-        # Hex color
-        if color.startswith("#") and len(color) == 7:
-            r = int(color[1:3], 16)
-            g = int(color[3:5], 16)
-            b = int(color[5:7], 16)
-            return ("rgb", (r, g, b))
-
-    if isinstance(color, tuple) and len(color) == 3:
-        return ("rgb", color)
-
-    return None
 
 
 def style(
@@ -126,83 +69,40 @@ def style(
     Returns:
         Styled string with ANSI codes
     """
-    # Use native ansi module if available
-    if _HAS_NATIVE:
-        codes = ""
-
-        # Style attributes
-        if bold:
-            codes += _ansi.bold()
-        if dim:
-            codes += _ansi.dim()
-        if italic:
-            codes += _ansi.italic()
-        if underline:
-            codes += _ansi.underline()
-        if blink:
-            codes += _ansi.blink()
-        if reverse:
-            codes += _ansi.reverse()
-        if strikethrough:
-            codes += _ansi.strikethrough()
-
-        # Foreground color
-        if fg is not None:
-            if isinstance(fg, tuple) and len(fg) == 3:
-                codes += _ansi.rgb(fg[0], fg[1], fg[2])
-            else:
-                codes += _ansi.fg(fg)
-
-        # Background color
-        if bg is not None:
-            if isinstance(bg, tuple) and len(bg) == 3:
-                codes += _ansi.rgb(bg[0], bg[1], bg[2], True)
-            else:
-                codes += _ansi.bg(bg)
-
-        if codes:
-            return codes + str(text) + _ansi.reset()
-        return str(text)
-
-    # Fallback to pure Python implementation
-    codes = []
+    codes = ""
 
     # Style attributes
     if bold:
-        codes.append("1")
+        codes += _ansi.bold()
     if dim:
-        codes.append("2")
+        codes += _ansi.dim()
     if italic:
-        codes.append("3")
+        codes += _ansi.italic()
     if underline:
-        codes.append("4")
+        codes += _ansi.underline()
     if blink:
-        codes.append("5")
+        codes += "\x1b[5m"
     if reverse:
-        codes.append("7")
+        codes += "\x1b[7m"
     if strikethrough:
-        codes.append("9")
+        codes += _ansi.strikethrough()
 
     # Foreground color
-    fg_parsed = _parse_color(fg)
-    if fg_parsed:
-        if fg_parsed[0] == "named":
-            codes.append(str(_FG_COLORS[fg_parsed[1]]))
-        elif fg_parsed[0] == "rgb":
-            r, g, b = fg_parsed[1]
-            codes.append("38;2;" + str(r) + ";" + str(g) + ";" + str(b))
+    if fg is not None:
+        if isinstance(fg, tuple) and len(fg) == 3:
+            codes += _ansi.rgb(fg[0], fg[1], fg[2])
+        else:
+            codes += _ansi.fg(fg)
 
     # Background color
-    bg_parsed = _parse_color(bg)
-    if bg_parsed:
-        if bg_parsed[0] == "named":
-            codes.append(str(_BG_COLORS[bg_parsed[1]]))
-        elif bg_parsed[0] == "rgb":
-            r, g, b = bg_parsed[1]
-            codes.append("48;2;" + str(r) + ";" + str(g) + ";" + str(b))
+    if bg is not None:
+        if isinstance(bg, tuple) and len(bg) == 3:
+            codes += _ansi.rgb(bg[0], bg[1], bg[2], True)
+        else:
+            codes += _ansi.bg(bg)
 
     if codes:
-        return "\033[" + ";".join(codes) + "m" + str(text) + "\033[0m"
+        return codes + str(text) + _ansi.reset()
     return str(text)
 
 

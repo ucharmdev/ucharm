@@ -4,12 +4,12 @@
 
 __version__ = "0.1.0"
 
-from .style import style, colors, Color
-from .components import box, spinner, progress, success, error, warning, info, rule
-from .input import select, confirm, prompt, password
+from . import args, env, path
+from .components import box, error, info, progress, rule, spinner, success, warning
+from .input import confirm, password, prompt, select
+from .style import Color, colors, style
 from .table import table
-from .terminal import get_size, clear, hide_cursor, show_cursor
-from . import args
+from .terminal import clear, get_size, hide_cursor, show_cursor
 
 __all__ = [
     # Styling
@@ -39,4 +39,8 @@ __all__ = [
     "show_cursor",
     # Args
     "args",
+    # Env
+    "env",
+    # Path
+    "path",
 ]

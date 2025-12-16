@@ -1,36 +1,13 @@
 # microcharm/table.py - Table rendering
+"""
+Table rendering components.
+All rendering is done natively in Zig via libmicrocharm.
+"""
+
+from ._native import ALIGN_CENTER, ALIGN_LEFT, ALIGN_RIGHT, ui
 from .style import style
 
-
-def _visible_len(s):
-    """Get visible length of string (excluding ANSI codes)."""
-    result = s
-    while "\033[" in result:
-        start = result.find("\033[")
-        end = start + 2
-        while end < len(result) and result[end] not in "mHJK":
-            end += 1
-        if end < len(result):
-            result = result[:start] + result[end + 1 :]
-        else:
-            break
-    return len(result)
-
-
-def _pad(text, width, align="left"):
-    """Pad text to width."""
-    visible = _visible_len(text)
-    padding = width - visible
-    if padding <= 0:
-        return text
-    if align == "left":
-        return text + " " * padding
-    elif align == "right":
-        return " " * padding + text
-    else:  # center
-        left = padding // 2
-        right = padding - left
-        return " " * left + text + " " * right
+_ALIGN_MAP = {"left": ALIGN_LEFT, "right": ALIGN_RIGHT, "center": ALIGN_CENTER}
 
 
 def table(
@@ -65,9 +42,7 @@ def table(
         return
 
     # Convert all data to strings
-    str_data = []
-    for row in data:
-        str_data.append([str(cell) for cell in row])
+    str_data = [[str(cell) for cell in row] for row in data]
 
     # Determine number of columns
     num_cols = len(headers) if headers else len(data[0]) if data else 0
@@ -76,11 +51,11 @@ def table(
     col_widths = [0] * num_cols
     if headers:
         for i, h in enumerate(headers):
-            col_widths[i] = max(col_widths[i], _visible_len(str(h)))
+            col_widths[i] = max(col_widths[i], ui.visible_len(str(h)))
     for row in str_data:
         for i, cell in enumerate(row):
             if i < num_cols:
-                col_widths[i] = max(col_widths[i], _visible_len(cell))
+                col_widths[i] = max(col_widths[i], ui.visible_len(cell))
 
     # Add padding
     col_widths = [w + padding * 2 for w in col_widths]
@@ -89,36 +64,25 @@ def table(
     if column_alignments is None:
         column_alignments = ["left"] * num_cols
 
-    # Border characters
-    if border:
-        h_char = "─"
-        v_char = "│"
-        tl, tr, bl, br = "┌", "┐", "└", "┘"
-        t_down, t_up, t_left, t_right = "┬", "┴", "┤", "├"
-        cross = "┼"
-
     def make_row(cells, alignments):
         """Build a table row string."""
         parts = []
         for i, (cell, width) in enumerate(zip(cells, col_widths)):
-            align = alignments[i] if i < len(alignments) else "left"
-            padded = _pad(" " * padding + cell + " " * padding, width, align)
-            parts.append(padded)
+            align = _ALIGN_MAP.get(
+                alignments[i] if i < len(alignments) else "left", ALIGN_LEFT
+            )
+            parts.append(ui.table_cell(cell, width, align, padding))
+        v = ui.table_v()
         if border:
-            return v_char + v_char.join(parts) + v_char
+            return v + v.join(parts) + v
         else:
             return "  ".join(parts)
-
-    def make_divider(left, mid, right, char):
-        """Build a horizontal divider."""
-        parts = [char * w for w in col_widths]
-        return left + mid.join(parts) + right
 
     lines = []
 
     # Top border
     if border:
-        lines.append(make_divider(tl, t_down, tr, h_char))
+        lines.append(ui.table_top(col_widths))
 
     # Headers
     if headers:
@@ -128,14 +92,11 @@ def table(
             styled_h = style(str(h), **hs) if hs else str(h)
             header_cells.append(styled_h)
         lines.append(make_row(header_cells, column_alignments))
-
-        # Header divider
         if border:
-            lines.append(make_divider(t_right, cross, t_left, h_char))
+            lines.append(ui.table_divider(col_widths))
 
     # Data rows
     for row_idx, row in enumerate(str_data):
-        # Apply row styles if provided
         if row_styles:
             rs = row_styles(row_idx, row)
             if rs:
@@ -144,17 +105,14 @@ def table(
 
     # Bottom border
     if border:
-        lines.append(make_divider(bl, t_up, br, h_char))
+        lines.append(ui.table_bottom(col_widths))
 
-    # Print
     for line in lines:
         print(line)
 
 
 def simple_table(data, headers=None):
-    """
-    Simple borderless table with minimal styling.
-    """
+    """Simple borderless table with minimal styling."""
     table(
         data,
         headers=headers,
@@ -176,15 +134,12 @@ def key_value(items, separator=" : ", key_style=None, value_style=None):
     if isinstance(items, dict):
         items = list(items.items())
 
-    # Find max key length
-    max_key = max(_visible_len(str(k)) for k, v in items)
-
+    max_key = max(ui.visible_len(str(k)) for k, v in items)
     ks = key_style or {"bold": True}
     vs = value_style or {"fg": "cyan"}
 
     for key, value in items:
         key_str = style(str(key), **ks) if ks else str(key)
         val_str = style(str(value), **vs) if vs else str(value)
-        # Pad key
-        padding = " " * (max_key - _visible_len(str(key)))
+        padding = " " * (max_key - ui.visible_len(str(key)))
         print(key_str + padding + separator + val_str)
