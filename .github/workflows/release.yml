@@ -1,0 +1,175 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest
+            target: aarch64-macos
+            artifact: ucharm-macos-aarch64
+          - os: macos-latest
+            target: x86_64-macos
+            artifact: ucharm-macos-x86_64
+          - os: ubuntu-latest
+            target: x86_64-linux
+            artifact: ucharm-linux-x86_64
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Zig
+        uses: goto-bus-stop/setup-zig@v2
+        with:
+          version: 0.14.0
+
+      - name: Build CLI
+        working-directory: cli
+        run: |
+          zig build -Doptimize=ReleaseSmall -Dtarget=${{ matrix.target }}
+          mv zig-out/bin/ucharm ../${{ matrix.artifact }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.artifact }}
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Prepare release assets
+        run: |
+          mkdir -p release
+          find artifacts -type f -exec mv {} release/ \;
+          chmod +x release/*
+          cd release && ls -la
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Generate AI-powered release notes
+        id: changelog
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          CURRENT_TAG: ${{ github.ref_name }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          AI_MODEL: anthropic/claude-haiku-4.5
+        run: |
+          # Get previous tag
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          export PREV_TAG
+
+          # Generate release notes using AI
+          python3 .github/scripts/generate_release_notes.py > release_notes.md
+
+          # Display for debugging
+          echo "Generated release notes:"
+          cat release_notes.md
+
+          # Set output for GitHub Actions
+          {
+            echo "changelog<<EOF"
+            cat release_notes.md
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body: ${{ steps.changelog.outputs.changelog }}
+          files: release/*
+          generate_release_notes: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  update-homebrew:
+    name: Update Homebrew Formula
+    needs: release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout ucharm repository
+        uses: actions/checkout@v4
+        with:
+          path: ucharm
+
+      - name: Checkout homebrew-tap repository
+        uses: actions/checkout@v4
+        with:
+          repository: ucharmdev/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: homebrew-tap
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          VERSION="${{ github.ref_name }}"
+          VERSION="${VERSION#v}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
+
+      - name: Update Homebrew formula
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          cd ucharm
+          chmod +x scripts/update-homebrew.sh
+          ./scripts/update-homebrew.sh "$VERSION"
+
+      - name: Commit and push changes
+        working-directory: homebrew-tap
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add Formula/ucharm.rb
+
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "chore: update ucharm to v${{ steps.version.outputs.version }}"
+            git push
+            echo "Homebrew formula updated and pushed!"
+          fi
+
+      - name: Create summary
+        run: |
+          echo "## Homebrew Tap Updated" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Formula updated to version **v${{ steps.version.outputs.version }}**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Users can now install with:" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "brew install ucharmdev/tap/ucharm" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
