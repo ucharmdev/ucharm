@@ -232,6 +232,99 @@ else
 fi
 
 echo ""
+echo "--- Test: UI Components ---"
+run_test
+cd "$SCRIPT_DIR/.."
+if python3 examples/test_components.py 2>&1 | grep -q "ALL TESTS COMPLETE"; then
+    pass "UI components render correctly"
+else
+    fail "UI components failed" "Components didn't render"
+fi
+
+echo ""
+echo "--- Test: Interactive Select (fd 3) ---"
+run_test
+# Test select with fd 3: down, down, enter -> should select "Blue"
+if echo -e "down\ndown\nenter" | python3 examples/test_select.py 3<&0 2>&1 | grep -q "SELECTED: Blue"; then
+    pass "Select via fd 3 works"
+else
+    fail "Select via fd 3 failed" "Expected 'SELECTED: Blue'"
+fi
+
+echo ""
+echo "--- Test: Interactive Select (env var) ---"
+run_test
+# Test select with env var: down, enter -> should select "Green"
+if MCHARM_TEST_KEYS="down,enter" python3 examples/test_select.py 2>&1 | grep -q "SELECTED: Green"; then
+    pass "Select via env var works"
+else
+    fail "Select via env var failed" "Expected 'SELECTED: Green'"
+fi
+
+echo ""
+echo "--- Test: Interactive Confirm (yes) ---"
+run_test
+if echo "y" | python3 examples/test_confirm.py 3<&0 2>&1 | grep -q "CONFIRMED: yes"; then
+    pass "Confirm 'y' works"
+else
+    fail "Confirm 'y' failed" "Expected 'CONFIRMED: yes'"
+fi
+
+echo ""
+echo "--- Test: Interactive Confirm (no) ---"
+run_test
+if echo "n" | python3 examples/test_confirm.py 3<&0 2>&1 | grep -q "CONFIRMED: no"; then
+    pass "Confirm 'n' works"
+else
+    fail "Confirm 'n' failed" "Expected 'CONFIRMED: no'"
+fi
+
+echo ""
+echo "--- Test: Interactive Confirm (default) ---"
+run_test
+if echo "enter" | python3 examples/test_confirm.py 3<&0 2>&1 | grep -q "CONFIRMED: yes"; then
+    pass "Confirm default (enter) works"
+else
+    fail "Confirm default failed" "Expected 'CONFIRMED: yes'"
+fi
+
+echo ""
+echo "--- Test: Interactive Multiselect ---"
+run_test
+# Select first and third items: space (toggle), down, down, space (toggle), enter
+if echo -e "space\ndown\ndown\nspace\nenter" | python3 examples/test_multiselect.py 3<&0 2>&1 | grep -q "SELECTED: Cheese,Mushrooms"; then
+    pass "Multiselect works"
+else
+    fail "Multiselect failed" "Expected 'SELECTED: Cheese,Mushrooms'"
+fi
+
+echo ""
+echo "--- Test: Interactive Prompt ---"
+run_test
+# Type "Alice" then enter
+if echo -e "A\nl\ni\nc\ne\nenter" | python3 examples/test_prompt.py 3<&0 2>&1 | grep -q "NAME: Alice"; then
+    pass "Prompt text input works"
+else
+    fail "Prompt failed" "Expected 'NAME: Alice'"
+fi
+
+echo ""
+echo "--- Test: Universal Binary Interactive ---"
+run_test
+# Build and test interactive select in universal binary
+# Note: MicroPython doesn't support fd 3, so use env var for universal binaries
+# Clear any cached loaders to ensure fresh extraction
+rm -rf /tmp/mcharm-* 2>/dev/null
+$MCHARM build examples/test_select.py -o "$TEST_DIR/select_universal" --mode universal >/dev/null 2>&1
+if MCHARM_TEST_KEYS="down,enter" "$TEST_DIR/select_universal" 2>&1 | grep -q "SELECTED: Green"; then
+    pass "Universal binary interactive works"
+else
+    fail "Universal binary interactive failed" "Expected 'SELECTED: Green'"
+fi
+
+cd "$SCRIPT_DIR"
+
+echo ""
 echo "=== Test Summary ==="
 echo -e "Tests run: $TESTS_RUN"
 echo -e "Tests passed: ${GREEN}$TESTS_PASSED${NC}"
