@@ -1,5 +1,9 @@
 # μcharm (ucharm)
 
+[![CI](https://github.com/ucharmdev/ucharm/actions/workflows/ci.yml/badge.svg)](https://github.com/ucharmdev/ucharm/actions/workflows/ci.yml)
+[![Release](https://github.com/ucharmdev/ucharm/actions/workflows/release.yml/badge.svg)](https://github.com/ucharmdev/ucharm/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 Beautiful CLIs with MicroPython. Fast startup, tiny binaries, Python syntax.
 
 ```
@@ -182,6 +186,19 @@ These Python stdlib modules are **not available** in μcharm:
 
 ## Installation
 
+### Homebrew (macOS/Linux)
+
+```bash
+brew tap ucharmdev/tap
+brew install ucharm
+```
+
+### From Releases
+
+Download the latest binary from [GitHub Releases](https://github.com/ucharmdev/ucharm/releases).
+
+### From Source
+
 ```bash
 # Install MicroPython
 brew install micropython  # macOS
@@ -191,7 +208,7 @@ brew install micropython  # macOS
 git clone https://github.com/ucharmdev/ucharm
 cd ucharm
 
-# Build the CLI (requires Zig 0.15+)
+# Build the CLI (requires Zig 0.14+)
 cd cli
 zig build -Doptimize=ReleaseSmall
 
@@ -461,11 +478,40 @@ ucharm/
 
 ## Development
 
+This project uses [just](https://github.com/casey/just) as a command runner. Install it with `brew install just`.
+
+```bash
+# See all available commands
+just
+
+# Quick setup
+just setup
+
+# Build CLI
+just build
+
+# Run all tests
+just test
+
+# Run demos
+just demo
+just demo-full
+
+# Create a release
+just release
+```
+
 ### Building Native Modules
 
 ```bash
 cd native
 ./build.sh  # Builds micropython-ucharm with all native modules
+```
+
+Or with just:
+
+```bash
+just build-micropython
 ```
 
 ### Running Tests
@@ -476,12 +522,59 @@ zig build test          # Unit tests
 ./test_e2e.sh           # End-to-end tests
 ```
 
+Or with just:
+
+```bash
+just test-unit    # Unit tests only
+just test-e2e     # E2E tests only
+just test         # All tests
+```
+
 ### Testing Interactive Components
 
 ```bash
 # Inject keystrokes for testing
 MCHARM_TEST_KEYS="down,down,enter" ./my_app
 ```
+
+### Environment Variables
+
+Copy `.env.example` to `.env` for local development:
+
+```bash
+cp .env.example .env
+```
+
+Available variables:
+- `OPENROUTER_API_KEY` - For AI-generated release notes
+- `HOMEBREW_TAP_TOKEN` - For Homebrew formula updates
+
+### CI/CD
+
+The project uses GitHub Actions for continuous integration and releases:
+
+- **CI Workflow** (`ci.yml`): Runs on every push/PR to main
+  - Builds and tests on Ubuntu and macOS
+  - Zig 0.14.0 with ReleaseSmall optimization
+
+- **Release Workflow** (`release.yml`): Triggered by version tags (`v*`)
+  - Builds binaries for macOS (ARM64, x86_64) and Linux (x86_64)
+  - Generates AI-powered release notes from conventional commits
+  - Creates GitHub release with binaries
+  - Updates Homebrew formula
+
+### Creating a Release
+
+```bash
+# Interactive release (prompts for version bump)
+just release
+
+# Or manually
+git tag v0.2.0
+git push origin v0.2.0
+```
+
+The release workflow will automatically build binaries and create the GitHub release.
 
 ## Limitations
 
