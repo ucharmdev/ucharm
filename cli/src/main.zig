@@ -7,35 +7,37 @@ const run_cmd = @import("run_cmd.zig");
 
 const version = "0.1.0";
 
+// ANSI codes
+const dim = "\x1b[2m";
+const bold = "\x1b[1m";
+const cyan = "\x1b[36m";
+const reset = "\x1b[0m";
+
 const logo =
-    \\ 
-    \\[36m┌┬┐┌─┐┬ ┬┌─┐┬─┐┌┬┐[0m
-    \\[36m││││  ├─┤├─┤├┬┘│││[0m
-    \\[36m┴ ┴└─┘┴ ┴┴ ┴┴└─┴ ┴[0m
-    \\[2mμcharm - Beautiful CLIs with MicroPython[0m
     \\
+    \\  [36m[1mμcharm[0m [2mv0.1.0[0m
+    \\  [2mBeautiful CLIs with MicroPython[0m
     \\
 ;
 
 const usage =
-    \\[1mUSAGE:[0m
-    \\    mcharm <command> [options]
+    \\[1mUsage:[0m mcharm <command> [options]
     \\
-    \\[1mCOMMANDS:[0m
-    \\    build    Build a standalone executable
-    \\    new      Create a new μcharm project
-    \\    run      Run a script with micropython
+    \\[1mCommands:[0m
+    \\  [36mbuild[0m    Build a standalone executable
+    \\  [36mnew[0m      Create a new μcharm project
+    \\  [36mrun[0m      Run a script with micropython
     \\
-    \\[1mOPTIONS:[0m
-    \\    -h, --help       Show this help message
-    \\    -v, --version    Show version
+    \\[1mOptions:[0m
+    \\  -h, --help       Show this help
+    \\  -v, --version    Show version
     \\
-    \\[1mEXAMPLES:[0m
-    \\    mcharm new "My App"
-    \\    mcharm run myapp.py
-    \\    mcharm build myapp.py -o myapp
-    \\    mcharm build myapp.py -o app --mode universal
+    \\[1mExamples:[0m
+    \\  [2m$[0m mcharm new myapp
+    \\  [2m$[0m mcharm run myapp.py
+    \\  [2m$[0m mcharm build myapp.py -o myapp --mode universal
     \\
+    \\[2mDocs: https://github.com/niklas-heer/microcharm[0m
     \\
 ;
 

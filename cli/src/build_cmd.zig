@@ -3,15 +3,27 @@ const fs = std.fs;
 const Allocator = std.mem.Allocator;
 const io = @import("io.zig");
 
-const logo =
-    \\ 
-    \\[36m┌┬┐┌─┐┬ ┬┌─┐┬─┐┌┬┐[0m
-    \\[36m││││  ├─┤├─┤├┬┘│││[0m
-    \\[36m┴ ┴└─┘┴ ┴┴ ┴┴└─┴ ┴[0m
-    \\[2mμcharm - Beautiful CLIs with MicroPython[0m
-    \\
-    \\
-;
+// Embedded loader stubs for instant-startup universal binaries
+const stub_macos_aarch64 = @embedFile("stubs/loader-macos-aarch64");
+const stub_macos_x86_64 = @embedFile("stubs/loader-macos-x86_64");
+const stub_linux_x86_64 = @embedFile("stubs/loader-linux-x86_64");
+
+// Trailer format constants (must match loader/src/trailer.zig)
+const TRAILER_MAGIC: *const [8]u8 = "MCHARM01";
+const TRAILER_SIZE: usize = 48;
+
+// ANSI color codes
+const dim = "\x1b[2m";
+const bold = "\x1b[1m";
+const cyan = "\x1b[36m";
+const green = "\x1b[32m";
+const yellow = "\x1b[33m";
+const reset = "\x1b[0m";
+
+// Symbols
+const check = "✓";
+const arrow = "→";
+const bullet = "•";
 
 const Mode = enum {
     single,
@@ -65,8 +77,6 @@ pub fn run(allocator: Allocator, args: []const [:0]const u8) !void {
             script_path = arg;
         }
     }
-    
-
 
     if (script_path == null) {
         io.eprint("\x1b[31mError:\x1b[0m No input script specified\n", .{});
@@ -87,18 +97,19 @@ pub fn run(allocator: Allocator, args: []const [:0]const u8) !void {
     };
 
     // Print header
-    _ = io.stdout().write(logo) catch {};
-    io.print("Building \x1b[1m{s}\x1b[0m...\n", .{script});
-    io.print("Mode: \x1b[36m{s}\x1b[0m\n", .{@tagName(mode)});
-    io.print("Output: \x1b[36m{s}\x1b[0m\n\n", .{output_path.?});
+    io.print("\n", .{});
+    io.print(cyan ++ bold ++ "μcharm build" ++ reset ++ "\n", .{});
+    io.print(dim ++ "─────────────────────────────────────────" ++ reset ++ "\n", .{});
+    io.print(dim ++ "  Input:  " ++ reset ++ "{s}\n", .{script});
+    io.print(dim ++ "  Output: " ++ reset ++ "{s}\n", .{output_path.?});
+    io.print(dim ++ "  Mode:   " ++ reset ++ cyan ++ "{s}" ++ reset ++ "\n", .{@tagName(mode)});
+    io.print(dim ++ "─────────────────────────────────────────" ++ reset ++ "\n\n", .{});
 
     switch (mode) {
         .single => try buildSingle(allocator, script, output_path.?),
         .executable => try buildExecutable(allocator, script, output_path.?, prefer_native),
         .universal => try buildUniversal(allocator, script, output_path.?, prefer_native),
     }
-
-    io.print("\n\x1b[32mDone!\x1b[0m\n", .{});
 }
 
 fn buildSingle(allocator: Allocator, script: []const u8, output: []const u8) !void {
@@ -130,6 +141,207 @@ fn buildSingle(allocator: Allocator, script: []const u8, output: []const u8) !vo
     try appendSlice(&output_buffer, allocator, "#!/usr/bin/env micropython\n");
     try appendSlice(&output_buffer, allocator, "# Built with μcharm\n\n");
     try appendSlice(&output_buffer, allocator, "import sys\nimport time\n\n");
+
+    // Add constants that are normally from _native.py
+    try appendSlice(&output_buffer, allocator, "# Constants (from _native.py)\n");
+    try appendSlice(&output_buffer, allocator, "ALIGN_LEFT = 0\n");
+    try appendSlice(&output_buffer, allocator, "ALIGN_RIGHT = 1\n");
+    try appendSlice(&output_buffer, allocator, "ALIGN_CENTER = 2\n");
+    try appendSlice(&output_buffer, allocator, "BORDER_ROUNDED = 0\n");
+    try appendSlice(&output_buffer, allocator, "BORDER_SQUARE = 1\n");
+    try appendSlice(&output_buffer, allocator, "BORDER_DOUBLE = 2\n");
+    try appendSlice(&output_buffer, allocator, "BORDER_HEAVY = 3\n");
+    try appendSlice(&output_buffer, allocator, "BORDER_NONE = 4\n\n");
+
+    // Add pure Python ui class for MicroPython compatibility
+    try appendSlice(&output_buffer, allocator,
+        \\# Pure Python ui class (for MicroPython - replaces _native.ui)
+        \\class ui:
+        \\    _BOX_CHARS = {
+        \\        0: ('╭', '╮', '╰', '╯', '─', '│'),  # rounded
+        \\        1: ('┌', '┐', '└', '┘', '─', '│'),  # square
+        \\        2: ('╔', '╗', '╚', '╝', '═', '║'),  # double
+        \\        3: ('┏', '┓', '┗', '┛', '━', '┃'),  # heavy
+        \\        4: (' ', ' ', ' ', ' ', ' ', ' '),  # none
+        \\    }
+        \\    _SPINNER = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
+        \\
+        \\    @staticmethod
+        \\    def visible_len(s):
+        \\        i, length = 0, 0
+        \\        while i < len(s):
+        \\            if s[i] == '\x1b' and i + 1 < len(s) and s[i + 1] == '[':
+        \\                i += 2
+        \\                while i < len(s) and s[i] not in 'mHJK':
+        \\                    i += 1
+        \\                i += 1
+        \\            else:
+        \\                c = ord(s[i])
+        \\                if c < 128:
+        \\                    length += 1
+        \\                    i += 1
+        \\                elif c < 0xE0:
+        \\                    length += 1
+        \\                    i += 2
+        \\                elif c < 0xF0:
+        \\                    length += 2
+        \\                    i += 3
+        \\                else:
+        \\                    length += 2
+        \\                    i += 4
+        \\        return length
+        \\
+        \\    @staticmethod
+        \\    def pad(text, width, align=0):
+        \\        vis = ui.visible_len(text)
+        \\        if vis >= width:
+        \\            return text
+        \\        pad = width - vis
+        \\        if align == 1:  # right
+        \\            return ' ' * pad + text
+        \\        elif align == 2:  # center
+        \\            l = pad // 2
+        \\            return ' ' * l + text + ' ' * (pad - l)
+        \\        return text + ' ' * pad
+        \\
+        \\    @staticmethod
+        \\    def progress_bar(cur, total, width, fill='█', empty='░'):
+        \\        if total <= 0:
+        \\            return empty * width
+        \\        filled = int(width * cur / total)
+        \\        return fill * filled + empty * (width - filled)
+        \\
+        \\    @staticmethod
+        \\    def percent_str(cur, total):
+        \\        if total <= 0:
+        \\            return '0%'
+        \\        return str(int(100 * cur / total)) + '%'
+        \\
+        \\    @staticmethod
+        \\    def box_chars(style=0):
+        \\        c = ui._BOX_CHARS.get(style, ui._BOX_CHARS[0])
+        \\        return {'tl': c[0], 'tr': c[1], 'bl': c[2], 'br': c[3], 'h': c[4], 'v': c[5]}
+        \\
+        \\    @staticmethod
+        \\    def box_top(width, style=0):
+        \\        c = ui.box_chars(style)
+        \\        return c['tl'] + c['h'] * width + c['tr']
+        \\
+        \\    @staticmethod
+        \\    def box_bottom(width, style=0):
+        \\        c = ui.box_chars(style)
+        \\        return c['bl'] + c['h'] * width + c['br']
+        \\
+        \\    @staticmethod
+        \\    def box_middle(content, width, style=0, padding=1):
+        \\        c = ui.box_chars(style)
+        \\        pad = ' ' * padding
+        \\        inner_w = width - padding * 2
+        \\        return c['v'] + pad + ui.pad(content, inner_w) + pad + c['v']
+        \\
+        \\    @staticmethod
+        \\    def rule(width, char='─'):
+        \\        return char * width
+        \\
+        \\    @staticmethod
+        \\    def rule_with_title(width, title, char='─'):
+        \\        t = ' ' + title + ' '
+        \\        side = (width - len(t)) // 2
+        \\        return char * side + t + char * (width - side - len(t))
+        \\
+        \\    @staticmethod
+        \\    def spinner_frame(idx):
+        \\        return ui._SPINNER[idx % len(ui._SPINNER)]
+        \\
+        \\    @staticmethod
+        \\    def spinner_frame_count():
+        \\        return len(ui._SPINNER)
+        \\
+        \\    @staticmethod
+        \\    def symbol_success():
+        \\        return '✓'
+        \\
+        \\    @staticmethod
+        \\    def symbol_error():
+        \\        return '✗'
+        \\
+        \\    @staticmethod
+        \\    def symbol_warning():
+        \\        return '⚠'
+        \\
+        \\    @staticmethod
+        \\    def symbol_info():
+        \\        return 'ℹ'
+        \\
+        \\    @staticmethod
+        \\    def symbol_bullet():
+        \\        return '•'
+        \\
+        \\    @staticmethod
+        \\    def table_v():
+        \\        return '│'
+        \\
+        \\    @staticmethod
+        \\    def table_top(col_widths):
+        \\        return '┌' + '┬'.join('─' * w for w in col_widths) + '┐'
+        \\
+        \\    @staticmethod
+        \\    def table_divider(col_widths):
+        \\        return '├' + '┼'.join('─' * w for w in col_widths) + '┤'
+        \\
+        \\    @staticmethod
+        \\    def table_bottom(col_widths):
+        \\        return '└' + '┴'.join('─' * w for w in col_widths) + '┘'
+        \\
+        \\    @staticmethod
+        \\    def table_cell(content, width, align=0, padding=1):
+        \\        inner_w = width - padding * 2
+        \\        pad = ' ' * padding
+        \\        return pad + ui.pad(content, inner_w, align) + pad
+        \\
+        \\    @staticmethod
+        \\    def select_indicator():
+        \\        return '❯ '
+        \\
+        \\    @staticmethod
+        \\    def checkbox_on():
+        \\        return '◉'
+        \\
+        \\    @staticmethod
+        \\    def checkbox_off():
+        \\        return '○'
+        \\
+        \\    @staticmethod
+        \\    def prompt_question():
+        \\        return '? '
+        \\
+        \\    @staticmethod
+        \\    def prompt_success():
+        \\        return '✓ '
+        \\
+        \\    @staticmethod
+        \\    def cursor_up(n):
+        \\        return '\x1b[' + str(n) + 'A'
+        \\
+        \\    @staticmethod
+        \\    def cursor_down(n):
+        \\        return '\x1b[' + str(n) + 'B'
+        \\
+        \\    @staticmethod
+        \\    def clear_line():
+        \\        return '\x1b[2K\r'
+        \\
+        \\    @staticmethod
+        \\    def hide_cursor():
+        \\        return '\x1b[?25l'
+        \\
+        \\    @staticmethod
+        \\    def show_cursor():
+        \\        return '\x1b[?25h'
+        \\
+        \\
+    );
+
     try appendSlice(&output_buffer, allocator, "# === Embedded microcharm library ===\n\n");
 
     // Find microcharm directory - try relative paths
@@ -171,13 +383,48 @@ fn buildSingle(allocator: Allocator, script: []const u8, output: []const u8) !vo
 
         // Process content - skip relative imports and duplicate imports
         var lines = std.mem.splitSequence(u8, content, "\n");
+        var last_line_was_block_start = false;
+        var last_line_indent: usize = 0;
         while (lines.next()) |line| {
             const trimmed = std.mem.trim(u8, line, " \t");
-            if (std.mem.startsWith(u8, trimmed, "from .")) continue;
-            if (std.mem.eql(u8, trimmed, "import sys")) continue;
-            if (std.mem.eql(u8, trimmed, "import time")) continue;
+
+            // Calculate indentation of this line
+            var indent: usize = 0;
+            for (line) |c| {
+                if (c == ' ') {
+                    indent += 1;
+                } else if (c == '\t') {
+                    indent += 4;
+                } else {
+                    break;
+                }
+            }
+
+            // Skip relative imports and duplicate imports
+            const should_skip = std.mem.startsWith(u8, trimmed, "from .") or
+                std.mem.eql(u8, trimmed, "import sys") or
+                std.mem.eql(u8, trimmed, "import time");
+
+            if (should_skip) {
+                // If previous line ended with :, add pass at proper indentation
+                if (last_line_was_block_start) {
+                    // Add indentation (use current line's indent which is block body indent)
+                    var i: usize = 0;
+                    while (i < indent) : (i += 1) {
+                        try output_buffer.append(allocator, ' ');
+                    }
+                    try appendSlice(&output_buffer, allocator, "pass\n");
+                    last_line_was_block_start = false;
+                }
+                continue;
+            }
+
             try appendSlice(&output_buffer, allocator, line);
             try output_buffer.append(allocator, '\n');
+
+            // Track if this line starts a block (ends with :)
+            last_line_was_block_start = trimmed.len > 0 and trimmed[trimmed.len - 1] == ':';
+            last_line_indent = indent;
         }
         try output_buffer.append(allocator, '\n');
     }
@@ -224,7 +471,7 @@ fn buildSingle(allocator: Allocator, script: []const u8, output: []const u8) !vo
     defer file_for_chmod.close();
     try file_for_chmod.chmod(0o755);
 
-    io.print("Created: {s} ({d} bytes)\n", .{ output, output_buffer.items.len });
+    io.print(green ++ check ++ reset ++ " Bundled Python code " ++ dim ++ "({d} bytes)" ++ reset ++ "\n", .{output_buffer.items.len});
 }
 
 fn buildExecutable(allocator: Allocator, script: []const u8, output: []const u8, prefer_native: bool) !void {
@@ -276,7 +523,14 @@ fn buildExecutable(allocator: Allocator, script: []const u8, output: []const u8,
     defer file_for_chmod.close();
     try file_for_chmod.chmod(0o755);
 
-    io.print("Created: {s} ({d} bytes)\n", .{ output, wrapper.items.len });
+    io.print(green ++ check ++ reset ++ " Created shell wrapper " ++ dim ++ "({d} bytes)" ++ reset ++ "\n", .{wrapper.items.len});
+    io.print("\n" ++ dim ++ "─────────────────────────────────────────" ++ reset ++ "\n", .{});
+    io.print(green ++ bold ++ check ++ " Built successfully!" ++ reset ++ "\n", .{});
+    if (output[0] == '/') {
+        io.print(dim ++ "  Run with: " ++ reset ++ "{s}\n\n", .{output});
+    } else {
+        io.print(dim ++ "  Run with: " ++ reset ++ "./{s}\n\n", .{output});
+    }
 }
 
 fn buildUniversal(allocator: Allocator, script: []const u8, output: []const u8, prefer_native: bool) !void {
@@ -291,11 +545,11 @@ fn buildUniversal(allocator: Allocator, script: []const u8, output: []const u8, 
     // Find and read micropython binary (prefer native build with term/ansi modules)
     const mpy_info = findMicropythonWithInfo(prefer_native);
     const mpy_path = mpy_info.path;
-    
+
     if (mpy_info.is_native) {
-        io.print("Using: \x1b[32mmicropython-mcharm\x1b[0m (with native modules)\n", .{});
+        io.print(green ++ check ++ reset ++ " Using " ++ bold ++ "micropython-mcharm" ++ reset ++ dim ++ " (18 native modules)" ++ reset ++ "\n", .{});
     } else {
-        io.print("Using: \x1b[33mstandard micropython\x1b[0m (native modules not available)\n", .{});
+        io.print(yellow ++ bullet ++ reset ++ " Using " ++ bold ++ "standard micropython" ++ reset ++ dim ++ " (native modules not available)" ++ reset ++ "\n", .{});
     }
 
     // Open micropython binary (handle both absolute and relative paths)
@@ -312,60 +566,77 @@ fn buildUniversal(allocator: Allocator, script: []const u8, output: []const u8, 
     defer allocator.free(mpy_binary);
     _ = try mpy_file.readAll(mpy_binary);
 
-    // Calculate content hash for caching
-    var hasher = std.crypto.hash.Md5.init(.{});
-    const hash_len = @min(1000, mpy_binary.len);
-    hasher.update(mpy_binary[0..hash_len]);
-    const py_hash_len = @min(1000, py_content.len);
-    hasher.update(py_content[0..py_hash_len]);
-    var hash: [16]u8 = undefined;
-    hasher.final(&hash);
+    // Select loader stub for host platform
+    const stub = selectLoaderStub();
+    io.print(green ++ check ++ reset ++ " Selected loader " ++ bold ++ "{s}" ++ reset ++ dim ++ " ({d} KB)" ++ reset ++ "\n", .{ stub.name, stub.data.len / 1024 });
 
-    var hash_hex: [8]u8 = undefined;
-    const hex_chars = "0123456789abcdef";
-    for (0..4) |idx| {
-        hash_hex[idx * 2] = hex_chars[hash[idx] >> 4];
-        hash_hex[idx * 2 + 1] = hex_chars[hash[idx] & 0x0f];
-    }
+    // Calculate offsets for trailer
+    const stub_size: u64 = stub.data.len;
+    const micropython_offset: u64 = stub_size;
+    const micropython_size: u64 = mpy_size;
+    const python_offset: u64 = micropython_offset + micropython_size;
+    const python_size: u64 = py_content.len;
 
-    // Create header (must be exactly 4096 bytes for block alignment)
-    const BLOCK_SIZE: usize = 4096;
-    var header_buf: [BLOCK_SIZE]u8 = undefined;
-    @memset(&header_buf, '#');
+    // Build trailer (48 bytes)
+    var trailer: [TRAILER_SIZE]u8 = undefined;
+    @memcpy(trailer[0..8], TRAILER_MAGIC);
+    std.mem.writeInt(u64, trailer[8..16], micropython_offset, .little);
+    std.mem.writeInt(u64, trailer[16..24], micropython_size, .little);
+    std.mem.writeInt(u64, trailer[24..32], python_offset, .little);
+    std.mem.writeInt(u64, trailer[32..40], python_size, .little);
+    @memcpy(trailer[40..48], TRAILER_MAGIC);
 
-    var header_stream = std.io.fixedBufferStream(&header_buf);
-    const hw = header_stream.writer();
-
-    hw.print(
-        \\#!/bin/bash
-        \\H={s};C="$HOME/.cache/microcharm/$H"
-        \\if [ -x "$C/m" ] && [ -f "$C/a.py" ]; then exec "$C/m" "$C/a.py" "$@"; fi
-        \\mkdir -p "$C";S="$0"
-        \\dd bs=4096 skip=1 if="$S" 2>/dev/null|head -c {d} >"$C/m";chmod +x "$C/m"
-        \\tail -c {d} "$S">"$C/a.py";exec "$C/m" "$C/a.py" "$@"
-        \\
-    , .{ hash_hex, mpy_size, py_content.len }) catch {};
-
-    // Pad with newline at end
-    const pos = header_stream.pos;
-    header_buf[pos] = '\n';
-    header_buf[BLOCK_SIZE - 1] = '\n';
-
-    // Write universal binary
+    // Write universal binary: [stub][micropython][python][trailer]
     const output_file = try fs.cwd().createFile(output, .{});
     defer output_file.close();
 
-    try output_file.writeAll(&header_buf);
+    try output_file.writeAll(stub.data);
     try output_file.writeAll(mpy_binary);
     try output_file.writeAll(py_content);
+    try output_file.writeAll(&trailer);
 
     const file_for_chmod = try fs.cwd().openFile(output, .{ .mode = .read_write });
     defer file_for_chmod.close();
     try file_for_chmod.chmod(0o755);
 
-    const total_size = BLOCK_SIZE + mpy_size + py_content.len;
-    io.print("Created: {s} ({d} bytes)\n", .{ output, total_size });
-    io.print("This is a universal binary - no dependencies required!\n", .{});
+    const total_size = stub.data.len + mpy_size + py_content.len + TRAILER_SIZE;
+    const total_kb = total_size / 1024;
+    io.print(green ++ check ++ reset ++ " Wrote universal binary " ++ dim ++ "({d} KB)" ++ reset ++ "\n", .{total_kb});
+
+    // Success summary
+    io.print("\n" ++ dim ++ "─────────────────────────────────────────" ++ reset ++ "\n", .{});
+    io.print(green ++ bold ++ check ++ " Built successfully!" ++ reset ++ "\n", .{});
+    io.print(dim ++ "  Output:  " ++ reset ++ "{s}\n", .{output});
+    io.print(dim ++ "  Size:    " ++ reset ++ "{d} KB " ++ dim ++ "(standalone, no dependencies)" ++ reset ++ "\n", .{total_kb});
+    io.print(dim ++ "  Startup: " ++ reset ++ "~6ms " ++ dim ++ "(instant)" ++ reset ++ "\n", .{});
+    // Show run command - handle absolute vs relative paths
+    if (output[0] == '/') {
+        io.print("\n" ++ dim ++ "  Run with: " ++ reset ++ "{s}\n\n", .{output});
+    } else {
+        io.print("\n" ++ dim ++ "  Run with: " ++ reset ++ "./{s}\n\n", .{output});
+    }
+}
+
+const LoaderStub = struct {
+    name: []const u8,
+    data: []const u8,
+};
+
+fn selectLoaderStub() LoaderStub {
+    // Select based on host OS and architecture
+    const os = @import("builtin").os.tag;
+    const arch = @import("builtin").cpu.arch;
+
+    if (os == .macos) {
+        if (arch == .aarch64) {
+            return .{ .name = "macos-aarch64", .data = stub_macos_aarch64 };
+        } else {
+            return .{ .name = "macos-x86_64", .data = stub_macos_x86_64 };
+        }
+    } else {
+        // Linux (and other Unix-like)
+        return .{ .name = "linux-x86_64", .data = stub_linux_x86_64 };
+    }
 }
 
 fn findMicropython(prefer_native: bool) ![]const u8 {
@@ -427,7 +698,7 @@ fn findMicropythonWithInfo(prefer_native: bool) struct { path: []const u8, is_na
         "/usr/local/bin/micropython-mcharm",
         "/opt/homebrew/bin/micropython-mcharm",
     };
-    
+
     const native_rel_paths = [_][]const u8{
         "native/dist/micropython-mcharm",
         "../native/dist/micropython-mcharm",
