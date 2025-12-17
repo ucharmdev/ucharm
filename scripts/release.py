@@ -86,7 +86,8 @@ def main():
 
     # Get current version
     current = get_current_version()
-    info(f"Current version: {style(f'v{current}', fg='green', bold=True)}")
+    version_styled = style("v" + current, fg="green", bold=True)
+    info("Current version: " + version_styled)
     print()
 
     # Show recent commits
@@ -131,7 +132,8 @@ def main():
     print()
 
     # Confirm
-    print(f"  Will create release: {style(f'v{new_version}', fg='cyan', bold=True)}")
+    release_styled = style("v" + new_version, fg="cyan", bold=True)
+    print("  Will create release: " + release_styled)
     print()
 
     if not confirm("Continue?"):
