@@ -16,8 +16,9 @@
 │        MicroPython VM               │
 │   (bytecode interpreter)            │
 ├─────────────────────────────────────┤
-│   Native Modules (C → MicroPython)  │
-│   term, ansi (more planned)         │
+│   Native Modules (Zig → C ABI)      │
+│   18 modules: term, ansi, subprocess│
+│   signal, csv, functools, etc.      │
 ├─────────────────────────────────────┤
 │        Single Binary                │
 │   (universal, no dependencies)      │
@@ -35,25 +36,47 @@ microcharm/
 │   │   ├── new_cmd.zig       # Project scaffolding
 │   │   ├── run_cmd.zig       # Run Python scripts
 │   │   ├── io.zig            # Shared I/O utilities
-│   │   └── tests.zig         # Unit tests
+│   │   ├── tests.zig         # Unit tests
+│   │   └── stubs/            # Embedded loader binaries for universal mode
+│   │       ├── loader-macos-aarch64
+│   │       ├── loader-macos-x86_64
+│   │       └── loader-linux-x86_64
 │   ├── build.zig             # Zig build configuration
 │   └── test_e2e.sh           # End-to-end test suite
-├── native/                   # Native C modules for MicroPython
-│   ├── term/
-│   │   ├── modterm.c         # Terminal control (size, raw mode, keys)
-│   │   └── micropython.mk
-│   ├── ansi/
-│   │   ├── modansi.c         # ANSI escape codes (colors, styles)
-│   │   └── micropython.mk
-│   ├── build.sh              # Builds custom micropython-mcharm
-│   └── README.md
+├── loader/                   # Universal binary loader (Zig)
+│   ├── src/
+│   │   ├── main.zig          # Entry: read self, parse trailer, exec
+│   │   ├── trailer.zig       # Parse 48-byte trailer format
+│   │   └── executor.zig      # Platform-specific execution
+│   └── build.zig             # Multi-target build (3 platforms)
+├── native/                   # Native Zig modules (C ABI for MicroPython)
+│   ├── term/                 # Terminal control
+│   ├── ansi/                 # ANSI color codes
+│   ├── args/                 # CLI argument parsing
+│   ├── base64/               # Base64 encoding (4x faster)
+│   ├── csv/                  # CSV parsing (RFC 4180)
+│   ├── datetime/             # Date/time operations
+│   ├── functools/            # reduce, partial, cmp_to_key
+│   ├── glob/                 # File pattern matching
+│   ├── itertools/            # Iterators (count, cycle, chain, etc.)
+│   ├── logging/              # Logging framework
+│   ├── path/                 # Path manipulation
+│   ├── shutil/               # File operations
+│   ├── signal/               # Signal handling (6.6x faster)
+│   ├── statistics/           # Statistical functions (16x faster)
+│   ├── subprocess/           # Process spawning
+│   ├── tempfile/             # Temporary files
+│   ├── textwrap/             # Text wrapping
+│   ├── build.sh              # Builds micropython-mcharm
+│   └── dist/                 # Built micropython-mcharm binary
 ├── microcharm/               # Python TUI library
-│   ├── __init__.py
-│   ├── terminal.py           # Terminal ops (uses native term if available)
-│   ├── style.py              # Text styling (uses native ansi if available)
+│   ├── __init__.py           # Public API
+│   ├── terminal.py           # Terminal ops
+│   ├── style.py              # Text styling
 │   ├── components.py         # UI components (boxes, spinners, progress)
 │   ├── input.py              # Interactive input (select, confirm, prompt)
-│   └── table.py              # Table rendering
+│   ├── table.py              # Table rendering
+│   └── ...                   # Other utilities
 ├── examples/
 │   ├── simple_cli.py         # Demo of all features
 │   ├── demo.py               # Quick demo
@@ -88,40 +111,136 @@ cd native && ./build.sh
 
 | Mode | Output | Size | Dependencies |
 |------|--------|------|--------------|
-| `single` | Bundled .py file | ~37KB | Requires micropython |
-| `executable` | Bash wrapper + base64 | ~50KB | Requires micropython |
-| `universal` | Self-extracting binary | ~690KB | None (fully standalone) |
+| `single` | Bundled .py file | ~41KB | Requires micropython |
+| `executable` | Bash wrapper + base64 | ~55KB | Requires micropython |
+| `universal` | Native loader binary | ~945KB | None (fully standalone) |
+
+### Universal Binary Format
+
+Universal binaries use a native Zig loader for instant startup:
+
+```
+┌────────────────────────────────────────┐
+│  Zig Loader Stub (~98KB)               │  ← Native executable
+├────────────────────────────────────────┤
+│  MicroPython Binary (~806KB)           │  ← Interpreter + 18 native modules
+├────────────────────────────────────────┤
+│  Python Code (~41KB)                   │  ← User app + microcharm
+├────────────────────────────────────────┤
+│  Trailer (48 bytes)                    │  ← Offsets and magic
+└────────────────────────────────────────┘
+```
+
+**Trailer format (48 bytes):**
+- 8 bytes: magic `MCHARM01`
+- 8 bytes: micropython_offset (u64 LE)
+- 8 bytes: micropython_size (u64 LE)  
+- 8 bytes: python_offset (u64 LE)
+- 8 bytes: python_size (u64 LE)
+- 8 bytes: magic `MCHARM01`
+
+**Platform-specific execution:**
+- **Linux**: Uses `memfd_create` for zero-disk execution (~2ms)
+- **macOS**: Extracts to `/tmp/mcharm-{hash}/` with caching (~6ms cached)
 
 ## Native Modules
 
-The custom `micropython-mcharm` binary includes native C modules:
+The custom `micropython-mcharm` binary includes 18 native Zig modules:
 
-### term module
+### term module - Terminal Control
 ```python
 import term
 cols, rows = term.size()       # Terminal dimensions
 term.raw_mode(True)            # Enable raw input
 key = term.read_key()          # Read single keypress
 term.cursor_pos(x, y)          # Move cursor
-term.cursor_up(n), term.cursor_down(n)
 term.clear(), term.clear_line()
 term.hide_cursor(), term.show_cursor()
-term.is_tty()                  # Check if TTY
-term.write(text)               # Unbuffered write
 ```
 
-### ansi module
+### ansi module - ANSI Colors
 ```python
 import ansi
 ansi.fg("red")                 # Foreground color (name)
 ansi.fg("#ff5500")             # Foreground color (hex)
-ansi.fg(196)                   # Foreground color (256-color)
 ansi.bg("blue")                # Background color
-ansi.rgb(255, 100, 0)          # 24-bit color
 ansi.bold(), ansi.dim(), ansi.italic()
-ansi.underline(), ansi.strikethrough()
 ansi.reset()                   # Reset all styles
 ```
+
+### subprocess module - Process Spawning (1.5x faster shell)
+```python
+import subprocess
+result = subprocess.run(["ls", "-la"])
+output = subprocess.check_output(["echo", "hello"])
+status = subprocess.call(["make", "build"])
+text = subprocess.getoutput("ls -la | head -5")
+```
+
+### signal module - Signal Handling (6.6x faster)
+```python
+import signal
+signal.signal(signal.SIGINT, handler)
+signal.alarm(5)                # Set alarm
+signal.kill(pid, signal.SIGTERM)
+pid = signal.getpid()
+```
+
+### csv module - CSV Parsing (RFC 4180)
+```python
+import csv
+row = csv.parse("a,b,c")       # ['a', 'b', 'c']
+line = csv.format(["a", "b"])  # 'a,b'
+reader = csv.reader(file_obj)
+writer = csv.writer(file_obj)
+```
+
+### functools module
+```python
+import functools
+functools.reduce(lambda a,b: a+b, [1,2,3])  # 6
+add5 = functools.partial(add, 5)
+sorted(items, key=functools.cmp_to_key(cmp_func))
+```
+
+### itertools module
+```python
+import itertools
+itertools.count(10)            # 10, 11, 12, ...
+itertools.cycle([1,2,3])       # 1, 2, 3, 1, 2, 3, ...
+itertools.chain([1,2], [3,4])  # 1, 2, 3, 4
+itertools.islice(iter, 5)      # First 5 elements
+itertools.takewhile(pred, iter)
+itertools.dropwhile(pred, iter)
+```
+
+### logging module
+```python
+import logging
+logging.basicConfig(level=logging.DEBUG)
+logging.debug("Debug message")
+logging.info("Info message")
+logging.warning("Warning!")
+logging.error("Error occurred")
+logger = logging.getLogger("myapp")
+```
+
+### statistics module (16x faster)
+```python
+import statistics
+statistics.mean([1, 2, 3, 4, 5])      # 3.0
+statistics.median([1, 2, 3, 4, 5])    # 3.0
+statistics.stdev([1, 2, 3, 4, 5])     # 1.58...
+```
+
+### Other Native Modules
+- `base64` - Fast base64 encode/decode (4x faster)
+- `datetime` - now, utcnow, timestamp, isoformat
+- `glob` / `fnmatch` - File pattern matching
+- `path` - basename, dirname, join, normalize
+- `shutil` - copy, move, rmtree, exists, isfile
+- `tempfile` - gettempdir, mkstemp, mkdtemp
+- `textwrap` - wrap, fill, dedent, indent
 
 ## Python Library
 
@@ -144,34 +263,32 @@ Otherwise, it falls back to pure Python implementations.
 
 | Runtime | Time | Memory |
 |---------|------|--------|
-| μcharm universal (cached) | ~0ms | 1.8MB |
+| μcharm universal (cached) | ~6ms | 1.8MB |
 | micropython-mcharm | ~0ms | 1.6MB |
 | python3 | ~10ms | 15MB |
 | uv run python | ~30ms | 26MB |
 
-### Compute (Fibonacci 30)
+### Native Module Performance vs CPython
 
-| Runtime | Time | Notes |
-|---------|------|-------|
-| python3 | 80ms | CPython, fastest |
-| micropython-mcharm | 110ms | With native modules |
-| micropython | 140ms | Standard build |
-
-### Loop (1M iterations)
-
-| Runtime | Time |
-|---------|------|
-| micropython | 30ms |
-| micropython-mcharm | 30ms |
-| python3 | 60ms |
+| Operation | μcharm | CPython | Speedup |
+|-----------|--------|---------|---------|
+| signal getsignal | 31.6M ops/s | 4.8M ops/s | **6.6x faster** |
+| signal setup | 3.1M ops/s | 953K ops/s | **3.2x faster** |
+| statistics (16x faster) | 3ms | 50ms | **16.7x faster** |
+| base64 (10K ops) | 5ms | 20ms | **4x faster** |
+| csv format | 1.2M ops/s | 747K ops/s | **1.6x faster** |
+| subprocess shell | 2.74ms | 4.24ms | **1.5x faster** |
+| subprocess capture | 1.54ms | 1.99ms | **1.3x faster** |
 
 ### Binary Sizes
 
 | Output | Size |
 |--------|------|
-| Universal binary (simple app) | ~690KB |
-| micropython-mcharm binary | 653KB |
-| mcharm CLI tool | 1.5MB |
+| Universal binary (full app) | ~945KB |
+| micropython-mcharm binary | ~806KB |
+| mcharm CLI tool | ~220KB |
+| Loader stub (macos-aarch64) | ~98KB |
+| Loader stub (linux-x86_64) | ~45KB |
 | Go hello world (typical) | 1.2-2MB |
 | Python installation | ~77MB |
 
@@ -179,16 +296,71 @@ Otherwise, it falls back to pure Python implementations.
 
 1. **Edit Python library**: `microcharm/*.py`
 2. **Edit CLI**: `cli/src/*.zig`
-3. **Edit native modules**: `native/*/mod*.c`
-4. **Run tests**: `cd cli && zig build test && ./test_e2e.sh`
-5. **Rebuild native MicroPython**: `cd native && ./build.sh`
+3. **Edit loader**: `loader/src/*.zig`
+4. **Edit native modules**: `native/*/` (Zig + C bridge)
+5. **Run tests**: `cd cli && zig build test && ./test_e2e.sh`
+6. **Test native modules**: `./native/dist/micropython-mcharm native/<module>/test_<module>.py`
+7. **Rebuild native MicroPython**: `cd native && ./build.sh`
+8. **Rebuild CLI**: `cd cli && zig build -Doptimize=ReleaseSmall`
 
 ## Adding Native Modules
 
-1. Create `native/modulename/modname.c`
-2. Create `native/modulename/micropython.mk`
-3. Add to `native/build.sh` USER_C_MODULES path
-4. Rebuild: `cd native && ./build.sh`
+Each native module follows this pattern:
+
+```
+native/modulename/
+├── modulename.zig      # Core Zig implementation
+├── modmodulename.c     # MicroPython C API bridge
+├── mpy_bridge.h        # Bridge macros (shared)
+├── micropython.mk      # MicroPython build integration
+├── build.zig           # Zig build for static library
+└── test_modulename.py  # Tests (work on both μcharm and CPython)
+```
+
+Steps:
+1. Create module directory with files above
+2. Implement Zig logic in `modulename.zig`
+3. Create C bridge using `mpy_bridge.h` macros
+4. Add to `native/build.sh` USER_C_MODULES path
+5. Rebuild: `cd native && ./build.sh`
+6. Test: `./native/dist/micropython-mcharm native/modulename/test_modulename.py`
+
+## Testing Interactive Components
+
+For automated testing of interactive CLI components (select, confirm, prompt, etc.), 
+microcharm supports two methods of injecting keystrokes:
+
+### Method 1: Environment Variable (works everywhere)
+```bash
+# Comma-separated key names
+MCHARM_TEST_KEYS="down,down,enter" ./my_app
+
+# Key names: up, down, left, right, enter, space, escape, backspace, tab
+# Single characters are sent as-is: MCHARM_TEST_KEYS="y" ./my_app
+```
+
+### Method 2: File Descriptor 3 (CPython only)
+```bash
+# Newline-separated key names via fd 3
+echo -e "down\ndown\nenter" | ./my_app 3<&0
+
+# Or from a file
+./my_app 3< keystrokes.txt
+```
+
+**Note:** File descriptor 3 only works with CPython. MicroPython (universal binaries) 
+must use the environment variable method.
+
+### Example Test Script
+```bash
+#!/bin/bash
+# Test select component
+if MCHARM_TEST_KEYS="down,enter" ./my_app 2>&1 | grep -q "Option 2"; then
+    echo "PASS: Select works"
+else
+    echo "FAIL: Select broken"
+fi
+```
 
 ## Common Issues
 
@@ -198,14 +370,18 @@ Install: `brew install micropython` or build custom: `cd native && ./build.sh`
 ### "term module not found"
 Use standard micropython (falls back to Python) or build `micropython-mcharm`
 
-### Build fails on Linux
-The native module build currently targets macOS. Linux support planned.
+### Build on Linux
+The native modules use POSIX APIs (termios, ioctl) that work on both macOS and Linux.
+Run `cd native && ./build.sh` on Linux to build micropython-mcharm with native modules.
+Universal binaries use `memfd_create` on Linux for zero-disk execution.
 
 ## Roadmap
 
 See `TODO.md` for full roadmap. Current status:
-- ✅ Phase 1: Native term and ansi modules
+- ✅ Phase 1: Native modules (term, ansi, base64, statistics, etc.)
 - ✅ Phase 2: Python library integration
-- 🔲 Phase 3: Tree-shaking for smaller binaries
-- 🔲 Phase 4: Compatibility checker (`mcharm check`)
-- 🔲 Phase 5: Developer experience (`mcharm init`, `mcharm dev`)
+- ✅ Phase 3: Native Zig loader for universal binaries (instant startup)
+- ✅ Phase 4: CLI stdlib modules (subprocess, signal, csv, functools, itertools, logging)
+- 🔲 Phase 5: Remaining stdlib (contextlib, copy, enum, uuid)
+- 🔲 Phase 6: Tree-shaking for smaller binaries
+- 🔲 Phase 7: Developer experience (`mcharm check`, `mcharm dev`)
