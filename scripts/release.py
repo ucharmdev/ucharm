@@ -2,14 +2,17 @@
 """
 Interactive release script for ucharm - built with ucharm!
 Creates a new version tag and pushes it to trigger the release workflow.
+
+Run with: ucharm run scripts/release.py
 """
 
-import os
 import subprocess
 import sys
 
-# Add parent directory to path for ucharm import
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Add ucharm library to path (works for both MicroPython and CPython)
+# When run from repo root, this adds the ucharm package
+sys.path.insert(0, ".")
+sys.path.insert(0, "..")
 
 from ucharm import box, confirm, error, info, rule, select, style, success, warning
 

@@ -59,7 +59,7 @@ fmt-check:
 
 # Create a new release (interactive) - built with ucharm!
 release:
-    python3 scripts/release.py
+    ./cli/zig-out/bin/ucharm run scripts/release.py
 
 # Show binary size breakdown
 size:
