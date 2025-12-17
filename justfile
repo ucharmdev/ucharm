@@ -26,11 +26,11 @@ test-e2e:
 
 # Run a Python script with ucharm
 run script:
-    ./cli/zig-out/bin/ucharm run {{script}}
+    ./cli/zig-out/bin/ucharm run {{ script }}
 
 # Build a universal binary from a Python script
 build-app script output="app":
-    ./cli/zig-out/bin/ucharm build {{script}} -o {{output}} --mode universal
+    ./cli/zig-out/bin/ucharm build {{ script }} -o {{ output }} --mode universal
 
 # Build custom MicroPython with native modules
 build-micropython:
@@ -57,9 +57,9 @@ fmt:
 fmt-check:
     cd cli && zig fmt --check src/
 
-# Create a new release (interactive)
+# Create a new release (interactive) - built with ucharm!
 release:
-    ./scripts/release.sh
+    python3 scripts/release.py
 
 # Show binary size breakdown
 size:
@@ -102,4 +102,4 @@ watch:
 
 # Generate Homebrew formula (after release)
 homebrew version:
-    ./scripts/update-homebrew.sh {{version}}
+    ./scripts/update-homebrew.sh {{ version }}
