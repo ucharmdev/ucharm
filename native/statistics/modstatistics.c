@@ -1,5 +1,5 @@
 /*
- * modstatistics - Native statistics module for microcharm
+ * modstatistics - Native statistics module for ucharm
  * 
  * This module bridges Zig's statistics implementation to MicroPython.
  * 

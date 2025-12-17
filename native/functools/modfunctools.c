@@ -1,5 +1,5 @@
 /*
- * modfunctools - Native functools module for microcharm
+ * modfunctools - Native functools module for ucharm
  * 
  * Provides Python's functools functionality:
  * - reduce(function, iterable[, initializer])

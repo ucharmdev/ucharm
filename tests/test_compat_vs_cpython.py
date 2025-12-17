@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Test suite: Verify microcharm compat modules match CPython behavior.
+Test suite: Verify ucharm compat modules match CPython behavior.
 
 This test runs on CPython and compares our compat implementations
 against the real stdlib to ensure correctness.
@@ -46,7 +46,7 @@ def test_base64():
 
     import base64 as cpython_base64
 
-    from microcharm.compat import base64 as compat_base64
+    from ucharm.compat import base64 as compat_base64
 
     test_cases = [
         b"",
@@ -115,7 +115,7 @@ def test_datetime():
 
     import datetime as cpython_datetime
 
-    from microcharm.compat import datetime as compat_datetime
+    from ucharm.compat import datetime as compat_datetime
 
     # Test datetime creation
     test_dates = [
@@ -202,7 +202,7 @@ def test_fnmatch():
 
     import fnmatch as cpython_fnmatch
 
-    from microcharm.compat import fnmatch as compat_fnmatch
+    from ucharm.compat import fnmatch as compat_fnmatch
 
     test_cases = [
         # (name, pattern, expected_match)
@@ -256,7 +256,7 @@ def test_statistics():
 
     import statistics as cpython_stats
 
-    from microcharm.compat import statistics as compat_stats
+    from ucharm.compat import statistics as compat_stats
 
     test_data = [
         [1, 2, 3, 4, 5],
@@ -353,7 +353,7 @@ def test_textwrap():
 
     import textwrap as cpython_textwrap
 
-    from microcharm.compat import textwrap as compat_textwrap
+    from ucharm.compat import textwrap as compat_textwrap
 
     test_strings = [
         "Hello world",
@@ -425,7 +425,7 @@ def test_copy():
 
     import copy as cpython_copy
 
-    from microcharm.compat import copy as compat_copy
+    from ucharm.compat import copy as compat_copy
 
     # Simple types (should be identical)
     simple_values = [1, 3.14, "hello", True, None, (1, 2, 3)]
@@ -488,7 +488,7 @@ def test_functools():
 
     import functools as cpython_functools
 
-    from microcharm.compat import functools as compat_functools
+    from ucharm.compat import functools as compat_functools
 
     # reduce
     test_cases = [
@@ -561,7 +561,7 @@ def test_pathlib():
 
     from pathlib import Path as CPythonPath
 
-    from microcharm.compat.pathlib import Path as CompatPath
+    from ucharm.compat.pathlib import Path as CompatPath
 
     test_paths = [
         "/usr/local/bin/python",

@@ -1,5 +1,5 @@
 /*
- * modsignal - Native signal handling module for microcharm
+ * modsignal - Native signal handling module for ucharm
  * 
  * This module bridges Zig's signal implementation to MicroPython.
  * Compatible with Python's signal module API.

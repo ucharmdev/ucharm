@@ -5,7 +5,7 @@ import sys
 
 sys.path.insert(0, ".")
 
-from microcharm.input import prompt
+from ucharm.input import prompt
 
 result = prompt("Enter your name:")
 if result:

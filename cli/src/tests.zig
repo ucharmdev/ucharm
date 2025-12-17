@@ -101,11 +101,11 @@ test "hash hex conversion" {
 }
 
 test "import line detection" {
-    // Test detection of microcharm import lines for filtering
+    // Test detection of ucharm import lines for filtering
     const lines = [_][]const u8{
-        "from microcharm import style",
-        "import microcharm",
-        "from microcharm.table import table",
+        "from ucharm import style",
+        "import ucharm",
+        "from ucharm.table import table",
         "import os",
         "print('hello')",
     };
@@ -113,8 +113,8 @@ test "import line detection" {
     const expected_skip = [_]bool{ true, true, true, false, false };
 
     for (lines, 0..) |line, i| {
-        const should_skip = std.mem.indexOf(u8, line, "from microcharm") != null or
-            std.mem.indexOf(u8, line, "import microcharm") != null;
+        const should_skip = std.mem.indexOf(u8, line, "from ucharm") != null or
+            std.mem.indexOf(u8, line, "import ucharm") != null;
         try testing.expectEqual(expected_skip[i], should_skip);
     }
 }
@@ -137,7 +137,7 @@ test "sys.path line detection" {
 
 test "multiline import detection" {
     // Test detecting opening paren without closing paren
-    const test_line = "from microcharm import (";
+    const test_line = "from ucharm import (";
     const has_open = std.mem.indexOf(u8, test_line, "(") != null;
     const has_close = std.mem.indexOf(u8, test_line, ")") != null;
 
@@ -162,7 +162,7 @@ test "block size alignment" {
     // Header must fit within block size
     const sample_header =
         \\#!/bin/bash
-        \\H=abcd1234;C="$HOME/.cache/microcharm/$H"
+        \\H=abcd1234;C="$HOME/.cache/ucharm/$H"
         \\if [ -x "$C/m" ] && [ -f "$C/a.py" ]; then exec "$C/m" "$C/a.py" "$@"; fi
         \\mkdir -p "$C";S="$0"
         \\dd bs=4096 skip=1 if="$S" 2>/dev/null|head -c 700000 >"$C/m";chmod +x "$C/m"

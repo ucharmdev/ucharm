@@ -6,7 +6,7 @@ const io = @import("io.zig");
 pub fn run(allocator: Allocator, args: []const [:0]const u8) !void {
     if (args.len < 1) {
         io.eprint("\x1b[31mError:\x1b[0m No script specified\n", .{});
-        io.eprint("Usage: mcharm run <script.py> [args...]\n", .{});
+        io.eprint("Usage: ucharm run <script.py> [args...]\n", .{});
         std.process.exit(1);
     }
 

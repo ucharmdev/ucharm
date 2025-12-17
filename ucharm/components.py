@@ -1,7 +1,7 @@
-# microcharm/components.py - UI components
+# ucharm/components.py - UI components
 """
 UI components for building beautiful CLI applications.
-All rendering is done natively in Zig via libmicrocharm.
+All rendering is done natively in Zig via libucharm.
 """
 
 import sys

@@ -1,5 +1,5 @@
 /*
- * modpathlib - Native path operations module for microcharm
+ * modpathlib - Native path operations module for ucharm
  * 
  * This module bridges Zig's pathlib implementation to MicroPython.
  * Provides low-level path manipulation functions.

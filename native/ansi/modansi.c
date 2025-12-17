@@ -1,5 +1,5 @@
 /*
- * modansi - Native ANSI escape code module for microcharm
+ * modansi - Native ANSI escape code module for ucharm
  * 
  * C bridge that wraps Zig core (ansi.zig) for MicroPython.
  * 

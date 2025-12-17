@@ -1,4 +1,4 @@
-# microcharm/compat/pathlib.py
+# ucharm/compat/pathlib.py
 """
 Pure Python implementation of pathlib for MicroPython.
 

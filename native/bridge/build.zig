@@ -54,7 +54,7 @@ pub fn build(b: *std.Build) void {
 
     // Build as shared library
     const shared_lib = b.addLibrary(.{
-        .name = "microcharm",
+        .name = "ucharm",
         .root_module = lib_mod,
         .linkage = .dynamic,
     });

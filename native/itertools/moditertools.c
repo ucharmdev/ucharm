@@ -1,5 +1,5 @@
 /*
- * moditertools - Native itertools module for microcharm
+ * moditertools - Native itertools module for ucharm
  * 
  * Provides Python's itertools functionality:
  * - count(start, step) - infinite counter

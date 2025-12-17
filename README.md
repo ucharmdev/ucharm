@@ -1,4 +1,4 @@
-# μcharm (microcharm)
+# μcharm (ucharm)
 
 Beautiful CLIs with MicroPython. Fast startup, tiny binaries, Python syntax.
 
@@ -188,8 +188,8 @@ brew install micropython  # macOS
 # or: apt install micropython  # Linux
 
 # Clone μcharm
-git clone https://github.com/niklas-heer/microcharm
-cd microcharm
+git clone https://github.com/ucharmdev/ucharm
+cd ucharm
 
 # Build the CLI (requires Zig 0.15+)
 cd cli
@@ -207,9 +207,9 @@ export PATH="$PWD/cli/zig-out/bin:$PATH"
 ```python
 #!/usr/bin/env micropython
 import sys
-sys.path.insert(0, "/path/to/microcharm")
+sys.path.insert(0, "/path/to/ucharm")
 
-from microcharm import (
+from ucharm import (
     style, box, spinner, progress,
     success, error, warning, info,
     select, confirm, prompt, table,
@@ -270,13 +270,13 @@ print(f"Year: {now['year']}, Month: {now['month']}")
 
 ```bash
 # Universal binary (818KB, fully standalone - no dependencies!)
-mcharm build myapp.py -o myapp --mode universal
+ucharm build myapp.py -o myapp --mode universal
 
 # Shell wrapper (46KB, needs micropython at runtime)
-mcharm build myapp.py -o myapp --mode executable
+ucharm build myapp.py -o myapp --mode executable
 
 # Single .py file (34KB, needs micropython at runtime)
-mcharm build myapp.py -o myapp.py --mode single
+ucharm build myapp.py -o myapp.py --mode single
 ```
 
 ### Universal Binary Format
@@ -296,7 +296,7 @@ mcharm build myapp.py -o myapp.py --mode single
 
 **Platform-specific execution:**
 - **Linux:** Uses `memfd_create` for zero-disk execution (~2ms overhead)
-- **macOS:** Extracts to `/tmp/mcharm-<hash>/` with content-hash caching (~6ms)
+- **macOS:** Extracts to `/tmp/ucharm-<hash>/` with content-hash caching (~6ms)
 
 ## Features
 
@@ -419,8 +419,8 @@ indented = textwrap.indent("text", ">>> ")
 ## Project Structure
 
 ```
-microcharm/
-├── cli/                  # Zig CLI tool (mcharm)
+ucharm/
+├── cli/                  # Zig CLI tool (ucharm)
 │   ├── src/
 │   │   ├── main.zig      # Entry point
 │   │   ├── build_cmd.zig # Build command
@@ -443,8 +443,8 @@ microcharm/
 │   ├── statistics/       # Statistical functions
 │   ├── tempfile/         # Temp files
 │   ├── textwrap/         # Text wrapping
-│   └── build.sh          # Builds micropython-mcharm
-├── microcharm/           # Python library
+│   └── build.sh          # Builds micropython-ucharm
+├── ucharm/           # Python library
 │   ├── __init__.py       # Public API
 │   ├── style.py          # Text styling
 │   ├── components.py     # UI components
@@ -465,7 +465,7 @@ microcharm/
 
 ```bash
 cd native
-./build.sh  # Builds micropython-mcharm with all native modules
+./build.sh  # Builds micropython-ucharm with all native modules
 ```
 
 ### Running Tests

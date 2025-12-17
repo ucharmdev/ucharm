@@ -1,10 +1,10 @@
 #!/bin/bash
-# Build custom MicroPython with microcharm native modules
+# Build custom MicroPython with ucharm native modules
 # Uses Zig for core logic, C bridge for MicroPython API
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-MPY_DIR="${MPY_DIR:-$HOME/.microcharm/micropython}"
+MPY_DIR="${MPY_DIR:-$HOME/.ucharm/micropython}"
 OUTPUT_DIR="$SCRIPT_DIR/dist"
 NCPU=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
 
@@ -43,12 +43,12 @@ echo "Building shared library for CPython..."
 cd "$SCRIPT_DIR/bridge"
 zig build -Doptimize=ReleaseFast
 mkdir -p "$OUTPUT_DIR"
-if [ -f "zig-out/lib/libmicrocharm.dylib" ]; then
-    cp zig-out/lib/libmicrocharm.dylib "$OUTPUT_DIR/"
-    echo "  Built: $OUTPUT_DIR/libmicrocharm.dylib"
-elif [ -f "zig-out/lib/libmicrocharm.so" ]; then
-    cp zig-out/lib/libmicrocharm.so "$OUTPUT_DIR/"
-    echo "  Built: $OUTPUT_DIR/libmicrocharm.so"
+if [ -f "zig-out/lib/libucharm.dylib" ]; then
+    cp zig-out/lib/libucharm.dylib "$OUTPUT_DIR/"
+    echo "  Built: $OUTPUT_DIR/libucharm.dylib"
+elif [ -f "zig-out/lib/libucharm.so" ]; then
+    cp zig-out/lib/libucharm.so "$OUTPUT_DIR/"
+    echo "  Built: $OUTPUT_DIR/libucharm.so"
 fi
 cd "$SCRIPT_DIR"
 echo ""
@@ -101,17 +101,17 @@ make -j$NCPU USER_C_MODULES="$SCRIPT_DIR"
 
 # Copy the built binary
 mkdir -p "$OUTPUT_DIR"
-cp build-standard/micropython "$OUTPUT_DIR/micropython-mcharm"
-chmod +x "$OUTPUT_DIR/micropython-mcharm"
+cp build-standard/micropython "$OUTPUT_DIR/micropython-ucharm"
+chmod +x "$OUTPUT_DIR/micropython-ucharm"
 
 echo ""
 echo "=== Build Complete ==="
-echo "Custom MicroPython: $OUTPUT_DIR/micropython-mcharm"
-ls -lh "$OUTPUT_DIR/micropython-mcharm"
+echo "Custom MicroPython: $OUTPUT_DIR/micropython-ucharm"
+ls -lh "$OUTPUT_DIR/micropython-ucharm"
 
 echo ""
 echo "Modules included:"
-"$OUTPUT_DIR/micropython-mcharm" -c "
+"$OUTPUT_DIR/micropython-ucharm" -c "
 modules = []
 try:
     import term
@@ -131,6 +131,6 @@ for name, count in modules:
 
 echo ""
 echo "Test with:"
-echo "  $OUTPUT_DIR/micropython-mcharm -c 'import term; print(term.size())'"
-echo "  $OUTPUT_DIR/micropython-mcharm -c 'import ansi; print(ansi.fg(\"cyan\") + \"Hello!\" + ansi.reset())'"
-echo "  $OUTPUT_DIR/micropython-mcharm -c 'import args; print(args.raw())'"
+echo "  $OUTPUT_DIR/micropython-ucharm -c 'import term; print(term.size())'"
+echo "  $OUTPUT_DIR/micropython-ucharm -c 'import ansi; print(ansi.fg(\"cyan\") + \"Hello!\" + ansi.reset())'"
+echo "  $OUTPUT_DIR/micropython-ucharm -c 'import args; print(args.raw())'"

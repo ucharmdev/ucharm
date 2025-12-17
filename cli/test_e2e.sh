@@ -1,5 +1,5 @@
 #!/bin/bash
-# End-to-end tests for mcharm CLI
+# End-to-end tests for ucharm CLI
 # Run from the cli/ directory: ./test_e2e.sh
 
 set -e
@@ -18,9 +18,9 @@ TESTS_PASSED=0
 TEST_DIR=$(mktemp -d)
 trap "rm -rf $TEST_DIR" EXIT
 
-# Path to mcharm (absolute path)
+# Path to ucharm (absolute path)
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-MCHARM="$SCRIPT_DIR/zig-out/bin/mcharm"
+MCHARM="$SCRIPT_DIR/zig-out/bin/ucharm"
 
 echo "=== μcharm End-to-End Tests ==="
 echo "Test directory: $TEST_DIR"
@@ -41,9 +41,9 @@ run_test() {
     TESTS_RUN=$((TESTS_RUN + 1))
 }
 
-# Check if mcharm is built
+# Check if ucharm is built
 if [ ! -f "$MCHARM" ]; then
-    echo -e "${YELLOW}Building mcharm...${NC}"
+    echo -e "${YELLOW}Building ucharm...${NC}"
     zig build -Doptimize=ReleaseSmall
 fi
 
@@ -56,10 +56,10 @@ fi
 
 echo "--- Test: Version ---"
 run_test
-if $MCHARM --version | grep -q "mcharm 0.1.0"; then
+if $MCHARM --version | grep -q "ucharm 0.1.0"; then
     pass "Version output correct"
 else
-    fail "Version output incorrect" "Expected 'mcharm 0.1.0'"
+    fail "Version output incorrect" "Expected 'ucharm 0.1.0'"
 fi
 
 echo ""
@@ -118,7 +118,7 @@ cat > "$TEST_DIR/simple.py" << 'EOF'
 #!/usr/bin/env micropython
 import sys
 sys.path.insert(0, ".")
-from microcharm import success
+from ucharm import success
 success("Hello from simple!")
 EOF
 
@@ -136,7 +136,7 @@ else
 fi
 
 run_test
-if grep -q "Embedded microcharm" "$TEST_DIR/simple_out.py"; then
+if grep -q "Embedded ucharm" "$TEST_DIR/simple_out.py"; then
     pass "Single mode embeds library"
 else
     fail "Single mode doesn't embed library" "Missing embedded comment"
@@ -314,7 +314,7 @@ run_test
 # Build and test interactive select in universal binary
 # Note: MicroPython doesn't support fd 3, so use env var for universal binaries
 # Clear any cached loaders to ensure fresh extraction
-rm -rf /tmp/mcharm-* 2>/dev/null
+rm -rf /tmp/ucharm-* 2>/dev/null
 $MCHARM build examples/test_select.py -o "$TEST_DIR/select_universal" --mode universal >/dev/null 2>&1
 if MCHARM_TEST_KEYS="down,enter" "$TEST_DIR/select_universal" 2>&1 | grep -q "SELECTED: Green"; then
     pass "Universal binary interactive works"

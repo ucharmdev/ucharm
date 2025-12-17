@@ -1,4 +1,4 @@
-# microcharm/compat/textwrap.py
+# ucharm/compat/textwrap.py
 """
 Pure Python implementation of textwrap for MicroPython.
 

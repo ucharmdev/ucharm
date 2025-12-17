@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """
-Test script for microcharm compat layer.
+Test script for ucharm compat layer.
 
 This script tests that the import hooks redirect stdlib imports
 to our implementations on MicroPython.
 """
 
 # Enable the compat layer FIRST
-import microcharm.compat
+import ucharm.compat
 
-print("Testing microcharm compat layer...")
+print("Testing ucharm compat layer...")
 print("=" * 50)
 
 # Test functools
@@ -221,5 +221,5 @@ print("   stdev: OK")
 print("\n" + "=" * 50)
 print("All tests passed!")
 print("\nAvailable compat modules:")
-for mod in sorted(microcharm.compat.available_modules()):
+for mod in sorted(ucharm.compat.available_modules()):
     print(f"  - {mod}")

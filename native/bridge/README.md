@@ -103,7 +103,7 @@ zig build test   # Run Zig tests
 zig build        # Compile to .o file
 
 cd ..
-./build.sh       # Rebuild micropython-mcharm
+./build.sh       # Rebuild micropython-ucharm
 ```
 
 ### 6. Use in Python

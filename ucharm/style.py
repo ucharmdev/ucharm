@@ -1,7 +1,7 @@
-# microcharm/style.py - Text styling with ANSI codes
+# ucharm/style.py - Text styling with ANSI codes
 """
 Text styling with ANSI codes.
-Uses native Zig via libmicrocharm - no Python fallbacks.
+Uses native Zig via libucharm - no Python fallbacks.
 """
 
 # Try to use native ansi module (MicroPython with native modules)

@@ -35,7 +35,7 @@ pub fn main() !void {
     const file_size = stat.size;
 
     if (file_size < Trailer.SIZE) {
-        std.debug.print("mcharm: invalid binary (too small)\n", .{});
+        std.debug.print("ucharm: invalid binary (too small)\n", .{});
         std.process.exit(1);
     }
 
@@ -43,12 +43,12 @@ pub fn main() !void {
 
     // Read and parse trailer
     const trailer = Trailer.readFromFile(self_file) catch {
-        std.debug.print("mcharm: invalid binary (bad trailer)\n", .{});
+        std.debug.print("ucharm: invalid binary (bad trailer)\n", .{});
         std.process.exit(1);
     };
 
     if (!trailer.isValid()) {
-        std.debug.print("mcharm: invalid binary (bad trailer values)\n", .{});
+        std.debug.print("ucharm: invalid binary (bad trailer values)\n", .{});
         std.process.exit(1);
     }
 

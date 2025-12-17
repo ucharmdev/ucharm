@@ -69,7 +69,7 @@ echo "     cd $MODULE_DIR"
 echo "     zig build test    # Run Zig tests"
 echo "     zig build         # Compile to .o file"
 echo "     cd .."
-echo "     ./build.sh        # Rebuild micropython-mcharm"
+echo "     ./build.sh        # Rebuild micropython-ucharm"
 echo
 echo "  4. Use in Python:"
 echo "     import $MODULE_NAME"

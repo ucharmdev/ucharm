@@ -1,4 +1,4 @@
-# microcharm/compat/functools.py
+# ucharm/compat/functools.py
 """
 Pure Python implementation of functools for MicroPython.
 

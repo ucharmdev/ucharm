@@ -1,5 +1,5 @@
 /*
- * modglob - Native glob/fnmatch module for microcharm
+ * modglob - Native glob/fnmatch module for ucharm
  * 
  * This module bridges Zig's glob implementation to MicroPython.
  * 

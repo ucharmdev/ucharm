@@ -1,10 +1,10 @@
-# microcharm/args.py - CLI argument parsing
+# ucharm/args.py - CLI argument parsing
 """
 Simple, fast argument parsing inspired by Vercel's `arg` and Python's Typer.
-Uses native Zig helpers via libmicrocharm where possible.
+Uses native Zig helpers via libucharm where possible.
 
 Usage:
-    from microcharm import args
+    from ucharm import args
 
     opts = args.parse({
         '--name': str,           # required string

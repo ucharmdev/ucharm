@@ -2,9 +2,9 @@
 
 ## Project Overview
 
-**μcharm** (microcharm) is a CLI toolkit for building beautiful, fast, tiny command-line applications with MicroPython. The goal is "Bun for MicroPython" - Python syntax with native performance and tiny binaries.
+**μcharm** (ucharm) is a CLI toolkit for building beautiful, fast, tiny command-line applications with MicroPython. The goal is "Bun for MicroPython" - Python syntax with native performance and tiny binaries.
 
-**Repository**: https://github.com/niklas-heer/microcharm
+**Repository**: https://github.com/ucharmdev/ucharm
 
 ## Architecture
 
@@ -28,8 +28,8 @@
 ## Directory Structure
 
 ```
-microcharm/
-├── cli/                      # Zig CLI tool (mcharm)
+ucharm/
+├── cli/                      # Zig CLI tool (ucharm)
 │   ├── src/
 │   │   ├── main.zig          # Entry point, command routing
 │   │   ├── build_cmd.zig     # Build command (single/executable/universal)
@@ -67,9 +67,9 @@ microcharm/
 │   ├── subprocess/           # Process spawning
 │   ├── tempfile/             # Temporary files
 │   ├── textwrap/             # Text wrapping
-│   ├── build.sh              # Builds micropython-mcharm
-│   └── dist/                 # Built micropython-mcharm binary
-├── microcharm/               # Python TUI library
+│   ├── build.sh              # Builds micropython-ucharm
+│   └── dist/                 # Built micropython-ucharm binary
+├── ucharm/               # Python TUI library
 │   ├── __init__.py           # Public API
 │   ├── terminal.py           # Terminal ops
 │   ├── style.py              # Text styling
@@ -99,12 +99,12 @@ cd cli && ./test_e2e.sh         # E2E tests (19 tests)
 cd native && ./build.sh
 
 # Build modes
-./cli/zig-out/bin/mcharm build app.py -o app --mode single      # Bundled Python
-./cli/zig-out/bin/mcharm build app.py -o app --mode executable  # Shell wrapper
-./cli/zig-out/bin/mcharm build app.py -o app --mode universal   # Self-contained binary
+./cli/zig-out/bin/ucharm build app.py -o app --mode single      # Bundled Python
+./cli/zig-out/bin/ucharm build app.py -o app --mode executable  # Shell wrapper
+./cli/zig-out/bin/ucharm build app.py -o app --mode universal   # Self-contained binary
 
 # Run Python scripts directly
-./cli/zig-out/bin/mcharm run examples/simple_cli.py
+./cli/zig-out/bin/ucharm run examples/simple_cli.py
 ```
 
 ## Build Modes Explained
@@ -125,7 +125,7 @@ Universal binaries use a native Zig loader for instant startup:
 ├────────────────────────────────────────┤
 │  MicroPython Binary (~806KB)           │  ← Interpreter + 18 native modules
 ├────────────────────────────────────────┤
-│  Python Code (~41KB)                   │  ← User app + microcharm
+│  Python Code (~41KB)                   │  ← User app + ucharm
 ├────────────────────────────────────────┤
 │  Trailer (48 bytes)                    │  ← Offsets and magic
 └────────────────────────────────────────┘
@@ -141,11 +141,11 @@ Universal binaries use a native Zig loader for instant startup:
 
 **Platform-specific execution:**
 - **Linux**: Uses `memfd_create` for zero-disk execution (~2ms)
-- **macOS**: Extracts to `/tmp/mcharm-{hash}/` with caching (~6ms cached)
+- **macOS**: Extracts to `/tmp/ucharm-{hash}/` with caching (~6ms cached)
 
 ## Native Modules
 
-The custom `micropython-mcharm` binary includes 18 native Zig modules:
+The custom `micropython-ucharm` binary includes 18 native Zig modules:
 
 ### term module - Terminal Control
 ```python
@@ -244,17 +244,17 @@ statistics.stdev([1, 2, 3, 4, 5])     # 1.58...
 
 ## Python Library
 
-The microcharm Python library auto-detects native modules:
+The ucharm Python library auto-detects native modules:
 
 ```python
-from microcharm.terminal import get_size, clear, hide_cursor
-from microcharm.style import style, bold, colors
-from microcharm.input import select, confirm, prompt
-from microcharm.components import Box, Spinner, ProgressBar
-from microcharm.table import Table
+from ucharm.terminal import get_size, clear, hide_cursor
+from ucharm.style import style, bold, colors
+from ucharm.input import select, confirm, prompt
+from ucharm.components import Box, Spinner, ProgressBar
+from ucharm.table import Table
 ```
 
-When running under `micropython-mcharm`, it uses native modules for speed.
+When running under `micropython-ucharm`, it uses native modules for speed.
 Otherwise, it falls back to pure Python implementations.
 
 ## Performance Benchmarks
@@ -264,7 +264,7 @@ Otherwise, it falls back to pure Python implementations.
 | Runtime | Time | Memory |
 |---------|------|--------|
 | μcharm universal (cached) | ~6ms | 1.8MB |
-| micropython-mcharm | ~0ms | 1.6MB |
+| micropython-ucharm | ~0ms | 1.6MB |
 | python3 | ~10ms | 15MB |
 | uv run python | ~30ms | 26MB |
 
@@ -285,8 +285,8 @@ Otherwise, it falls back to pure Python implementations.
 | Output | Size |
 |--------|------|
 | Universal binary (full app) | ~945KB |
-| micropython-mcharm binary | ~806KB |
-| mcharm CLI tool | ~220KB |
+| micropython-ucharm binary | ~806KB |
+| ucharm CLI tool | ~220KB |
 | Loader stub (macos-aarch64) | ~98KB |
 | Loader stub (linux-x86_64) | ~45KB |
 | Go hello world (typical) | 1.2-2MB |
@@ -294,12 +294,12 @@ Otherwise, it falls back to pure Python implementations.
 
 ## Development Workflow
 
-1. **Edit Python library**: `microcharm/*.py`
+1. **Edit Python library**: `ucharm/*.py`
 2. **Edit CLI**: `cli/src/*.zig`
 3. **Edit loader**: `loader/src/*.zig`
 4. **Edit native modules**: `native/*/` (Zig + C bridge)
 5. **Run tests**: `cd cli && zig build test && ./test_e2e.sh`
-6. **Test native modules**: `./native/dist/micropython-mcharm native/<module>/test_<module>.py`
+6. **Test native modules**: `./native/dist/micropython-ucharm native/<module>/test_<module>.py`
 7. **Rebuild native MicroPython**: `cd native && ./build.sh`
 8. **Rebuild CLI**: `cd cli && zig build -Doptimize=ReleaseSmall`
 
@@ -323,12 +323,12 @@ Steps:
 3. Create C bridge using `mpy_bridge.h` macros
 4. Add to `native/build.sh` USER_C_MODULES path
 5. Rebuild: `cd native && ./build.sh`
-6. Test: `./native/dist/micropython-mcharm native/modulename/test_modulename.py`
+6. Test: `./native/dist/micropython-ucharm native/modulename/test_modulename.py`
 
 ## Testing Interactive Components
 
 For automated testing of interactive CLI components (select, confirm, prompt, etc.), 
-microcharm supports two methods of injecting keystrokes:
+ucharm supports two methods of injecting keystrokes:
 
 ### Method 1: Environment Variable (works everywhere)
 ```bash
@@ -368,11 +368,11 @@ fi
 Install: `brew install micropython` or build custom: `cd native && ./build.sh`
 
 ### "term module not found"
-Use standard micropython (falls back to Python) or build `micropython-mcharm`
+Use standard micropython (falls back to Python) or build `micropython-ucharm`
 
 ### Build on Linux
 The native modules use POSIX APIs (termios, ioctl) that work on both macOS and Linux.
-Run `cd native && ./build.sh` on Linux to build micropython-mcharm with native modules.
+Run `cd native && ./build.sh` on Linux to build micropython-ucharm with native modules.
 Universal binaries use `memfd_create` on Linux for zero-disk execution.
 
 ## Roadmap
@@ -384,4 +384,4 @@ See `TODO.md` for full roadmap. Current status:
 - ✅ Phase 4: CLI stdlib modules (subprocess, signal, csv, functools, itertools, logging)
 - 🔲 Phase 5: Remaining stdlib (contextlib, copy, enum, uuid)
 - 🔲 Phase 6: Tree-shaking for smaller binaries
-- 🔲 Phase 7: Developer experience (`mcharm check`, `mcharm dev`)
+- 🔲 Phase 7: Developer experience (`ucharm check`, `ucharm dev`)

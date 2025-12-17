@@ -1,7 +1,7 @@
-# microcharm/path.py - Path manipulation utilities
+# ucharm/path.py - Path manipulation utilities
 """
 Path manipulation utilities.
-All operations use native Zig via libmicrocharm.
+All operations use native Zig via libucharm.
 """
 
 from ._native import path as _path

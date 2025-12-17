@@ -1,5 +1,5 @@
 /*
- * modshutil - Native shell utilities module for microcharm
+ * modshutil - Native shell utilities module for ucharm
  * 
  * This module bridges Zig's shutil implementation to MicroPython.
  * 

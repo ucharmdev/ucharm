@@ -80,7 +80,7 @@ pub fn run(allocator: Allocator, args: []const [:0]const u8) !void {
 
     if (script_path == null) {
         io.eprint("\x1b[31mError:\x1b[0m No input script specified\n", .{});
-        io.eprint("Usage: mcharm build <script.py> -o <output> [--mode <mode>]\n", .{});
+        io.eprint("Usage: ucharm build <script.py> -o <output> [--mode <mode>]\n", .{});
         std.process.exit(1);
     }
 
@@ -118,7 +118,7 @@ fn buildSingle(allocator: Allocator, script: []const u8, output: []const u8) !vo
     defer allocator.free(script_content);
 
     // Microcharm library files to embed
-    const microcharm_files = [_][]const u8{
+    const ucharm_files = [_][]const u8{
         "terminal.py",
         "style.py",
         "components.py",
@@ -342,33 +342,33 @@ fn buildSingle(allocator: Allocator, script: []const u8, output: []const u8) !vo
         \\
     );
 
-    try appendSlice(&output_buffer, allocator, "# === Embedded microcharm library ===\n\n");
+    try appendSlice(&output_buffer, allocator, "# === Embedded ucharm library ===\n\n");
 
-    // Find microcharm directory - try relative paths
-    const microcharm_paths = [_][]const u8{
-        "microcharm",
-        "../microcharm",
-        "../../microcharm",
+    // Find ucharm directory - try relative paths
+    const ucharm_paths = [_][]const u8{
+        "ucharm",
+        "../ucharm",
+        "../../ucharm",
     };
 
-    var microcharm_base: ?[]const u8 = null;
-    for (microcharm_paths) |path| {
+    var ucharm_base: ?[]const u8 = null;
+    for (ucharm_paths) |path| {
         const test_path = try fs.path.join(allocator, &.{ path, "style.py" });
         defer allocator.free(test_path);
         if (fs.cwd().access(test_path, .{})) |_| {
-            microcharm_base = path;
+            ucharm_base = path;
             break;
         } else |_| {}
     }
 
-    if (microcharm_base == null) {
-        io.eprint("\x1b[31mError:\x1b[0m Could not find microcharm library\n", .{});
+    if (ucharm_base == null) {
+        io.eprint("\x1b[31mError:\x1b[0m Could not find ucharm library\n", .{});
         std.process.exit(1);
     }
 
     // Embed each library file
-    for (microcharm_files) |filename| {
-        const file_path = try fs.path.join(allocator, &.{ microcharm_base.?, filename });
+    for (ucharm_files) |filename| {
+        const file_path = try fs.path.join(allocator, &.{ ucharm_base.?, filename });
         defer allocator.free(file_path);
 
         const content = fs.cwd().readFileAlloc(allocator, file_path, 512 * 1024) catch {
@@ -377,7 +377,7 @@ fn buildSingle(allocator: Allocator, script: []const u8, output: []const u8) !vo
         };
         defer allocator.free(content);
 
-        try appendSlice(&output_buffer, allocator, "# --- microcharm/");
+        try appendSlice(&output_buffer, allocator, "# --- ucharm/");
         try appendSlice(&output_buffer, allocator, filename);
         try appendSlice(&output_buffer, allocator, " ---\n");
 
@@ -431,7 +431,7 @@ fn buildSingle(allocator: Allocator, script: []const u8, output: []const u8) !vo
 
     try appendSlice(&output_buffer, allocator, "# === Application ===\n\n");
 
-    // Process main script - skip microcharm imports and sys.path manipulation
+    // Process main script - skip ucharm imports and sys.path manipulation
     var in_multiline_import = false;
     var script_lines = std.mem.splitSequence(u8, script_content, "\n");
     while (script_lines.next()) |line| {
@@ -444,8 +444,8 @@ fn buildSingle(allocator: Allocator, script: []const u8, output: []const u8) !vo
             continue;
         }
 
-        if (std.mem.indexOf(u8, line, "from microcharm") != null or
-            std.mem.indexOf(u8, line, "import microcharm") != null)
+        if (std.mem.indexOf(u8, line, "from ucharm") != null or
+            std.mem.indexOf(u8, line, "import ucharm") != null)
         {
             if (std.mem.indexOf(u8, line, "(") != null and std.mem.indexOf(u8, line, ")") == null) {
                 in_multiline_import = true;
@@ -476,7 +476,7 @@ fn buildSingle(allocator: Allocator, script: []const u8, output: []const u8) !vo
 
 fn buildExecutable(allocator: Allocator, script: []const u8, output: []const u8, prefer_native: bool) !void {
     // First build single file to temp
-    const temp_path = "/tmp/mcharm_bundle.py";
+    const temp_path = "/tmp/ucharm_bundle.py";
     try buildSingle(allocator, script, temp_path);
 
     // Read bundled content
@@ -498,7 +498,7 @@ fn buildExecutable(allocator: Allocator, script: []const u8, output: []const u8,
     defer wrapper.deinit(allocator);
 
     try wrapper.appendSlice(allocator, "#!/bin/bash\n");
-    try wrapper.appendSlice(allocator, "# Built with μcharm - https://github.com/niklas-heer/microcharm\n");
+    try wrapper.appendSlice(allocator, "# Built with μcharm - https://github.com/ucharmdev/ucharm\n");
     try wrapper.appendSlice(allocator, "MICROPYTHON=\"");
     try wrapper.appendSlice(allocator, mpy_path);
     try wrapper.appendSlice(allocator, "\"\n");
@@ -535,7 +535,7 @@ fn buildExecutable(allocator: Allocator, script: []const u8, output: []const u8,
 
 fn buildUniversal(allocator: Allocator, script: []const u8, output: []const u8, prefer_native: bool) !void {
     // First build single file
-    const temp_path = "/tmp/mcharm_bundle.py";
+    const temp_path = "/tmp/ucharm_bundle.py";
     try buildSingle(allocator, script, temp_path);
 
     // Read bundled content
@@ -547,7 +547,7 @@ fn buildUniversal(allocator: Allocator, script: []const u8, output: []const u8, 
     const mpy_path = mpy_info.path;
 
     if (mpy_info.is_native) {
-        io.print(green ++ check ++ reset ++ " Using " ++ bold ++ "micropython-mcharm" ++ reset ++ dim ++ " (18 native modules)" ++ reset ++ "\n", .{});
+        io.print(green ++ check ++ reset ++ " Using " ++ bold ++ "micropython-ucharm" ++ reset ++ dim ++ " (18 native modules)" ++ reset ++ "\n", .{});
     } else {
         io.print(yellow ++ bullet ++ reset ++ " Using " ++ bold ++ "standard micropython" ++ reset ++ dim ++ " (native modules not available)" ++ reset ++ "\n", .{});
     }
@@ -640,14 +640,14 @@ fn selectLoaderStub() LoaderStub {
 }
 
 fn findMicropython(prefer_native: bool) ![]const u8 {
-    // Custom micropython-mcharm locations (with native modules)
+    // Custom micropython-ucharm locations (with native modules)
     const native_paths = [_][]const u8{
         // Installed location
-        "/usr/local/bin/micropython-mcharm",
-        "/opt/homebrew/bin/micropython-mcharm",
-        // Development location (relative to mcharm binary)
-        "../native/dist/micropython-mcharm",
-        "native/dist/micropython-mcharm",
+        "/usr/local/bin/micropython-ucharm",
+        "/opt/homebrew/bin/micropython-ucharm",
+        // Development location (relative to ucharm binary)
+        "../native/dist/micropython-ucharm",
+        "native/dist/micropython-ucharm",
     };
 
     // Standard micropython locations
@@ -693,15 +693,15 @@ fn findMicropython(prefer_native: bool) ![]const u8 {
 }
 
 fn findMicropythonWithInfo(prefer_native: bool) struct { path: []const u8, is_native: bool } {
-    // Custom micropython-mcharm locations (with native modules)
+    // Custom micropython-ucharm locations (with native modules)
     const native_abs_paths = [_][]const u8{
-        "/usr/local/bin/micropython-mcharm",
-        "/opt/homebrew/bin/micropython-mcharm",
+        "/usr/local/bin/micropython-ucharm",
+        "/opt/homebrew/bin/micropython-ucharm",
     };
 
     const native_rel_paths = [_][]const u8{
-        "native/dist/micropython-mcharm",
-        "../native/dist/micropython-mcharm",
+        "native/dist/micropython-ucharm",
+        "../native/dist/micropython-ucharm",
     };
 
     // Standard micropython locations

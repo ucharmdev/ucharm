@@ -1,4 +1,4 @@
-# microcharm/compat/fnmatch.py
+# ucharm/compat/fnmatch.py
 """
 Pure Python implementation of fnmatch for MicroPython.
 

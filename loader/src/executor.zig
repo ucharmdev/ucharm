@@ -115,8 +115,8 @@ fn prepareMacOS(
         hash_hex[i * 2 + 1] = hex_chars[content_hash[i] & 0x0f];
     }
 
-    // Build cache directory path: /tmp/mcharm-{hash}
-    const cache_dir = try std.fmt.allocPrint(allocator, "/tmp/mcharm-{s}", .{hash_hex});
+    // Build cache directory path: /tmp/ucharm-{hash}
+    const cache_dir = try std.fmt.allocPrint(allocator, "/tmp/ucharm-{s}", .{hash_hex});
     const mpy_path = try std.fmt.allocPrint(allocator, "{s}/m", .{cache_dir});
     const py_path = try std.fmt.allocPrint(allocator, "{s}/a.py", .{cache_dir});
 
@@ -194,7 +194,7 @@ fn prepareFallback(
 ) !ExecContext {
     // Use simple /tmp extraction without caching
     const pid = std.os.linux.getpid();
-    const cache_dir = try std.fmt.allocPrint(allocator, "/tmp/mcharm-{d}", .{pid});
+    const cache_dir = try std.fmt.allocPrint(allocator, "/tmp/ucharm-{d}", .{pid});
     const mpy_path = try std.fmt.allocPrint(allocator, "{s}/m", .{cache_dir});
     const py_path = try std.fmt.allocPrint(allocator, "{s}/a.py", .{cache_dir});
 
@@ -254,12 +254,12 @@ pub fn exec(allocator: std.mem.Allocator, ctx: ExecContext, args: []const [*:0]c
     defer argv_list.deinit(allocator);
 
     argv_list.append(allocator, ctx.mpy_path) catch {
-        std.debug.print("mcharm: out of memory\n", .{});
+        std.debug.print("ucharm: out of memory\n", .{});
         std.process.exit(1);
     };
 
     argv_list.append(allocator, ctx.py_path) catch {
-        std.debug.print("mcharm: out of memory\n", .{});
+        std.debug.print("ucharm: out of memory\n", .{});
         std.process.exit(1);
     };
 
@@ -268,7 +268,7 @@ pub fn exec(allocator: std.mem.Allocator, ctx: ExecContext, args: []const [*:0]c
         // Convert null-terminated to slice
         const len = std.mem.len(arg);
         argv_list.append(allocator, arg[0..len]) catch {
-            std.debug.print("mcharm: out of memory\n", .{});
+            std.debug.print("ucharm: out of memory\n", .{});
             std.process.exit(1);
         };
     }
@@ -281,12 +281,12 @@ pub fn exec(allocator: std.mem.Allocator, ctx: ExecContext, args: []const [*:0]c
     child.stderr_behavior = .Inherit;
 
     child.spawn() catch {
-        std.debug.print("mcharm: failed to spawn micropython\n", .{});
+        std.debug.print("ucharm: failed to spawn micropython\n", .{});
         std.process.exit(1);
     };
 
     const result = child.wait() catch {
-        std.debug.print("mcharm: failed to wait for micropython\n", .{});
+        std.debug.print("ucharm: failed to wait for micropython\n", .{});
         std.process.exit(1);
     };
 

@@ -1,4 +1,4 @@
-# microcharm/compat/typing.py
+# ucharm/compat/typing.py
 """
 Stub implementation of typing for MicroPython.
 

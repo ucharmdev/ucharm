@@ -41,7 +41,7 @@ ANSI escape code generation:
 # Build custom MicroPython with native modules
 ./build.sh
 
-# Output: dist/micropython-mcharm
+# Output: dist/micropython-ucharm
 ```
 
 The build script will:
@@ -54,7 +54,7 @@ The build script will:
 
 ```
 dist/
-└── micropython-mcharm   # Custom MicroPython binary (~530KB)
+└── micropython-ucharm   # Custom MicroPython binary (~530KB)
 ```
 
 ## Usage

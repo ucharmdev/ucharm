@@ -1,6 +1,6 @@
-# μcharm (microcharm) - Beautiful CLIs for MicroPython
+# μcharm (ucharm) - Beautiful CLIs for MicroPython
 # Fast startup, tiny binaries, Python syntax
-# https://github.com/yourname/microcharm
+# https://github.com/yourname/ucharm
 
 __version__ = "0.1.0"
 

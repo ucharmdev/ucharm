@@ -1,4 +1,4 @@
-// ui.zig - UI rendering utilities for microcharm
+// ui.zig - UI rendering utilities for ucharm
 //
 // This module provides:
 // - visible_len: Get visible length of string (excluding ANSI codes)

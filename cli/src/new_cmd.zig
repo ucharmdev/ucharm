@@ -19,14 +19,14 @@ const template =
     \\{s} - Built with μcharm
     \\"""
     \\import sys
-    \\sys.path.insert(0, ".")  # Adjust path to microcharm
+    \\sys.path.insert(0, ".")  # Adjust path to ucharm
     \\
-    \\from microcharm import (
+    \\from ucharm import (
     \\    style, box, spinner, progress,
     \\    success, error, warning, info,
     \\    select, confirm, prompt
     \\)
-    \\from microcharm.table import table, key_value
+    \\from ucharm.table import table, key_value
     \\import time
     \\
     \\
@@ -65,7 +65,7 @@ const template =
 pub fn run(allocator: Allocator, args: []const [:0]const u8) !void {
     if (args.len < 1) {
         io.eprint("\x1b[31mError:\x1b[0m No project name specified\n", .{});
-        io.eprint("Usage: mcharm new <name>\n", .{});
+        io.eprint("Usage: ucharm new <name>\n", .{});
         std.process.exit(1);
     }
 
@@ -126,7 +126,7 @@ pub fn run(allocator: Allocator, args: []const [:0]const u8) !void {
     io.print("Run your app:\n", .{});
     io.print("  \x1b[36mmicropython {s}\x1b[0m\n\n", .{filename});
     io.print("Build standalone binary:\n", .{});
-    io.print("  \x1b[36mmcharm build {s} -o {s} --mode universal\x1b[0m\n", .{ filename, filename_base });
+    io.print("  \x1b[36mucharm build {s} -o {s} --mode universal\x1b[0m\n", .{ filename, filename_base });
 
     _ = allocator;
 }

@@ -21,7 +21,7 @@ const logo =
 ;
 
 const usage =
-    \\[1mUsage:[0m mcharm <command> [options]
+    \\[1mUsage:[0m ucharm <command> [options]
     \\
     \\[1mCommands:[0m
     \\  [36mbuild[0m    Build a standalone executable
@@ -33,11 +33,11 @@ const usage =
     \\  -v, --version    Show version
     \\
     \\[1mExamples:[0m
-    \\  [2m$[0m mcharm new myapp
-    \\  [2m$[0m mcharm run myapp.py
-    \\  [2m$[0m mcharm build myapp.py -o myapp --mode universal
+    \\  [2m$[0m ucharm new myapp
+    \\  [2m$[0m ucharm run myapp.py
+    \\  [2m$[0m ucharm build myapp.py -o myapp --mode universal
     \\
-    \\[2mDocs: https://github.com/niklas-heer/microcharm[0m
+    \\[2mDocs: https://github.com/ucharmdev/ucharm[0m
     \\
 ;
 
@@ -85,7 +85,7 @@ pub fn main() !void {
     }
 
     if (std.mem.eql(u8, command, "-v") or std.mem.eql(u8, command, "--version")) {
-        print("mcharm {s}\n", .{version});
+        print("ucharm {s}\n", .{version});
         return;
     }
 

@@ -1,4 +1,4 @@
-# microcharm/compat/statistics.py
+# ucharm/compat/statistics.py
 """
 Pure Python implementation of statistics for MicroPython.
 

@@ -1,7 +1,7 @@
-# microcharm/input.py - Interactive input components
+# ucharm/input.py - Interactive input components
 """
 Interactive input components for CLI applications.
-Uses native Zig via libmicrocharm for rendering.
+Uses native Zig via libucharm for rendering.
 
 Test Mode:
     For automated testing, you can provide keystrokes via:

@@ -1,5 +1,5 @@
 /*
- * modsubprocess - Native subprocess module for microcharm
+ * modsubprocess - Native subprocess module for ucharm
  * 
  * This module bridges Zig's subprocess implementation to MicroPython.
  * Compatible with Python's subprocess module API.

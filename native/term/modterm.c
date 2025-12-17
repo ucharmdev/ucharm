@@ -1,5 +1,5 @@
 /*
- * modterm - Native terminal module for microcharm
+ * modterm - Native terminal module for ucharm
  * 
  * This is an external C module that gets compiled into MicroPython.
  * It provides fast terminal operations for CLI applications.

@@ -1,7 +1,7 @@
-# microcharm/json.py - JSON parsing and stringification
+# ucharm/json.py - JSON parsing and stringification
 """
 JSON parsing and manipulation utilities.
-All operations use native Zig via libmicrocharm.
+All operations use native Zig via libucharm.
 """
 
 from ._native import json as _json

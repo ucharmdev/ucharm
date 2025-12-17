@@ -1,5 +1,5 @@
 /*
- * modtextwrap - Native text wrapping module for microcharm
+ * modtextwrap - Native text wrapping module for ucharm
  * 
  * This module bridges Zig's textwrap implementation to MicroPython.
  * 

@@ -1,5 +1,5 @@
 /*
- * moddatetime - Native datetime module for microcharm
+ * moddatetime - Native datetime module for ucharm
  *
  * Provides fast date/time operations using Zig's standard library.
  *

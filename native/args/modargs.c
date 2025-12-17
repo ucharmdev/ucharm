@@ -1,5 +1,5 @@
 /*
- * modargs - Native argument parsing module for microcharm
+ * modargs - Native argument parsing module for ucharm
  * 
  * C bridge that wraps Zig core (args.zig) for MicroPython.
  * All parsing logic is in Zig - this file only handles MicroPython API.

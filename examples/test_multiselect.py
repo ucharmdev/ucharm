@@ -5,7 +5,7 @@ import sys
 
 sys.path.insert(0, ".")
 
-from microcharm.input import multiselect
+from ucharm.input import multiselect
 
 result = multiselect("Select toppings:", ["Cheese", "Pepperoni", "Mushrooms", "Olives"])
 if result:

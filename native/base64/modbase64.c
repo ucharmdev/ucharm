@@ -1,5 +1,5 @@
 /*
- * modbase64 - Native base64 encoding/decoding module for microcharm
+ * modbase64 - Native base64 encoding/decoding module for ucharm
  * 
  * This module bridges Zig's base64 implementation to MicroPython.
  * 

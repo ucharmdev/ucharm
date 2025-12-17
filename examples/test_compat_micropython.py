@@ -3,13 +3,13 @@
 Test compat layer for MicroPython.
 
 This test imports the compat modules directly without going through
-the main microcharm package (which requires ctypes).
+the main ucharm package (which requires ctypes).
 """
 
 import sys
 
-# Add microcharm directory to path so we can import compat directly
-sys.path.insert(0, "./microcharm")
+# Add ucharm directory to path so we can import compat directly
+sys.path.insert(0, "./ucharm")
 
 print("Testing compat layer for MicroPython...")
 print("=" * 50)

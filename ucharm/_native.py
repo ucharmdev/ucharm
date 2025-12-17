@@ -1,5 +1,5 @@
 """
-_native.py - ctypes bindings for libmicrocharm shared library
+_native.py - ctypes bindings for libucharm shared library
 
 This module provides native Zig functionality to Python.
 The native library is REQUIRED - there are no Python fallbacks.
@@ -43,22 +43,22 @@ _lib = None
 
 
 def _find_library():
-    """Find the libmicrocharm shared library."""
+    """Find the libucharm shared library."""
     here = os.path.dirname(os.path.abspath(__file__))
 
     candidates = [
         # Development locations
-        os.path.join(here, "..", "native", "dist", "libmicrocharm.dylib"),
-        os.path.join(here, "..", "native", "dist", "libmicrocharm.so"),
+        os.path.join(here, "..", "native", "dist", "libucharm.dylib"),
+        os.path.join(here, "..", "native", "dist", "libucharm.so"),
         os.path.join(
-            here, "..", "native", "bridge", "zig-out", "lib", "libmicrocharm.dylib"
+            here, "..", "native", "bridge", "zig-out", "lib", "libucharm.dylib"
         ),
         os.path.join(
-            here, "..", "native", "bridge", "zig-out", "lib", "libmicrocharm.so"
+            here, "..", "native", "bridge", "zig-out", "lib", "libucharm.so"
         ),
         # Installed location (same directory as this file)
-        os.path.join(here, "libmicrocharm.dylib"),
-        os.path.join(here, "libmicrocharm.so"),
+        os.path.join(here, "libucharm.dylib"),
+        os.path.join(here, "libucharm.so"),
     ]
 
     for path in candidates:
@@ -77,7 +77,7 @@ def _load_library():
     lib_path = _find_library()
     if lib_path is None:
         raise RuntimeError(
-            "libmicrocharm not found. Build it with: cd native/bridge && zig build"
+            "libucharm not found. Build it with: cd native/bridge && zig build"
         )
 
     _lib = ctypes.CDLL(lib_path)
@@ -110,8 +110,8 @@ class ColorIndex(Structure):
 def _setup_functions():
     """Set up function signatures for type safety."""
     # Version
-    _lib.microcharm_version.argtypes = []
-    _lib.microcharm_version.restype = c_char_p
+    _lib.ucharm_version.argtypes = []
+    _lib.ucharm_version.restype = c_char_p
 
     # ANSI functions
     _lib.ansi_color_name_to_index.argtypes = [c_char_p]
@@ -375,7 +375,7 @@ def _s(b):
 
 def version():
     """Get native library version."""
-    return _s(_load_library().microcharm_version())
+    return _s(_load_library().ucharm_version())
 
 
 # ============================================================================

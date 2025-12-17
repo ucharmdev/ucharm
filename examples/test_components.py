@@ -5,9 +5,9 @@ import sys
 
 sys.path.insert(0, ".")
 
-from microcharm.components import box, error, info, progress, rule, success, warning
-from microcharm.style import style
-from microcharm.table import table
+from ucharm.components import box, error, info, progress, rule, success, warning
+from ucharm.style import style
+from ucharm.table import table
 
 # Test box
 print("=== BOX TEST ===")

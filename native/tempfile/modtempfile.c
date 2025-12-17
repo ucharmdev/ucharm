@@ -1,5 +1,5 @@
 /*
- * modtempfile - Native temporary file module for microcharm
+ * modtempfile - Native temporary file module for ucharm
  * 
  * This module bridges Zig's tempfile implementation to MicroPython.
  * 

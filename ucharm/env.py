@@ -1,7 +1,7 @@
-# microcharm/env.py - Environment variable utilities
+# ucharm/env.py - Environment variable utilities
 """
 Environment variable access and common checks.
-All operations use native Zig via libmicrocharm.
+All operations use native Zig via libucharm.
 """
 
 from ._native import env as _env

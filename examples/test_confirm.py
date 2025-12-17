@@ -5,7 +5,7 @@ import sys
 
 sys.path.insert(0, ".")
 
-from microcharm.input import confirm
+from ucharm.input import confirm
 
 result = confirm("Do you agree?")
 if result is True:

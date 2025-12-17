@@ -1,4 +1,4 @@
-# microcharm/compat/datetime.py
+# ucharm/compat/datetime.py
 """
 Pure Python implementation of datetime for MicroPython.
 

@@ -15,8 +15,8 @@ Python syntax + Zig native modules + tiny binaries = Go killer for CLI tools
 
 **Binary sizes:**
 - Universal binary: ~945KB (fully standalone)
-- micropython-mcharm: ~806KB
-- mcharm CLI: ~220KB
+- micropython-ucharm: ~806KB
+- ucharm CLI: ~220KB
 
 ## Module Comparison: Python vs MicroPython vs μcharm
 
@@ -214,9 +214,9 @@ High-performance native modules:
 
 ### Phase 7: Developer Experience (PLANNED)
 
-- [ ] `mcharm check` - Compatibility checker
-- [ ] `mcharm init` - Project scaffolding
-- [ ] `mcharm dev` - Watch mode with hot reload
+- [ ] `ucharm check` - Compatibility checker
+- [ ] `ucharm init` - Project scaffolding
+- [ ] `ucharm dev` - Watch mode with hot reload
 - [ ] Tree-shaking for smaller binaries
 
 ---
@@ -262,4 +262,4 @@ Note: functools, itertools, csv, logging, subprocess, signal are now native Zig 
 1. **Immediate**: Add pure Python `contextlib`, `copy`, `enum`
 2. **Short-term**: Add `uuid`, `urllib.parse`, `configparser`
 3. **Medium-term**: Tree-shaking for smaller binaries
-4. **Long-term**: `mcharm check`, `mcharm dev`
+4. **Long-term**: `ucharm check`, `ucharm dev`

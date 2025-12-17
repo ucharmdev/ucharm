@@ -1,4 +1,4 @@
-# microcharm/compat/__init__.py
+# ucharm/compat/__init__.py
 """
 Compatibility layer for MicroPython.
 
@@ -8,12 +8,12 @@ CPython to work transparently on MicroPython.
 
 Usage:
     # At the start of your app, enable the compat layer:
-    import microcharm.compat
-    microcharm.compat.install()
+    import ucharm.compat
+    ucharm.compat.install()
 
     # Now stdlib imports will use our implementations:
-    from pathlib import Path  # Uses microcharm.compat.pathlib
-    from functools import partial  # Uses microcharm.compat.functools
+    from pathlib import Path  # Uses ucharm.compat.pathlib
+    from functools import partial  # Uses ucharm.compat.functools
 """
 
 import sys
@@ -21,28 +21,28 @@ import sys
 # Registry of stdlib modules we provide replacements for
 # Maps stdlib name -> our module name
 _REDIRECTS = {
-    "functools": "microcharm.compat.functools",
-    "pathlib": "microcharm.compat.pathlib",
-    "datetime": "microcharm.compat.datetime",
-    "textwrap": "microcharm.compat.textwrap",
-    "fnmatch": "microcharm.compat.fnmatch",
-    "glob": "microcharm.compat.glob",
-    "shutil": "microcharm.compat.shutil",
-    "tempfile": "microcharm.compat.tempfile",
-    "csv": "microcharm.compat.csv",
-    "configparser": "microcharm.compat.configparser",
-    "contextlib": "microcharm.compat.contextlib",
-    "copy": "microcharm.compat.copy",
-    "itertools": "microcharm.compat.itertools",
-    "operator": "microcharm.compat.operator",
-    "typing": "microcharm.compat.typing",
-    "dataclasses": "microcharm.compat.dataclasses",
-    "enum": "microcharm.compat.enum",
-    "base64": "microcharm.compat.base64",
-    "statistics": "microcharm.compat.statistics",
-    "string": "microcharm.compat.string",
-    "urllib": "microcharm.compat.urllib",
-    "urllib.parse": "microcharm.compat.urllib_parse",
+    "functools": "ucharm.compat.functools",
+    "pathlib": "ucharm.compat.pathlib",
+    "datetime": "ucharm.compat.datetime",
+    "textwrap": "ucharm.compat.textwrap",
+    "fnmatch": "ucharm.compat.fnmatch",
+    "glob": "ucharm.compat.glob",
+    "shutil": "ucharm.compat.shutil",
+    "tempfile": "ucharm.compat.tempfile",
+    "csv": "ucharm.compat.csv",
+    "configparser": "ucharm.compat.configparser",
+    "contextlib": "ucharm.compat.contextlib",
+    "copy": "ucharm.compat.copy",
+    "itertools": "ucharm.compat.itertools",
+    "operator": "ucharm.compat.operator",
+    "typing": "ucharm.compat.typing",
+    "dataclasses": "ucharm.compat.dataclasses",
+    "enum": "ucharm.compat.enum",
+    "base64": "ucharm.compat.base64",
+    "statistics": "ucharm.compat.statistics",
+    "string": "ucharm.compat.string",
+    "urllib": "ucharm.compat.urllib",
+    "urllib.parse": "ucharm.compat.urllib_parse",
 }
 
 # Track which modules we've already loaded
@@ -115,7 +115,7 @@ class MicroCharmFinder:
                 mod = getattr(mod, part)
         except ImportError as e:
             raise ImportError(
-                "microcharm.compat." + fullname + " not implemented yet: " + str(e)
+                "ucharm.compat." + fullname + " not implemented yet: " + str(e)
             )
 
         # Register under the stdlib name so future imports find it
@@ -131,7 +131,7 @@ class MicroCharmFinder:
             mod = sys.modules[name]
             # Check if it's one of ours or the real thing
             mod_file = getattr(mod, "__file__", "") or ""
-            if "microcharm/compat" not in mod_file:
+            if "ucharm/compat" not in mod_file:
                 return True
 
         # Try to detect if we're on CPython with real stdlib
@@ -150,7 +150,7 @@ class MicroCharmFinder:
 
     def _native_exists(self, name):
         """Check if a native Zig module is available."""
-        # Native modules are built into micropython-mcharm
+        # Native modules are built into micropython-ucharm
         # They're registered as built-in modules before Python runs
         try:
             # Temporarily remove this finder to avoid recursion
@@ -164,7 +164,7 @@ class MicroCharmFinder:
                     return True
                 # Also check if it's in sys.modules but not from compat
                 mod_file = getattr(mod, "__file__", "") or ""
-                if "microcharm/compat" not in mod_file:
+                if "ucharm/compat" not in mod_file:
                     return True
             finally:
                 # Re-add the finder
@@ -187,7 +187,7 @@ def install():
     Safe to call multiple times - only installs once.
 
     Note: Import hooks only work on CPython. On MicroPython, you need
-    to import directly from microcharm.compat.* or compat.* modules.
+    to import directly from ucharm.compat.* or compat.* modules.
     """
     global _installed
 
@@ -248,5 +248,5 @@ def add_redirect(stdlib_name, compat_module):
 
 
 # Auto-install when this module is imported
-# This makes it easy: just `import microcharm.compat` at the top of your app
+# This makes it easy: just `import ucharm.compat` at the top of your app
 install()

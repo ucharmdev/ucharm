@@ -20,7 +20,7 @@ pub const json = @import("json");
 // Version
 // ============================================================================
 
-export fn microcharm_version() [*:0]const u8 {
+export fn ucharm_version() [*:0]const u8 {
     return "0.1.0";
 }
 

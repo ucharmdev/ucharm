@@ -1,4 +1,4 @@
-# microcharm/compat/base64.py
+# ucharm/compat/base64.py
 """
 Base64 encoding/decoding for MicroPython.
 

@@ -5,7 +5,7 @@ import sys
 
 sys.path.insert(0, ".")
 
-from microcharm.input import select
+from ucharm.input import select
 
 result = select("Choose a color:", ["Red", "Green", "Blue"])
 if result:

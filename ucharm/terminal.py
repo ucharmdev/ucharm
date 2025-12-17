@@ -1,4 +1,4 @@
-# microcharm/terminal.py - Terminal utilities
+# ucharm/terminal.py - Terminal utilities
 import sys
 
 # Try to use native term module (much faster)

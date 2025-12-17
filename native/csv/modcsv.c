@@ -1,5 +1,5 @@
 /*
- * modcsv - Native CSV parsing module for microcharm
+ * modcsv - Native CSV parsing module for ucharm
  * 
  * This module bridges Zig's CSV implementation to MicroPython.
  * Compatible with Python's csv module API.

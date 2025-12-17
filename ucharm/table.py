@@ -1,7 +1,7 @@
-# microcharm/table.py - Table rendering
+# ucharm/table.py - Table rendering
 """
 Table rendering components.
-All rendering is done natively in Zig via libmicrocharm.
+All rendering is done natively in Zig via libucharm.
 """
 
 from ._native import ALIGN_CENTER, ALIGN_LEFT, ALIGN_RIGHT, ui

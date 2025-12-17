@@ -1,4 +1,4 @@
-# microcharm/compat/copy.py
+# ucharm/compat/copy.py
 """
 Pure Python implementation of copy for MicroPython.
 

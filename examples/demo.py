@@ -1,13 +1,13 @@
 #!/usr/bin/env micropython
 """
-microcharm demo - showcasing all features
+ucharm demo - showcasing all features
 """
 
 import sys
 
 sys.path.insert(0, "..")
 
-from microcharm import (
+from ucharm import (
     style,
     box,
     spinner,
@@ -23,7 +23,7 @@ from microcharm import (
     table,
     Color,
 )
-from microcharm.table import key_value
+from ucharm.table import key_value
 import time
 
 
@@ -31,7 +31,7 @@ def main():
     # Welcome
     print()
     box(
-        "microcharm v0.1.0\n"
+        "ucharm v0.1.0\n"
         + "Beautiful CLIs for MicroPython\n"
         + "Fast startup | Tiny binaries | Python syntax",
         title="Welcome",

@@ -1,13 +1,13 @@
 #!/usr/bin/env micropython
 """
-Example: A simple CLI tool built with microcharm
+Example: A simple CLI tool built with ucharm
 """
 
 import sys
 
 sys.path.insert(0, "..")
 
-from microcharm import (
+from ucharm import (
     style,
     box,
     success,
@@ -19,7 +19,7 @@ from microcharm import (
     prompt,
     progress,
 )
-from microcharm.table import key_value
+from ucharm.table import key_value
 import time
 
 
@@ -29,7 +29,7 @@ def cmd_greet(name=None):
         name = prompt("What's your name?", default="World")
     print()
     box(
-        "Hello, " + str(name) + "!\nWelcome to microcharm.",
+        "Hello, " + str(name) + "!\nWelcome to ucharm.",
         title="Greeting",
         border_color="cyan",
     )
@@ -103,7 +103,7 @@ def interactive_mode():
     """Run in interactive mode"""
     print()
     box(
-        "Simple CLI Example\nBuilt with microcharm",
+        "Simple CLI Example\nBuilt with ucharm",
         title="Welcome",
         border_color="cyan",
     )

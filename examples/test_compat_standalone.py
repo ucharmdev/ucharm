@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Standalone test for microcharm compat layer.
+Standalone test for ucharm compat layer.
 
-This script tests the import hooks without importing the full microcharm library,
+This script tests the import hooks without importing the full ucharm library,
 which allows testing on both CPython and MicroPython.
 """
 
@@ -12,9 +12,9 @@ import sys
 sys.path.insert(0, ".")
 
 # Enable the compat layer FIRST
-import microcharm.compat
+import ucharm.compat
 
-print("Testing microcharm compat layer (standalone)...")
+print("Testing ucharm compat layer (standalone)...")
 print(
     "Python implementation:",
     getattr(sys, "implementation", {"name": "unknown"}).name
@@ -25,7 +25,7 @@ print("=" * 50)
 
 # Test functools
 print("\n1. Testing functools...")
-from microcharm.compat.functools import lru_cache, partial, reduce, wraps
+from ucharm.compat.functools import lru_cache, partial, reduce, wraps
 
 
 # Test partial
@@ -75,7 +75,7 @@ print("   lru_cache: OK")
 
 # Test pathlib
 print("\n2. Testing pathlib...")
-from microcharm.compat.pathlib import Path
+from ucharm.compat.pathlib import Path
 
 p = Path("/foo/bar/baz.txt")
 assert p.name == "baz.txt", "name failed: " + p.name
@@ -99,7 +99,7 @@ print("   / operator: OK")
 
 # Test datetime
 print("\n3. Testing datetime...")
-from microcharm.compat.datetime import date, datetime, time, timedelta
+from ucharm.compat.datetime import date, datetime, time, timedelta
 
 # Test date
 d = date(2024, 1, 15)
@@ -129,7 +129,7 @@ print("   datetime arithmetic: OK")
 
 # Test textwrap
 print("\n4. Testing textwrap...")
-from microcharm.compat.textwrap import dedent, fill, indent, wrap
+from ucharm.compat.textwrap import dedent, fill, indent, wrap
 
 text = (
     "This is a long line of text that should be wrapped to fit within a smaller width."
@@ -155,8 +155,8 @@ print("   indent: OK")
 
 # Test fnmatch
 print("\n5. Testing fnmatch...")
-from microcharm.compat.fnmatch import filter as fnfilter
-from microcharm.compat.fnmatch import fnmatch
+from ucharm.compat.fnmatch import filter as fnfilter
+from ucharm.compat.fnmatch import fnmatch
 
 assert fnmatch("foo.txt", "*.txt"), "fnmatch *.txt failed"
 assert not fnmatch("foo.py", "*.txt"), "fnmatch negative failed"
@@ -170,14 +170,14 @@ print("   filter: OK")
 
 # Test typing (should just not raise)
 print("\n6. Testing typing...")
-from microcharm.compat.typing import Any, Callable, Dict, List, Optional, Union
+from ucharm.compat.typing import Any, Callable, Dict, List, Optional, Union
 
 # Just verify imports work - type hints have no runtime effect
 print("   type hints: OK (no runtime effect)")
 
 # Test copy
 print("\n7. Testing copy...")
-from microcharm.compat.copy import copy, deepcopy
+from ucharm.compat.copy import copy, deepcopy
 
 original = [1, [2, 3], {"a": 4}]
 
@@ -194,7 +194,7 @@ print("   deepcopy: OK")
 
 # Test base64
 print("\n8. Testing base64...")
-from microcharm.compat.base64 import (
+from ucharm.compat.base64 import (
     b64decode,
     b64encode,
     urlsafe_b64decode,
@@ -212,7 +212,7 @@ print("   urlsafe_b64encode/decode: OK")
 
 # Test statistics
 print("\n9. Testing statistics...")
-from microcharm.compat.statistics import mean, median, mode, stdev, variance
+from ucharm.compat.statistics import mean, median, mode, stdev, variance
 
 data = [1, 2, 3, 4, 5]
 assert mean(data) == 3.0, "mean failed"

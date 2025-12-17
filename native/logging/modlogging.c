@@ -1,5 +1,5 @@
 /*
- * modlogging - Native logging module for microcharm
+ * modlogging - Native logging module for ucharm
  * 
  * Provides Python's logging functionality:
  * - debug, info, warning, error, critical functions
