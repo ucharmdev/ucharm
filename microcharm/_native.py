@@ -310,6 +310,48 @@ def _setup_functions():
     _lib.path_relative.argtypes = [c_char_p, c_char_p, c_char_p, c_size_t]
     _lib.path_relative.restype = c_size_t
 
+    # JSON functions
+    _lib.json_parse.argtypes = [c_char_p]
+    _lib.json_parse.restype = c_char_p
+    _lib.json_is_valid.argtypes = [c_char_p]
+    _lib.json_is_valid.restype = c_bool
+    _lib.json_typeof.argtypes = [c_char_p]
+    _lib.json_typeof.restype = c_char_p
+    _lib.json_get_string.argtypes = [c_char_p]
+    _lib.json_get_string.restype = c_char_p
+    _lib.json_get_int.argtypes = [c_char_p, c_int64]
+    _lib.json_get_int.restype = c_int64
+    _lib.json_get_float.argtypes = [c_char_p, ctypes.c_double]
+    _lib.json_get_float.restype = ctypes.c_double
+    _lib.json_get_bool.argtypes = [c_char_p, c_bool]
+    _lib.json_get_bool.restype = c_bool
+    _lib.json_is_null.argtypes = [c_char_p]
+    _lib.json_is_null.restype = c_bool
+    _lib.json_get.argtypes = [c_char_p, c_char_p]
+    _lib.json_get.restype = c_char_p
+    _lib.json_has_key.argtypes = [c_char_p, c_char_p]
+    _lib.json_has_key.restype = c_bool
+    _lib.json_len.argtypes = [c_char_p]
+    _lib.json_len.restype = c_int64
+    _lib.json_get_index.argtypes = [c_char_p, c_size_t]
+    _lib.json_get_index.restype = c_char_p
+    _lib.json_stringify_string.argtypes = [c_char_p]
+    _lib.json_stringify_string.restype = c_char_p
+    _lib.json_stringify_int.argtypes = [c_int64]
+    _lib.json_stringify_int.restype = c_char_p
+    _lib.json_stringify_float.argtypes = [ctypes.c_double]
+    _lib.json_stringify_float.restype = c_char_p
+    _lib.json_stringify_bool.argtypes = [c_bool]
+    _lib.json_stringify_bool.restype = c_char_p
+    _lib.json_stringify_null.argtypes = []
+    _lib.json_stringify_null.restype = c_char_p
+    _lib.json_pretty.argtypes = [c_char_p]
+    _lib.json_pretty.restype = c_char_p
+    _lib.json_minify.argtypes = [c_char_p]
+    _lib.json_minify.restype = c_char_p
+    _lib.json_path.argtypes = [c_char_p, c_char_p]
+    _lib.json_path.restype = c_char_p
+
 
 # ============================================================================
 # Helper
@@ -850,3 +892,114 @@ class path:
         buf = ctypes.create_string_buffer(4096)
         length = _load_library().path_relative(_b(from_path), _b(to_path), buf, 4096)
         return buf.value[:length].decode("utf-8")
+
+
+# ============================================================================
+# JSON Module
+# ============================================================================
+
+
+class json:
+    """Native JSON parsing and stringification."""
+
+    @staticmethod
+    def parse(s):
+        """Parse JSON string. Returns normalized JSON string or None if invalid."""
+        result = _load_library().json_parse(_b(s))
+        return _s(result) if result else None
+
+    @staticmethod
+    def is_valid(s):
+        """Check if string is valid JSON."""
+        return _load_library().json_is_valid(_b(s))
+
+    @staticmethod
+    def typeof(s):
+        """Get type of JSON value: 'null', 'bool', 'number', 'string', 'array', 'object', or 'invalid'."""
+        return _s(_load_library().json_typeof(_b(s)))
+
+    @staticmethod
+    def get_string(s):
+        """Get string value from JSON. Returns None if not a string."""
+        result = _load_library().json_get_string(_b(s))
+        return _s(result) if result else None
+
+    @staticmethod
+    def get_int(s, default=0):
+        """Get integer value from JSON."""
+        return _load_library().json_get_int(_b(s), default)
+
+    @staticmethod
+    def get_float(s, default=0.0):
+        """Get float value from JSON."""
+        return _load_library().json_get_float(_b(s), default)
+
+    @staticmethod
+    def get_bool(s, default=False):
+        """Get boolean value from JSON."""
+        return _load_library().json_get_bool(_b(s), default)
+
+    @staticmethod
+    def is_null(s):
+        """Check if JSON value is null."""
+        return _load_library().json_is_null(_b(s))
+
+    @staticmethod
+    def get(s, key):
+        """Get value from JSON object by key. Returns JSON string or None."""
+        result = _load_library().json_get(_b(s), _b(key))
+        return _s(result) if result else None
+
+    @staticmethod
+    def has_key(s, key):
+        """Check if JSON object has key."""
+        return _load_library().json_has_key(_b(s), _b(key))
+
+    @staticmethod
+    def len(s):
+        """Get length of JSON array/object/string. Returns -1 for other types."""
+        return _load_library().json_len(_b(s))
+
+    @staticmethod
+    def get_index(s, index):
+        """Get element from JSON array by index. Returns JSON string or None."""
+        result = _load_library().json_get_index(_b(s), index)
+        return _s(result) if result else None
+
+    @staticmethod
+    def stringify(value):
+        """Stringify a Python value to JSON."""
+        lib = _load_library()
+        if value is None:
+            return _s(lib.json_stringify_null())
+        elif isinstance(value, bool):
+            return _s(lib.json_stringify_bool(value))
+        elif isinstance(value, int):
+            return _s(lib.json_stringify_int(value))
+        elif isinstance(value, float):
+            return _s(lib.json_stringify_float(value))
+        elif isinstance(value, str):
+            return _s(lib.json_stringify_string(_b(value)))
+        else:
+            # For complex types, use Python's json
+            import json as py_json
+
+            return py_json.dumps(value)
+
+    @staticmethod
+    def pretty(s):
+        """Pretty print JSON with indentation."""
+        result = _load_library().json_pretty(_b(s))
+        return _s(result) if result else None
+
+    @staticmethod
+    def minify(s):
+        """Minify JSON (remove whitespace)."""
+        result = _load_library().json_minify(_b(s))
+        return _s(result) if result else None
+
+    @staticmethod
+    def path(s, path_str):
+        """Get nested value using dot notation path. Example: json.path(data, 'user.name')"""
+        result = _load_library().json_path(_b(s), _b(path_str))
+        return _s(result) if result else None

@@ -4,7 +4,7 @@
 
 __version__ = "0.1.0"
 
-from . import args, env, path
+from . import args, env, json, path
 from .components import box, error, info, progress, rule, spinner, success, warning
 from .input import confirm, password, prompt, select
 from .style import Color, colors, style
@@ -43,4 +43,6 @@ __all__ = [
     "env",
     # Path
     "path",
+    # JSON
+    "json",
 ]

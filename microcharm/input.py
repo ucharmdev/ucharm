@@ -2,8 +2,22 @@
 """
 Interactive input components for CLI applications.
 Uses native Zig via libmicrocharm for rendering.
+
+Test Mode:
+    For automated testing, you can provide keystrokes via:
+
+    1. File descriptor 3:
+       ./my_app 3< keystrokes.txt
+       echo -e "down\\ndown\\nenter" | ./my_app 3<&0
+
+    2. Environment variable:
+       MCHARM_TEST_KEYS="down,down,enter" ./my_app
+
+    Key names: up, down, left, right, enter, space, escape, backspace, tab
+    Single characters are sent as-is.
 """
 
+import os
 import sys
 
 from ._native import ui
@@ -19,9 +33,100 @@ except ImportError:
     _term = None
     _HAS_NATIVE_TERM = False
 
+# Test input state
+_test_keys = None  # List of keys to send, or None for normal mode
+_test_key_index = 0  # Current position in _test_keys
+
+
+def _init_test_input():
+    """Initialize test input from env var or fd 3. Called once on first _read_key."""
+    global _test_keys
+
+    # Already initialized?
+    if _test_keys is not None:
+        return
+
+    # Check environment variable first
+    # Use os.getenv() which works in both CPython and MicroPython
+    env_keys = os.getenv("MCHARM_TEST_KEYS", "")
+    if env_keys:
+        # Parse comma-separated key names
+        _test_keys = []
+        for k in env_keys.split(","):
+            k = k.strip()
+            if k:
+                _test_keys.append(k)
+        return
+
+    # Check if fd 3 is open and readable (CPython only - MicroPython lacks os.read)
+    if hasattr(os, "read"):
+        try:
+            # Read all data from fd 3
+            data = b""
+            while True:
+                try:
+                    chunk = os.read(3, 4096)
+                    if not chunk:
+                        break
+                    data += chunk
+                except:
+                    break
+            if data:
+                # Parse as lines of key names
+                _test_keys = []
+                for line in data.decode("utf-8").strip().split("\n"):
+                    line = line.strip()
+                    if line:
+                        _test_keys.append(line)
+        except OSError:
+            # fd 3 not available, normal mode
+            pass
+
+
+def _read_test_key():
+    """Read a key from test input. Returns None if no test input available."""
+    global _test_keys, _test_key_index
+
+    _init_test_input()
+
+    # Read from pre-parsed key list (env var or fd 3)
+    if _test_keys is not None:
+        if _test_key_index >= len(_test_keys):
+            return None
+        key = _test_keys[_test_key_index]
+        _test_key_index += 1
+        return key
+
+    return None
+
+
+def _is_test_mode():
+    """Check if we're in test mode (env var or fd 3)."""
+    _init_test_input()
+    return _test_keys is not None
+
 
 def _read_key(vim_nav=False):
-    """Read a keypress, handling escape sequences for special keys."""
+    """Read a keypress, handling escape sequences for special keys.
+
+    In test mode (fd 3 or MCHARM_TEST_KEYS), reads from test input instead.
+    """
+    # Check for test input first
+    test_key = _read_test_key()
+    if test_key is not None:
+        # Handle vim navigation in test mode too
+        if vim_nav:
+            if test_key == "j":
+                return "down"
+            if test_key == "k":
+                return "up"
+        return test_key
+
+    # If in test mode but no more keys, return None (or could raise)
+    if _is_test_mode():
+        return None
+
+    # Normal interactive mode
     if _HAS_NATIVE_TERM:
         _term.raw_mode(True)
         try:
