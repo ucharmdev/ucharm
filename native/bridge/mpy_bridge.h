@@ -70,6 +70,38 @@ static inline mp_float_t mpy_float(mp_obj_t obj) {
     return mp_obj_get_float(obj);
 }
 
+// Get bytes data with length from MicroPython object
+static inline const char *mpy_bytes_len(mp_obj_t obj, size_t *len) {
+    mp_buffer_info_t bufinfo;
+    mp_get_buffer_raise(obj, &bufinfo, MP_BUFFER_READ);
+    *len = bufinfo.len;
+    return (const char *)bufinfo.buf;
+}
+
+// ============================================================================
+// Memory Allocation Helpers
+// ============================================================================
+
+// Allocate memory (MicroPython managed)
+static inline void *mpy_alloc(size_t size) {
+    return m_malloc(size);
+}
+
+// Free memory (MicroPython managed) - handles API differences
+static inline void mpy_free(void *ptr, size_t size) {
+    m_free(ptr, size);
+}
+
+// Allocate array of doubles
+static inline double *mpy_alloc_doubles(size_t count) {
+    return (double *)m_malloc(count * sizeof(double));
+}
+
+// Free array of doubles
+static inline void mpy_free_doubles(double *ptr, size_t count) {
+    m_free(ptr, count * sizeof(double));
+}
+
 // ============================================================================
 // Type Conversion: C -> MicroPython
 // ============================================================================
@@ -240,5 +272,36 @@ static inline void mpy_dict_store(mp_obj_t dict, mp_obj_t key, mp_obj_t val) {
 // Raise a RuntimeError
 #define mpy_raise_runtime_error(msg) \
     mp_raise_msg(&mp_type_RuntimeError, MP_ERROR_TEXT(msg))
+
+// Raise OSError with errno
+#define mpy_raise_oserror(err) \
+    mp_raise_OSError(err)
+
+// Common error codes (POSIX)
+#include <errno.h>
+#ifndef MP_EIO
+#define MP_EIO EIO
+#endif
+#ifndef MP_ENOENT
+#define MP_ENOENT ENOENT
+#endif
+#ifndef MP_EEXIST
+#define MP_EEXIST EEXIST
+#endif
+#ifndef MP_EACCES
+#define MP_EACCES EACCES
+#endif
+#ifndef MP_EINVAL
+#define MP_EINVAL EINVAL
+#endif
+
+// ============================================================================
+// Bytes Helpers
+// ============================================================================
+
+// Create MicroPython bytes from data
+static inline mp_obj_t mpy_new_bytes(const char *data, size_t len) {
+    return mp_obj_new_bytes((const byte *)data, len);
+}
 
 #endif // MPY_BRIDGE_H

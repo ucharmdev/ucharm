@@ -65,19 +65,24 @@ for module_dir in "$SCRIPT_DIR"/*/; do
         echo "  Building $module_name (Zig)..."
         cd "$module_dir"
 
-        # Run tests first
-        if ! zig build test; then
-            echo "    ERROR: Tests failed for $module_name"
-            exit 1
+        # Run tests if test step exists
+        if zig build -l 2>&1 | grep -q "^  test "; then
+            if ! zig build test; then
+                echo "    ERROR: Tests failed for $module_name"
+                exit 1
+            fi
         fi
 
-        # Build the object file
-        zig build
+        # Build the object file with ReleaseSmall for minimal binary size
+        # (Debug builds include full Zig stdlib, bloating from ~5KB to ~1.6MB!)
+        zig build -Doptimize=ReleaseSmall
 
         if [ -f "zig-out/$module_name.o" ]; then
-            echo "    Built: zig-out/$module_name.o"
+            echo "    Built: zig-out/$module_name.o ($(ls -lh zig-out/$module_name.o | awk '{print $5}'))"
+        elif [ -f "zig-out/lib/lib$module_name.a" ]; then
+            echo "    Built: zig-out/lib/lib$module_name.a ($(ls -lh zig-out/lib/lib$module_name.a | awk '{print $5}'))"
         else
-            echo "    Built: zig-out/*.o"
+            echo "    Built: zig-out/*"
         fi
         cd "$SCRIPT_DIR"
     fi

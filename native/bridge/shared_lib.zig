@@ -14,6 +14,7 @@ pub const args = @import("args");
 pub const ui = @import("ui");
 pub const env = @import("env");
 pub const path = @import("path");
+pub const json = @import("json");
 
 // ============================================================================
 // Version
@@ -143,4 +144,26 @@ comptime {
     _ = path.path_component_count;
     _ = path.path_component;
     _ = path.path_relative;
+
+    // Reference json exports
+    _ = json.json_parse;
+    _ = json.json_is_valid;
+    _ = json.json_typeof;
+    _ = json.json_get_string;
+    _ = json.json_get_int;
+    _ = json.json_get_float;
+    _ = json.json_get_bool;
+    _ = json.json_is_null;
+    _ = json.json_get;
+    _ = json.json_has_key;
+    _ = json.json_len;
+    _ = json.json_get_index;
+    _ = json.json_stringify_string;
+    _ = json.json_stringify_int;
+    _ = json.json_stringify_float;
+    _ = json.json_stringify_bool;
+    _ = json.json_stringify_null;
+    _ = json.json_pretty;
+    _ = json.json_minify;
+    _ = json.json_path;
 }

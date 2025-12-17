@@ -46,6 +46,12 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     }));
 
+    lib_mod.addImport("json", b.createModule(.{
+        .root_source_file = b.path("../json/json.zig"),
+        .target = target,
+        .optimize = optimize,
+    }));
+
     // Build as shared library
     const shared_lib = b.addLibrary(.{
         .name = "microcharm",
