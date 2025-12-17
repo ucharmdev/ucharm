@@ -1,0 +1,94 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Zig
+        uses: goto-bus-stop/setup-zig@v2
+        with:
+          version: 0.14.0
+
+      - name: Run CLI unit tests
+        working-directory: cli
+        run: zig build test
+
+      - name: Build CLI
+        working-directory: cli
+        run: zig build -Doptimize=ReleaseSmall
+
+      - name: Build Loader
+        working-directory: loader
+        run: zig build -Doptimize=ReleaseSmall
+
+      - name: Verify CLI runs
+        run: ./cli/zig-out/bin/ucharm --version
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Zig
+        uses: goto-bus-stop/setup-zig@v2
+        with:
+          version: 0.14.0
+
+      - name: Check formatting (CLI)
+        working-directory: cli
+        run: zig fmt --check src/
+
+      - name: Check formatting (Loader)
+        working-directory: loader
+        run: zig fmt --check src/
+
+  build-matrix:
+    name: Build (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest
+            target: aarch64-macos
+            artifact: ucharm-macos-aarch64
+          - os: macos-latest
+            target: x86_64-macos
+            artifact: ucharm-macos-x86_64
+          - os: ubuntu-latest
+            target: x86_64-linux
+            artifact: ucharm-linux-x86_64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Zig
+        uses: goto-bus-stop/setup-zig@v2
+        with:
+          version: 0.14.0
+
+      - name: Build CLI for ${{ matrix.target }}
+        working-directory: cli
+        run: |
+          zig build -Doptimize=ReleaseSmall -Dtarget=${{ matrix.target }}
+          mv zig-out/bin/ucharm ../${{ matrix.artifact }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.artifact }}
