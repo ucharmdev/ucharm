@@ -282,12 +282,17 @@ if hasattr(os, "stat"):
         st = os.stat(".")
         test("stat returns object", st is not None)
 
-        # Check common stat attributes
+        # Check common stat attributes (works with both CPython's stat_result and MicroPython's tuple)
         if hasattr(st, "st_mode"):
             test("stat has st_mode", isinstance(st.st_mode, int))
+        elif isinstance(st, tuple) and len(st) >= 1:
+            # MicroPython returns tuple: (st_mode, st_ino, st_dev, st_nlink, st_uid, st_gid, st_size, ...)
+            test("stat has st_mode", isinstance(st[0], int))
 
         if hasattr(st, "st_size"):
             test("stat has st_size", isinstance(st.st_size, int))
+        elif isinstance(st, tuple) and len(st) >= 7:
+            test("stat has st_size", isinstance(st[6], int))
     except OSError as e:
         skip("stat tests", str(e))
 else:

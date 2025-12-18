@@ -179,8 +179,10 @@ if HAS_NAMEDTUPLE:
     else:
         skip("_replace", "not implemented")
 
-    # _fields (if available)
-    if hasattr(Point, "_fields"):
+    # _fields (if available) - check on instance since MicroPython doesn't have class attribute
+    if hasattr(p, "_fields"):
+        test("_fields", p._fields == ("x", "y"))
+    elif hasattr(Point, "_fields"):
         test("_fields", Point._fields == ("x", "y"))
     else:
         skip("_fields", "not implemented")
