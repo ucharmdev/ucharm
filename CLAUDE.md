@@ -17,7 +17,7 @@
 │   (bytecode interpreter)            │
 ├─────────────────────────────────────┤
 │   Native Modules (Zig → C ABI)      │
-│   23 modules: term, ansi, charm,    │
+│   24 modules: term, ansi, charm,    │
 │   input, copy, fnmatch, typing, etc.│
 ├─────────────────────────────────────┤
 │        Single Binary                │
@@ -28,7 +28,7 @@
 ## The ucharm CLI
 
 The `ucharm` CLI is a **fully self-contained binary** (~1.0MB) that embeds:
-- **micropython-ucharm**: Custom MicroPython with 23 native Zig modules
+- **micropython-ucharm**: Custom MicroPython with 24 native Zig modules
 
 This means `ucharm run script.py` works with zero external dependencies. All TUI functionality (boxes, colors, prompts) is provided by native modules.
 
@@ -174,7 +174,7 @@ No external dependencies needed - micropython with all native modules is embedde
 ┌────────────────────────────────────────┐
 │  Zig Loader Stub (~95KB)               │  ← Native executable
 ├────────────────────────────────────────┤
-│  MicroPython Binary (~804KB)           │  ← Interpreter + 23 native modules
+│  MicroPython Binary (~804KB)           │  ← Interpreter + 24 native modules
 ├────────────────────────────────────────┤
 │  Python Code (~2KB)                    │  ← User app (transformed)
 ├────────────────────────────────────────┤
@@ -186,7 +186,7 @@ No external dependencies needed - micropython with all native modules is embedde
 - **Linux**: Uses `memfd_create` for zero-disk execution (~2ms)
 - **macOS**: Extracts to `/tmp/ucharm-{hash}/` with caching (~6ms cached)
 
-## Native Modules (23 total)
+## Native Modules (24 total)
 
 ### Core Terminal
 - `term` - Terminal control (size, raw mode, cursor, keys)
@@ -213,9 +213,11 @@ No external dependencies needed - micropython with all native modules is embedde
 - `statistics` - mean, median, stdev (16x faster)
 - `datetime` - now, utcnow, timestamp, isoformat
 - `copy` - copy, deepcopy with circular reference support
+- `heapq` - Heap queue algorithm
+- `operator` - Standard operators as functions
+- `random` - Random number generation
 
 ### File System
-- `path` - basename, dirname, join, normalize
 - `shutil` - copy, move, rmtree, exists
 - `glob` - File pattern matching
 - `fnmatch` - Filename pattern matching (fnmatch, filter, translate)

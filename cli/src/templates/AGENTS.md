@@ -7,7 +7,7 @@ This project uses **ucharm** - a CLI toolkit for building beautiful command-line
 - **Runtime**: MicroPython with native Zig modules (NOT CPython)
 - **No pip packages**: Cannot use packages with C extensions (no requests, numpy, pandas)
 - **Output**: Standalone binaries (~900KB)
-- **24 native modules**: charm, input, term, ansi, base64, csv, datetime, fnmatch, functools, glob, heapq, itertools, logging, operator, random, shutil, signal, statistics, subprocess, tempfile, textwrap, typing
+- **24 native modules**: ansi, args, base64, charm, copy, csv, datetime, fnmatch, functools, glob, heapq, input, itertools, logging, operator, random, shutil, signal, statistics, subprocess, tempfile, term, textwrap, typing
 
 ## Import Pattern
 

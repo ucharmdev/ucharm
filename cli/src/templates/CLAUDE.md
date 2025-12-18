@@ -5,7 +5,7 @@ This project uses **ucharm** - a CLI toolkit for building beautiful command-line
 ## Key Concepts
 
 - **MicroPython, not CPython**: This runs on MicroPython with native Zig modules, not standard Python
-- **Native modules**: 24 high-performance modules implemented in Zig (charm, input, term, ansi, etc.)
+- **Native modules**: 24 high-performance modules implemented in Zig (see list below)
 - **No pip packages**: You cannot use pip packages that have C extensions
 - **Single binary output**: Apps compile to standalone executables (~900KB)
 
@@ -18,7 +18,8 @@ This project uses **ucharm** - a CLI toolkit for building beautiful command-line
 - `ansi` - ANSI escape codes for styling
 
 ### Standard Library (Native)
-- `base64`, `csv`, `datetime`, `fnmatch`, `functools`, `glob`
+- `args` - CLI argument parsing
+- `base64`, `copy`, `csv`, `datetime`, `fnmatch`, `functools`, `glob`
 - `heapq`, `itertools`, `logging`, `operator`, `random`, `shutil`
 - `signal`, `statistics`, `subprocess`, `tempfile`, `textwrap`, `typing`
 
