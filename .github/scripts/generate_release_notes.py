@@ -76,38 +76,67 @@ def generate_release_notes_with_ai(
 
 # Task:
 
-Generate concise release notes in markdown. Guidelines:
+Generate polished, engaging release notes in markdown. Follow the style of popular developer tools like Charm/Bubbletea, Bun, and Deno.
 
-1. **Structure**: Use sections like "Features", "Bug Fixes", "Improvements", "Documentation", "Maintenance" (only if applicable)
+## Structure:
 
-2. **Style**:
-   - Be terse - one short line per change (max 10-15 words per bullet)
-   - Present tense ("Add" not "Added")
-   - Focus on what changed, not why or how
-   - No introductory paragraphs or summaries
+1. **Opening** (1-2 lines max):
+   - Start with a short, friendly tagline that captures the release theme
+   - Can be playful but not forced (e.g., "This release brings interactive prompts to your CLI apps" or "Faster builds, smaller binaries")
 
-3. **Format**:
-   - Use simple bullets with dash (-)
-   - **Bold** only for feature/command names or module names
-   - No nested bullets - flatten everything to single-level lists
-   - No commit hashes
+2. **Sections** (use emoji prefixes, only include sections with content):
+   - ✨ **What's New** — New features and capabilities
+   - ⚡ **Improvements** — Performance gains, enhancements
+   - 🐛 **Bug Fixes** — Corrected issues
+   - 📚 **Documentation** — Docs and examples (only if significant)
 
-4. **Content**:
-   - List all changes but keep each item to ONE line
-   - Consolidate related micro-changes into single bullets
-   - Highlight new native modules, performance improvements, CLI changes
-   - Omit version bumps and merge commits
+3. **Installation** (always include):
+   ```bash
+   # Install
+   brew install ucharmdev/tap/ucharm
 
-Example style:
-## Features
-- Add **subprocess** module with run, call, check_output
-- Add **signal** module (6.6x faster than CPython)
+   # Or upgrade
+   brew upgrade ucharm
+   ```
 
-## Improvements
-- Improve CLI output with progress indicators
-- Update universal binary format for faster startup
+## Style Guidelines:
 
-Generate ONLY the release notes, starting with the first section header."""
+- **Tone**: Friendly and approachable, like talking to a fellow developer
+- **Bullets**: Use `-` with concise descriptions (one line each, ~10-20 words max)
+- **Emphasis**: Use `**bold**` for module names, commands, and key terms
+- **Metrics**: Include performance numbers when available (e.g., "6.6x faster than CPython")
+- **No commit hashes** in the output
+- **Present tense**: "Add" not "Added"
+
+## Example Output:
+
+Interactive prompts have arrived! Build beautiful CLI experiences with select menus, confirmations, and more.
+
+### ✨ What's New
+
+- Add **input** module with `select()`, `confirm()`, `prompt()`, and `password()`
+- Add **charm.spinner_frame()** for animated loading indicators
+- New `ucharm init --ai` command generates AI assistant instructions
+
+### ⚡ Improvements
+
+- **signal** module now 6.6x faster than CPython equivalent
+- Universal binaries start 30% faster on macOS with improved caching
+
+### 🐛 Bug Fixes
+
+- Fix box rendering when content contains ANSI color codes
+- Correct cursor positioning after multiselect prompts
+
+### Installation
+
+```bash
+brew install ucharmdev/tap/ucharm
+```
+
+---
+
+Generate the release notes now, starting with the opening tagline."""
 
     response = requests.post(
         "https://openrouter.ai/api/v1/chat/completions",
@@ -120,8 +149,8 @@ Generate ONLY the release notes, starting with the first section header."""
         json={
             "model": model,
             "messages": [{"role": "user", "content": prompt}],
-            "temperature": 0.5,
-            "max_tokens": 1000,
+            "temperature": 0.6,
+            "max_tokens": 1500,
         },
         timeout=60,
     )
