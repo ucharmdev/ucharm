@@ -4,8 +4,7 @@ const builtin = @import("builtin");
 const Allocator = std.mem.Allocator;
 const io = @import("io.zig");
 
-// Embedded assets
-const ucharm_lib = @embedFile("ucharm_bundle.py");
+// Embedded micropython binary with native modules
 const micropython_macos_aarch64 = @embedFile("stubs/micropython-ucharm-macos-aarch64");
 
 pub fn run(allocator: Allocator, args: []const [:0]const u8) !void {
@@ -30,19 +29,19 @@ pub fn run(allocator: Allocator, args: []const [:0]const u8) !void {
     };
     defer allocator.free(mpy_path);
 
-    // Bundle the script with ucharm library
-    const bundled_path = bundleScript(allocator, script) catch {
-        io.eprint("\x1b[31mError:\x1b[0m Failed to bundle script\n", .{});
+    // Transform script to use native modules instead of ucharm package
+    const transformed_path = transformScript(allocator, script) catch {
+        io.eprint("\x1b[31mError:\x1b[0m Failed to transform script\n", .{});
         std.process.exit(1);
     };
-    defer allocator.free(bundled_path);
+    defer allocator.free(transformed_path);
 
     // Build argv
     var argv: std.ArrayList([]const u8) = .empty;
     defer argv.deinit(allocator);
 
     try argv.append(allocator, mpy_path);
-    try argv.append(allocator, bundled_path);
+    try argv.append(allocator, transformed_path);
 
     // Add any additional arguments
     for (args[1..]) |arg| {
@@ -62,7 +61,7 @@ pub fn run(allocator: Allocator, args: []const [:0]const u8) !void {
     };
 
     // Clean up temp script
-    fs.deleteFileAbsolute(bundled_path) catch {};
+    fs.deleteFileAbsolute(transformed_path) catch {};
 
     switch (result) {
         .Exited => |code| std.process.exit(code),
@@ -115,7 +114,7 @@ fn extractMicropython(allocator: Allocator) ![]const u8 {
     return mpy_path;
 }
 
-fn bundleScript(allocator: Allocator, script_path: []const u8) ![]const u8 {
+fn transformScript(allocator: Allocator, script_path: []const u8) ![]const u8 {
     // Read the user's script
     const script_content = try fs.cwd().readFileAlloc(allocator, script_path, 1024 * 1024);
     defer allocator.free(script_content);
@@ -126,26 +125,49 @@ fn bundleScript(allocator: Allocator, script_path: []const u8) ![]const u8 {
 
     // Header
     try output_buffer.appendSlice(allocator, "#!/usr/bin/env micropython\n");
-    try output_buffer.appendSlice(allocator, "# Bundled with ucharm\n\n");
+    try output_buffer.appendSlice(allocator, "# Transformed by ucharm run\n\n");
 
-    // Embedded ucharm library
-    try output_buffer.appendSlice(allocator, ucharm_lib);
-    try output_buffer.appendSlice(allocator, "\n\n# === User Script ===\n\n");
+    // Always add native module imports (simpler and more robust)
+    try output_buffer.appendSlice(allocator, "from charm import style, box, rule, success, error, warning, info, progress, spinner_frame, visible_len\n");
+    try output_buffer.appendSlice(allocator, "from input import select, multiselect, confirm, prompt, password\n");
+    try output_buffer.appendSlice(allocator, "\n");
 
-    // Process user script - remove ucharm imports since we bundled it
+    // Stub out missing functions that demo.py uses
+    try output_buffer.appendSlice(allocator, "# Stubs for functions not yet in native modules\n");
+    try output_buffer.appendSlice(allocator, "def spinner(msg, duration=1): pass\n");
+    try output_buffer.appendSlice(allocator, "def table(data, headers=None, header_style=None): pass\n");
+    try output_buffer.appendSlice(allocator, "def key_value(data): pass\n");
+    try output_buffer.appendSlice(allocator, "class Color: pass\n");
+    try output_buffer.appendSlice(allocator, "\n");
+
+    // Process lines and skip ucharm imports (including multiline)
+    var in_multiline_import = false;
     var lines = std.mem.splitSequence(u8, script_content, "\n");
     while (lines.next()) |line| {
         const trimmed = std.mem.trim(u8, line, " \t");
 
-        // Skip ucharm imports (we've already bundled the library)
-        if (std.mem.startsWith(u8, trimmed, "from ucharm import") or
-            std.mem.startsWith(u8, trimmed, "import ucharm") or
-            std.mem.startsWith(u8, trimmed, "from ucharm."))
-        {
+        // Handle multiline imports
+        if (in_multiline_import) {
+            // Check if this line ends the multiline import
+            if (std.mem.indexOf(u8, line, ")") != null) {
+                in_multiline_import = false;
+            }
             continue;
         }
 
-        // Skip sys.path modifications for ucharm
+        // Skip ucharm imports
+        if (std.mem.startsWith(u8, trimmed, "from ucharm import") or
+            std.mem.startsWith(u8, trimmed, "from ucharm.") or
+            std.mem.startsWith(u8, trimmed, "import ucharm"))
+        {
+            // Check if this starts a multiline import
+            if (std.mem.indexOf(u8, line, "(") != null and std.mem.indexOf(u8, line, ")") == null) {
+                in_multiline_import = true;
+            }
+            continue;
+        }
+
+        // Skip sys.path modifications
         if (std.mem.indexOf(u8, line, "sys.path") != null) {
             continue;
         }

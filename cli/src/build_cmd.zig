@@ -8,6 +8,9 @@ const stub_macos_aarch64 = @embedFile("stubs/loader-macos-aarch64");
 const stub_macos_x86_64 = @embedFile("stubs/loader-macos-x86_64");
 const stub_linux_x86_64 = @embedFile("stubs/loader-linux-x86_64");
 
+// Embedded micropython-ucharm binary (contains all native modules)
+const micropython_macos_aarch64 = @embedFile("stubs/micropython-ucharm-macos-aarch64");
+
 // Trailer format constants (must match loader/src/trailer.zig)
 const TRAILER_MAGIC: *const [8]u8 = "MCHARM01";
 const TRAILER_SIZE: usize = 48;
@@ -35,7 +38,6 @@ pub fn run(allocator: Allocator, args: []const [:0]const u8) !void {
     var script_path: ?[]const u8 = null;
     var output_path: ?[]const u8 = null;
     var mode: Mode = .universal;
-    var prefer_native: bool = true; // Default to native if available
 
     // Parse arguments
     var i: usize = 0;
@@ -66,10 +68,6 @@ pub fn run(allocator: Allocator, args: []const [:0]const u8) !void {
                 io.eprint("\x1b[31mError:\x1b[0m Unknown mode '{s}'. Use: single, executable, universal\n", .{mode_str});
                 std.process.exit(1);
             }
-        } else if (std.mem.eql(u8, arg, "--native")) {
-            prefer_native = true;
-        } else if (std.mem.eql(u8, arg, "--no-native")) {
-            prefer_native = false;
         } else if (std.mem.startsWith(u8, arg, "-")) {
             io.eprint("\x1b[31mError:\x1b[0m Unknown option '{s}'\n", .{arg});
             std.process.exit(1);
@@ -107,405 +105,137 @@ pub fn run(allocator: Allocator, args: []const [:0]const u8) !void {
 
     switch (mode) {
         .single => try buildSingle(allocator, script, output_path.?),
-        .executable => try buildExecutable(allocator, script, output_path.?, prefer_native),
-        .universal => try buildUniversal(allocator, script, output_path.?, prefer_native),
+        .executable => try buildExecutable(allocator, script, output_path.?),
+        .universal => try buildUniversal(allocator, script, output_path.?),
     }
 }
 
-fn buildSingle(allocator: Allocator, script: []const u8, output: []const u8) !void {
-    // Read the script
-    const script_content = try fs.cwd().readFileAlloc(allocator, script, 1024 * 1024);
+fn transformScript(allocator: Allocator, script_path: []const u8) ![]u8 {
+    // Read the user's script
+    const script_content = try fs.cwd().readFileAlloc(allocator, script_path, 1024 * 1024);
     defer allocator.free(script_content);
 
-    // Microcharm library files to embed
-    const ucharm_files = [_][]const u8{
-        "terminal.py",
-        "style.py",
-        "components.py",
-        "input.py",
-        "table.py",
-    };
-
-    // Build combined output using a simple buffer approach
+    // Build output
     var output_buffer: std.ArrayList(u8) = .empty;
-    defer output_buffer.deinit(allocator);
-
-    // Helper to append slice
-    const appendSlice = struct {
-        fn f(list: *std.ArrayList(u8), alloc: Allocator, slice: []const u8) !void {
-            try list.appendSlice(alloc, slice);
-        }
-    }.f;
+    errdefer output_buffer.deinit(allocator);
 
     // Header
-    try appendSlice(&output_buffer, allocator, "#!/usr/bin/env micropython\n");
-    try appendSlice(&output_buffer, allocator, "# Built with μcharm\n\n");
-    try appendSlice(&output_buffer, allocator, "import sys\nimport time\n\n");
+    try output_buffer.appendSlice(allocator, "#!/usr/bin/env micropython\n");
+    try output_buffer.appendSlice(allocator, "# Built with ucharm - native modules edition\n\n");
 
-    // Add constants that are normally from _native.py
-    try appendSlice(&output_buffer, allocator, "# Constants (from _native.py)\n");
-    try appendSlice(&output_buffer, allocator, "ALIGN_LEFT = 0\n");
-    try appendSlice(&output_buffer, allocator, "ALIGN_RIGHT = 1\n");
-    try appendSlice(&output_buffer, allocator, "ALIGN_CENTER = 2\n");
-    try appendSlice(&output_buffer, allocator, "BORDER_ROUNDED = 0\n");
-    try appendSlice(&output_buffer, allocator, "BORDER_SQUARE = 1\n");
-    try appendSlice(&output_buffer, allocator, "BORDER_DOUBLE = 2\n");
-    try appendSlice(&output_buffer, allocator, "BORDER_HEAVY = 3\n");
-    try appendSlice(&output_buffer, allocator, "BORDER_NONE = 4\n\n");
+    // Track what needs to be imported from native modules
+    var needs_charm = false;
+    var needs_input = false;
 
-    // Add pure Python ui class for MicroPython compatibility
-    try appendSlice(&output_buffer, allocator,
-        \\# Pure Python ui class (for MicroPython - replaces _native.ui)
-        \\class ui:
-        \\    _BOX_CHARS = {
-        \\        0: ('╭', '╮', '╰', '╯', '─', '│'),  # rounded
-        \\        1: ('┌', '┐', '└', '┘', '─', '│'),  # square
-        \\        2: ('╔', '╗', '╚', '╝', '═', '║'),  # double
-        \\        3: ('┏', '┓', '┗', '┛', '━', '┃'),  # heavy
-        \\        4: (' ', ' ', ' ', ' ', ' ', ' '),  # none
-        \\    }
-        \\    _SPINNER = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
-        \\
-        \\    @staticmethod
-        \\    def visible_len(s):
-        \\        i, length = 0, 0
-        \\        while i < len(s):
-        \\            if s[i] == '\x1b' and i + 1 < len(s) and s[i + 1] == '[':
-        \\                i += 2
-        \\                while i < len(s) and s[i] not in 'mHJK':
-        \\                    i += 1
-        \\                i += 1
-        \\            else:
-        \\                c = ord(s[i])
-        \\                if c < 128:
-        \\                    length += 1
-        \\                    i += 1
-        \\                elif c < 0xE0:
-        \\                    length += 1
-        \\                    i += 2
-        \\                elif c < 0xF0:
-        \\                    length += 2
-        \\                    i += 3
-        \\                else:
-        \\                    length += 2
-        \\                    i += 4
-        \\        return length
-        \\
-        \\    @staticmethod
-        \\    def pad(text, width, align=0):
-        \\        vis = ui.visible_len(text)
-        \\        if vis >= width:
-        \\            return text
-        \\        pad = width - vis
-        \\        if align == 1:  # right
-        \\            return ' ' * pad + text
-        \\        elif align == 2:  # center
-        \\            l = pad // 2
-        \\            return ' ' * l + text + ' ' * (pad - l)
-        \\        return text + ' ' * pad
-        \\
-        \\    @staticmethod
-        \\    def progress_bar(cur, total, width, fill='█', empty='░'):
-        \\        if total <= 0:
-        \\            return empty * width
-        \\        filled = int(width * cur / total)
-        \\        return fill * filled + empty * (width - filled)
-        \\
-        \\    @staticmethod
-        \\    def percent_str(cur, total):
-        \\        if total <= 0:
-        \\            return '0%'
-        \\        return str(int(100 * cur / total)) + '%'
-        \\
-        \\    @staticmethod
-        \\    def box_chars(style=0):
-        \\        c = ui._BOX_CHARS.get(style, ui._BOX_CHARS[0])
-        \\        return {'tl': c[0], 'tr': c[1], 'bl': c[2], 'br': c[3], 'h': c[4], 'v': c[5]}
-        \\
-        \\    @staticmethod
-        \\    def box_top(width, style=0):
-        \\        c = ui.box_chars(style)
-        \\        return c['tl'] + c['h'] * width + c['tr']
-        \\
-        \\    @staticmethod
-        \\    def box_bottom(width, style=0):
-        \\        c = ui.box_chars(style)
-        \\        return c['bl'] + c['h'] * width + c['br']
-        \\
-        \\    @staticmethod
-        \\    def box_middle(content, width, style=0, padding=1):
-        \\        c = ui.box_chars(style)
-        \\        pad = ' ' * padding
-        \\        inner_w = width - padding * 2
-        \\        return c['v'] + pad + ui.pad(content, inner_w) + pad + c['v']
-        \\
-        \\    @staticmethod
-        \\    def rule(width, char='─'):
-        \\        return char * width
-        \\
-        \\    @staticmethod
-        \\    def rule_with_title(width, title, char='─'):
-        \\        t = ' ' + title + ' '
-        \\        side = (width - len(t)) // 2
-        \\        return char * side + t + char * (width - side - len(t))
-        \\
-        \\    @staticmethod
-        \\    def spinner_frame(idx):
-        \\        return ui._SPINNER[idx % len(ui._SPINNER)]
-        \\
-        \\    @staticmethod
-        \\    def spinner_frame_count():
-        \\        return len(ui._SPINNER)
-        \\
-        \\    @staticmethod
-        \\    def symbol_success():
-        \\        return '✓'
-        \\
-        \\    @staticmethod
-        \\    def symbol_error():
-        \\        return '✗'
-        \\
-        \\    @staticmethod
-        \\    def symbol_warning():
-        \\        return '⚠'
-        \\
-        \\    @staticmethod
-        \\    def symbol_info():
-        \\        return 'ℹ'
-        \\
-        \\    @staticmethod
-        \\    def symbol_bullet():
-        \\        return '•'
-        \\
-        \\    @staticmethod
-        \\    def table_v():
-        \\        return '│'
-        \\
-        \\    @staticmethod
-        \\    def table_top(col_widths):
-        \\        return '┌' + '┬'.join('─' * w for w in col_widths) + '┐'
-        \\
-        \\    @staticmethod
-        \\    def table_divider(col_widths):
-        \\        return '├' + '┼'.join('─' * w for w in col_widths) + '┤'
-        \\
-        \\    @staticmethod
-        \\    def table_bottom(col_widths):
-        \\        return '└' + '┴'.join('─' * w for w in col_widths) + '┘'
-        \\
-        \\    @staticmethod
-        \\    def table_cell(content, width, align=0, padding=1):
-        \\        inner_w = width - padding * 2
-        \\        pad = ' ' * padding
-        \\        return pad + ui.pad(content, inner_w, align) + pad
-        \\
-        \\    @staticmethod
-        \\    def select_indicator():
-        \\        return '❯ '
-        \\
-        \\    @staticmethod
-        \\    def checkbox_on():
-        \\        return '◉'
-        \\
-        \\    @staticmethod
-        \\    def checkbox_off():
-        \\        return '○'
-        \\
-        \\    @staticmethod
-        \\    def prompt_question():
-        \\        return '? '
-        \\
-        \\    @staticmethod
-        \\    def prompt_success():
-        \\        return '✓ '
-        \\
-        \\    @staticmethod
-        \\    def cursor_up(n):
-        \\        return '\x1b[' + str(n) + 'A'
-        \\
-        \\    @staticmethod
-        \\    def cursor_down(n):
-        \\        return '\x1b[' + str(n) + 'B'
-        \\
-        \\    @staticmethod
-        \\    def clear_line():
-        \\        return '\x1b[2K\r'
-        \\
-        \\    @staticmethod
-        \\    def hide_cursor():
-        \\        return '\x1b[?25l'
-        \\
-        \\    @staticmethod
-        \\    def show_cursor():
-        \\        return '\x1b[?25h'
-        \\
-        \\
-    );
-
-    try appendSlice(&output_buffer, allocator, "# === Embedded ucharm library ===\n\n");
-
-    // Find ucharm directory - try relative paths
-    const ucharm_paths = [_][]const u8{
-        "ucharm",
-        "../ucharm",
-        "../../ucharm",
-    };
-
-    var ucharm_base: ?[]const u8 = null;
-    for (ucharm_paths) |path| {
-        const test_path = try fs.path.join(allocator, &.{ path, "style.py" });
-        defer allocator.free(test_path);
-        if (fs.cwd().access(test_path, .{})) |_| {
-            ucharm_base = path;
-            break;
-        } else |_| {}
-    }
-
-    if (ucharm_base == null) {
-        io.eprint("\x1b[31mError:\x1b[0m Could not find ucharm library\n", .{});
-        std.process.exit(1);
-    }
-
-    // Embed each library file
-    for (ucharm_files) |filename| {
-        const file_path = try fs.path.join(allocator, &.{ ucharm_base.?, filename });
-        defer allocator.free(file_path);
-
-        const content = fs.cwd().readFileAlloc(allocator, file_path, 512 * 1024) catch {
-            io.eprint("\x1b[31mError:\x1b[0m Could not read {s}\n", .{file_path});
-            std.process.exit(1);
-        };
-        defer allocator.free(content);
-
-        try appendSlice(&output_buffer, allocator, "# --- ucharm/");
-        try appendSlice(&output_buffer, allocator, filename);
-        try appendSlice(&output_buffer, allocator, " ---\n");
-
-        // Process content - skip relative imports and duplicate imports
-        var lines = std.mem.splitSequence(u8, content, "\n");
-        var last_line_was_block_start = false;
-        var last_line_indent: usize = 0;
-        while (lines.next()) |line| {
-            const trimmed = std.mem.trim(u8, line, " \t");
-
-            // Calculate indentation of this line
-            var indent: usize = 0;
-            for (line) |c| {
-                if (c == ' ') {
-                    indent += 1;
-                } else if (c == '\t') {
-                    indent += 4;
-                } else {
-                    break;
-                }
-            }
-
-            // Skip relative imports and duplicate imports
-            const should_skip = std.mem.startsWith(u8, trimmed, "from .") or
-                std.mem.eql(u8, trimmed, "import sys") or
-                std.mem.eql(u8, trimmed, "import time");
-
-            if (should_skip) {
-                // If previous line ended with :, add pass at proper indentation
-                if (last_line_was_block_start) {
-                    // Add indentation (use current line's indent which is block body indent)
-                    var i: usize = 0;
-                    while (i < indent) : (i += 1) {
-                        try output_buffer.append(allocator, ' ');
-                    }
-                    try appendSlice(&output_buffer, allocator, "pass\n");
-                    last_line_was_block_start = false;
-                }
-                continue;
-            }
-
-            try appendSlice(&output_buffer, allocator, line);
-            try output_buffer.append(allocator, '\n');
-
-            // Track if this line starts a block (ends with :)
-            last_line_was_block_start = trimmed.len > 0 and trimmed[trimmed.len - 1] == ':';
-            last_line_indent = indent;
-        }
-        try output_buffer.append(allocator, '\n');
-    }
-
-    try appendSlice(&output_buffer, allocator, "# === Application ===\n\n");
-
-    // Process main script - skip ucharm imports and sys.path manipulation
-    var in_multiline_import = false;
-    var script_lines = std.mem.splitSequence(u8, script_content, "\n");
-    while (script_lines.next()) |line| {
+    // First pass: check what ucharm imports are used
+    var check_lines = std.mem.splitSequence(u8, script_content, "\n");
+    while (check_lines.next()) |line| {
         const trimmed = std.mem.trim(u8, line, " \t");
 
-        if (in_multiline_import) {
-            if (std.mem.indexOf(u8, line, ")") != null) {
-                in_multiline_import = false;
+        if (std.mem.startsWith(u8, trimmed, "from ucharm import")) {
+            // Parse the imports to see what's needed
+            const import_part = trimmed["from ucharm import".len..];
+            if (containsAny(import_part, &.{ "style", "box", "rule", "success", "error", "warning", "info", "progress" })) {
+                needs_charm = true;
             }
-            continue;
+            if (containsAny(import_part, &.{ "select", "multiselect", "confirm", "prompt", "password" })) {
+                needs_input = true;
+            }
+        } else if (std.mem.startsWith(u8, trimmed, "import ucharm")) {
+            needs_charm = true;
+            needs_input = true;
         }
+    }
 
-        if (std.mem.indexOf(u8, line, "from ucharm") != null or
-            std.mem.indexOf(u8, line, "import ucharm") != null)
+    // Add native module imports if needed
+    if (needs_charm) {
+        try output_buffer.appendSlice(allocator, "from charm import style, box, rule, success, error, warning, info, progress\n");
+    }
+    if (needs_input) {
+        try output_buffer.appendSlice(allocator, "from input import select, multiselect, confirm, prompt, password\n");
+    }
+    if (needs_charm or needs_input) {
+        try output_buffer.appendSlice(allocator, "\n");
+    }
+
+    // Second pass: process lines and skip ucharm imports
+    var lines = std.mem.splitSequence(u8, script_content, "\n");
+    while (lines.next()) |line| {
+        const trimmed = std.mem.trim(u8, line, " \t");
+
+        // Skip ucharm imports (we've replaced them with native module imports)
+        if (std.mem.startsWith(u8, trimmed, "from ucharm import") or
+            std.mem.startsWith(u8, trimmed, "import ucharm") or
+            std.mem.startsWith(u8, trimmed, "from ucharm."))
         {
-            if (std.mem.indexOf(u8, line, "(") != null and std.mem.indexOf(u8, line, ")") == null) {
-                in_multiline_import = true;
-            }
             continue;
         }
 
-        if (std.mem.indexOf(u8, line, "sys.path") != null) continue;
-        if (std.mem.eql(u8, trimmed, "import sys")) continue;
-        if (std.mem.eql(u8, trimmed, "import time")) continue;
+        // Skip sys.path modifications for ucharm
+        if (std.mem.indexOf(u8, line, "sys.path") != null and
+            std.mem.indexOf(u8, line, "ucharm") != null)
+        {
+            continue;
+        }
 
-        try appendSlice(&output_buffer, allocator, line);
+        try output_buffer.appendSlice(allocator, line);
         try output_buffer.append(allocator, '\n');
     }
+
+    return try output_buffer.toOwnedSlice(allocator);
+}
+
+fn containsAny(haystack: []const u8, needles: []const []const u8) bool {
+    for (needles) |needle| {
+        if (std.mem.indexOf(u8, haystack, needle) != null) {
+            return true;
+        }
+    }
+    return false;
+}
+
+fn buildSingle(allocator: Allocator, script: []const u8, output: []const u8) !void {
+    // Transform script to use native modules
+    const transformed = try transformScript(allocator, script);
+    defer allocator.free(transformed);
 
     // Write output file
     const output_file = try fs.cwd().createFile(output, .{});
     defer output_file.close();
-    try output_file.writeAll(output_buffer.items);
+    try output_file.writeAll(transformed);
 
     // Make executable (mode 0o755)
     const file_for_chmod = try fs.cwd().openFile(output, .{ .mode = .read_write });
     defer file_for_chmod.close();
     try file_for_chmod.chmod(0o755);
 
-    io.print(green ++ check ++ reset ++ " Bundled Python code " ++ dim ++ "({d} bytes)" ++ reset ++ "\n", .{output_buffer.items.len});
+    io.print(green ++ check ++ reset ++ " Transformed Python code " ++ dim ++ "({d} bytes)" ++ reset ++ "\n", .{transformed.len});
+    io.print("\n" ++ dim ++ "Note: Requires micropython-ucharm with native modules" ++ reset ++ "\n", .{});
 }
 
-fn buildExecutable(allocator: Allocator, script: []const u8, output: []const u8, prefer_native: bool) !void {
-    // First build single file to temp
-    const temp_path = "/tmp/ucharm_bundle.py";
-    try buildSingle(allocator, script, temp_path);
-
-    // Read bundled content
-    const bundled = try fs.cwd().readFileAlloc(allocator, temp_path, 2 * 1024 * 1024);
-    defer allocator.free(bundled);
+fn buildExecutable(allocator: Allocator, script: []const u8, output: []const u8) !void {
+    // Transform script
+    const transformed = try transformScript(allocator, script);
+    defer allocator.free(transformed);
 
     // Base64 encode
     const encoder = std.base64.standard.Encoder;
-    const encoded_len = encoder.calcSize(bundled.len);
+    const encoded_len = encoder.calcSize(transformed.len);
     const encoded = try allocator.alloc(u8, encoded_len);
     defer allocator.free(encoded);
-    _ = encoder.encode(encoded, bundled);
+    _ = encoder.encode(encoded, transformed);
 
-    // Find micropython
-    const mpy_path = findMicropython(prefer_native) catch "/opt/homebrew/bin/micropython";
-
-    // Create shell wrapper
+    // Create shell wrapper that extracts embedded micropython
     var wrapper: std.ArrayList(u8) = .empty;
     defer wrapper.deinit(allocator);
 
     try wrapper.appendSlice(allocator, "#!/bin/bash\n");
     try wrapper.appendSlice(allocator, "# Built with μcharm - https://github.com/ucharmdev/ucharm\n");
-    try wrapper.appendSlice(allocator, "MICROPYTHON=\"");
-    try wrapper.appendSlice(allocator, mpy_path);
-    try wrapper.appendSlice(allocator, "\"\n");
+    try wrapper.appendSlice(allocator, "# Requires micropython-ucharm with native modules\n\n");
+    try wrapper.appendSlice(allocator, "MICROPYTHON=\"micropython-ucharm\"\n");
     try wrapper.appendSlice(allocator, "if ! command -v \"$MICROPYTHON\" &> /dev/null; then\n");
-    try wrapper.appendSlice(allocator, "    if command -v micropython &> /dev/null; then\n");
-    try wrapper.appendSlice(allocator, "        MICROPYTHON=\"micropython\"\n");
-    try wrapper.appendSlice(allocator, "    else\n");
+    try wrapper.appendSlice(allocator, "    MICROPYTHON=\"micropython\"\n");
+    try wrapper.appendSlice(allocator, "    if ! command -v \"$MICROPYTHON\" &> /dev/null; then\n");
     try wrapper.appendSlice(allocator, "        echo \"Error: micropython not found\" >&2\n");
     try wrapper.appendSlice(allocator, "        exit 1\n");
     try wrapper.appendSlice(allocator, "    fi\n");
@@ -533,38 +263,14 @@ fn buildExecutable(allocator: Allocator, script: []const u8, output: []const u8,
     }
 }
 
-fn buildUniversal(allocator: Allocator, script: []const u8, output: []const u8, prefer_native: bool) !void {
-    // First build single file
-    const temp_path = "/tmp/ucharm_bundle.py";
-    try buildSingle(allocator, script, temp_path);
-
-    // Read bundled content
-    const py_content = try fs.cwd().readFileAlloc(allocator, temp_path, 2 * 1024 * 1024);
+fn buildUniversal(allocator: Allocator, script: []const u8, output: []const u8) !void {
+    // Transform script to use native modules
+    const py_content = try transformScript(allocator, script);
     defer allocator.free(py_content);
 
-    // Find and read micropython binary (prefer native build with term/ansi modules)
-    const mpy_info = findMicropythonWithInfo(prefer_native);
-    const mpy_path = mpy_info.path;
-
-    if (mpy_info.is_native) {
-        io.print(green ++ check ++ reset ++ " Using " ++ bold ++ "micropython-ucharm" ++ reset ++ dim ++ " (18 native modules)" ++ reset ++ "\n", .{});
-    } else {
-        io.print(yellow ++ bullet ++ reset ++ " Using " ++ bold ++ "standard micropython" ++ reset ++ dim ++ " (native modules not available)" ++ reset ++ "\n", .{});
-    }
-
-    // Open micropython binary (handle both absolute and relative paths)
-    const mpy_file = if (mpy_path[0] == '/')
-        try fs.openFileAbsolute(mpy_path, .{})
-    else
-        try fs.cwd().openFile(mpy_path, .{});
-    defer mpy_file.close();
-
-    const mpy_stat = try mpy_file.stat();
-    const mpy_size = mpy_stat.size;
-
-    const mpy_binary = try allocator.alloc(u8, mpy_size);
-    defer allocator.free(mpy_binary);
-    _ = try mpy_file.readAll(mpy_binary);
+    // Use embedded micropython-ucharm (with native modules)
+    const mpy_binary = micropython_macos_aarch64;
+    io.print(green ++ check ++ reset ++ " Using embedded " ++ bold ++ "micropython-ucharm" ++ reset ++ dim ++ " (23 native modules)" ++ reset ++ "\n", .{});
 
     // Select loader stub for host platform
     const stub = selectLoaderStub();
@@ -573,7 +279,7 @@ fn buildUniversal(allocator: Allocator, script: []const u8, output: []const u8, 
     // Calculate offsets for trailer
     const stub_size: u64 = stub.data.len;
     const micropython_offset: u64 = stub_size;
-    const micropython_size: u64 = mpy_size;
+    const micropython_size: u64 = mpy_binary.len;
     const python_offset: u64 = micropython_offset + micropython_size;
     const python_size: u64 = py_content.len;
 
@@ -599,7 +305,7 @@ fn buildUniversal(allocator: Allocator, script: []const u8, output: []const u8, 
     defer file_for_chmod.close();
     try file_for_chmod.chmod(0o755);
 
-    const total_size = stub.data.len + mpy_size + py_content.len + TRAILER_SIZE;
+    const total_size = stub.data.len + mpy_binary.len + py_content.len + TRAILER_SIZE;
     const total_kb = total_size / 1024;
     io.print(green ++ check ++ reset ++ " Wrote universal binary " ++ dim ++ "({d} KB)" ++ reset ++ "\n", .{total_kb});
 
@@ -637,111 +343,4 @@ fn selectLoaderStub() LoaderStub {
         // Linux (and other Unix-like)
         return .{ .name = "linux-x86_64", .data = stub_linux_x86_64 };
     }
-}
-
-fn findMicropython(prefer_native: bool) ![]const u8 {
-    // Custom micropython-ucharm locations (with native modules)
-    const native_paths = [_][]const u8{
-        // Installed location
-        "/usr/local/bin/micropython-ucharm",
-        "/opt/homebrew/bin/micropython-ucharm",
-        // Development location (relative to ucharm binary)
-        "../native/dist/micropython-ucharm",
-        "native/dist/micropython-ucharm",
-    };
-
-    // Standard micropython locations
-    const standard_paths = [_][]const u8{
-        "/opt/homebrew/bin/micropython",
-        "/usr/local/bin/micropython",
-        "/usr/bin/micropython",
-    };
-
-    // Try native first if preferred
-    if (prefer_native) {
-        for (native_paths) |path| {
-            if (path[0] == '/') {
-                fs.accessAbsolute(path, .{}) catch continue;
-                return path;
-            } else {
-                fs.cwd().access(path, .{}) catch continue;
-                return path;
-            }
-        }
-    }
-
-    // Try standard paths
-    for (standard_paths) |path| {
-        fs.accessAbsolute(path, .{}) catch continue;
-        return path;
-    }
-
-    // Fall back to native paths if not preferred but nothing else found
-    if (!prefer_native) {
-        for (native_paths) |path| {
-            if (path[0] == '/') {
-                fs.accessAbsolute(path, .{}) catch continue;
-                return path;
-            } else {
-                fs.cwd().access(path, .{}) catch continue;
-                return path;
-            }
-        }
-    }
-
-    return error.NotFound;
-}
-
-fn findMicropythonWithInfo(prefer_native: bool) struct { path: []const u8, is_native: bool } {
-    // Custom micropython-ucharm locations (with native modules)
-    const native_abs_paths = [_][]const u8{
-        "/usr/local/bin/micropython-ucharm",
-        "/opt/homebrew/bin/micropython-ucharm",
-    };
-
-    const native_rel_paths = [_][]const u8{
-        "native/dist/micropython-ucharm",
-        "../native/dist/micropython-ucharm",
-    };
-
-    // Standard micropython locations
-    const standard_paths = [_][]const u8{
-        "/opt/homebrew/bin/micropython",
-        "/usr/local/bin/micropython",
-        "/usr/bin/micropython",
-    };
-
-    // Try native first if preferred
-    if (prefer_native) {
-        // Absolute paths
-        for (native_abs_paths) |path| {
-            fs.accessAbsolute(path, .{}) catch continue;
-            return .{ .path = path, .is_native = true };
-        }
-        // Relative paths
-        for (native_rel_paths) |path| {
-            fs.cwd().access(path, .{}) catch continue;
-            return .{ .path = path, .is_native = true };
-        }
-    }
-
-    // Try standard paths
-    for (standard_paths) |path| {
-        fs.accessAbsolute(path, .{}) catch continue;
-        return .{ .path = path, .is_native = false };
-    }
-
-    // Fall back to native paths
-    if (!prefer_native) {
-        for (native_abs_paths) |path| {
-            fs.accessAbsolute(path, .{}) catch continue;
-            return .{ .path = path, .is_native = true };
-        }
-        for (native_rel_paths) |path| {
-            fs.cwd().access(path, .{}) catch continue;
-            return .{ .path = path, .is_native = true };
-        }
-    }
-
-    return .{ .path = "/opt/homebrew/bin/micropython", .is_native = false };
 }

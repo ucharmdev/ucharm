@@ -4,6 +4,7 @@ const builtin = @import("builtin");
 const build_cmd = @import("build_cmd.zig");
 const new_cmd = @import("new_cmd.zig");
 const run_cmd = @import("run_cmd.zig");
+const test_cmd = @import("test_cmd.zig");
 
 const version = "0.1.0";
 
@@ -27,6 +28,7 @@ const usage =
     \\  [36mbuild[0m    Build a standalone executable
     \\  [36mnew[0m      Create a new μcharm project
     \\  [36mrun[0m      Run a script with micropython
+    \\  [36mtest[0m     Run compatibility tests
     \\
     \\[1mOptions:[0m
     \\  -h, --help       Show this help
@@ -95,6 +97,8 @@ pub fn main() !void {
         try new_cmd.run(allocator, args[2..]);
     } else if (std.mem.eql(u8, command, "run")) {
         try run_cmd.run(allocator, args[2..]);
+    } else if (std.mem.eql(u8, command, "test")) {
+        try test_cmd.run(allocator, args[2..]);
     } else {
         eprint("\x1b[31mError:\x1b[0m Unknown command '{s}'\n", .{command});
         printUsage();
