@@ -6,7 +6,9 @@ const new_cmd = @import("new_cmd.zig");
 const run_cmd = @import("run_cmd.zig");
 const test_cmd = @import("test_cmd.zig");
 
-const version = "0.1.0";
+// Version is read from VERSION file at compile time
+const version_raw = @embedFile("VERSION");
+const version = std.mem.trim(u8, version_raw, " \t\n\r");
 
 // ANSI codes
 const dim = "\x1b[2m";
@@ -14,12 +16,11 @@ const bold = "\x1b[1m";
 const cyan = "\x1b[36m";
 const reset = "\x1b[0m";
 
-const logo =
-    \\
-    \\  [36m[1mμcharm[0m [2mv0.1.0[0m
-    \\  [2mBeautiful CLIs with MicroPython[0m
-    \\
-;
+// Logo is built dynamically to include version
+fn printLogo() void {
+    print("\n  " ++ cyan ++ bold ++ "μcharm" ++ reset ++ " " ++ dim ++ "v{s}" ++ reset ++ "\n", .{version});
+    print("  " ++ dim ++ "Beautiful CLIs with MicroPython" ++ reset ++ "\n\n", .{});
+}
 
 const usage =
     \\[1mUsage:[0m ucharm <command> [options]
@@ -104,10 +105,6 @@ pub fn main() !void {
         printUsage();
         std.process.exit(1);
     }
-}
-
-fn printLogo() void {
-    _ = stdout().write(logo) catch {};
 }
 
 fn printUsage() void {

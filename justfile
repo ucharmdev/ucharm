@@ -7,10 +7,12 @@ default:
 
 # Build the CLI in release mode
 build:
+    cp VERSION cli/src/VERSION
     cd cli && zig build -Doptimize=ReleaseSmall
 
 # Build the CLI in debug mode
 build-debug:
+    cp VERSION cli/src/VERSION
     cd cli && zig build
 
 # Run all tests

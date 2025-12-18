@@ -4,6 +4,10 @@ const Allocator = std.mem.Allocator;
 const io = @import("io.zig");
 const builtin = @import("builtin");
 
+// Version is read from VERSION file at compile time
+const version_raw = @embedFile("VERSION");
+const VERSION = std.mem.trim(u8, version_raw, " \t\n\r");
+
 // Embedded loader stubs for instant-startup universal binaries
 const stub_macos_aarch64 = @embedFile("stubs/loader-macos-aarch64");
 const stub_macos_x86_64 = @embedFile("stubs/loader-macos-x86_64");
@@ -494,16 +498,32 @@ fn getMicropythonBinary(allocator: Allocator, target: Target) !MicropythonBinary
     defer allocator.free(runtime_dir);
     const runtime_path = try std.fmt.allocPrint(allocator, "{s}/{s}", .{ runtime_dir, target.micropythonFilename() });
     defer allocator.free(runtime_path);
+    const version_path = try std.fmt.allocPrint(allocator, "{s}.version", .{runtime_path});
+    defer allocator.free(version_path);
 
     // Try to open existing runtime
     const file = fs.cwd().openFile(runtime_path, .{}) catch |err| {
         if (err == error.FileNotFound) {
             // Runtime not found - offer to download
-            return downloadRuntime(allocator, target, runtime_dir, runtime_path);
+            return downloadRuntime(allocator, target, runtime_dir, runtime_path, version_path, false);
         }
         return err;
     };
     defer file.close();
+
+    // Check version
+    const cached_version = readVersionFile(version_path);
+    if (cached_version) |ver| {
+        if (!std.mem.eql(u8, ver, VERSION)) {
+            // Version mismatch - offer to update
+            io.print(yellow ++ "!" ++ reset ++ " Cached runtime for " ++ bold ++ "{s}" ++ reset ++ " is version " ++ dim ++ "{s}" ++ reset ++ ", CLI is " ++ dim ++ "{s}" ++ reset ++ "\n", .{ target.name(), ver, VERSION });
+            return downloadRuntime(allocator, target, runtime_dir, runtime_path, version_path, true);
+        }
+    } else {
+        // No version file - offer to re-download to get proper versioning
+        io.print(yellow ++ "!" ++ reset ++ " Cached runtime for " ++ bold ++ "{s}" ++ reset ++ " has no version info\n", .{target.name()});
+        return downloadRuntime(allocator, target, runtime_dir, runtime_path, version_path, true);
+    }
 
     const stat = try file.stat();
     const data = try allocator.alloc(u8, stat.size);
@@ -515,12 +535,33 @@ fn getMicropythonBinary(allocator: Allocator, target: Target) !MicropythonBinary
     return .{ .data = data, .allocated = true };
 }
 
-fn downloadRuntime(allocator: Allocator, target: Target, runtime_dir: []const u8, runtime_path: []const u8) !MicropythonBinary {
-    const download_url = try std.fmt.allocPrint(allocator, "https://github.com/ucharmdev/ucharm/releases/latest/download/{s}", .{target.micropythonFilename()});
+fn readVersionFile(path: []const u8) ?[]const u8 {
+    const file = fs.cwd().openFile(path, .{}) catch return null;
+    defer file.close();
+
+    var buf: [32]u8 = undefined;
+    const n = file.readAll(&buf) catch return null;
+    if (n == 0) return null;
+
+    // Trim whitespace
+    const content = std.mem.trim(u8, buf[0..n], " \t\n\r");
+    if (content.len == 0) return null;
+
+    // Return static slice (safe because buf is on stack but we only use it for comparison)
+    return content;
+}
+
+fn downloadRuntime(allocator: Allocator, target: Target, runtime_dir: []const u8, runtime_path: []const u8, version_path: []const u8, is_update: bool) !MicropythonBinary {
+    // Use version-specific URL to ensure we get the matching runtime
+    const download_url = try std.fmt.allocPrint(allocator, "https://github.com/ucharmdev/ucharm/releases/download/v{s}/{s}", .{ VERSION, target.micropythonFilename() });
     defer allocator.free(download_url);
 
-    io.print(yellow ++ "?" ++ reset ++ " MicroPython runtime for " ++ bold ++ "{s}" ++ reset ++ " not found locally.\n", .{target.name()});
-    io.print("  Download from GitHub? " ++ dim ++ "(~850KB)" ++ reset ++ " [Y/n] ", .{});
+    if (is_update) {
+        io.print("  Update to version " ++ bold ++ "{s}" ++ reset ++ "? " ++ dim ++ "(~850KB)" ++ reset ++ " [Y/n] ", .{VERSION});
+    } else {
+        io.print(yellow ++ "?" ++ reset ++ " MicroPython runtime for " ++ bold ++ "{s}" ++ reset ++ " not found locally.\n", .{target.name()});
+        io.print("  Download version " ++ bold ++ "{s}" ++ reset ++ " from GitHub? " ++ dim ++ "(~850KB)" ++ reset ++ " [Y/n] ", .{VERSION});
+    }
 
     // Read user input
     var buf: [10]u8 = undefined;
@@ -535,7 +576,8 @@ fn downloadRuntime(allocator: Allocator, target: Target, runtime_dir: []const u8
     if (!should_download) {
         io.print("\n" ++ dim ++ "To download manually:" ++ reset ++ "\n", .{});
         io.print("  mkdir -p {s}\n", .{runtime_dir});
-        io.print("  curl -L {s} -o {s}\n\n", .{ download_url, runtime_path });
+        io.print("  curl -L {s} -o {s}\n", .{ download_url, runtime_path });
+        io.print("  echo '{s}' > {s}\n\n", .{ VERSION, version_path });
         std.process.exit(1);
     }
 
@@ -586,6 +628,12 @@ fn downloadRuntime(allocator: Allocator, target: Target, runtime_dir: []const u8
     defer file_for_chmod.close();
     try file_for_chmod.chmod(0o755);
 
+    // Write version file
+    const ver_file = try fs.cwd().createFile(version_path, .{});
+    defer ver_file.close();
+    try ver_file.writeAll(VERSION);
+    try ver_file.writeAll("\n");
+
     // Now read and return the downloaded file
     const file = try fs.cwd().openFile(runtime_path, .{});
     defer file.close();
@@ -597,7 +645,7 @@ fn downloadRuntime(allocator: Allocator, target: Target, runtime_dir: []const u8
         return error.IncompleteRead;
     }
 
-    io.print(green ++ check ++ reset ++ " Downloaded runtime to " ++ dim ++ "{s}" ++ reset ++ "\n\n", .{runtime_path});
+    io.print(green ++ check ++ reset ++ " Downloaded runtime " ++ dim ++ "v{s}" ++ reset ++ " to " ++ dim ++ "{s}" ++ reset ++ "\n\n", .{ VERSION, runtime_path });
 
     return .{ .data = data, .allocated = true };
 }

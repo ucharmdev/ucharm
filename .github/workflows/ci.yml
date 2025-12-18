@@ -23,12 +23,14 @@ jobs:
           version: 0.15.2
 
       - name: Run CLI unit tests
-        working-directory: cli
-        run: zig build test
+        run: |
+          cp VERSION cli/src/VERSION
+          cd cli && zig build test
 
       - name: Build CLI
-        working-directory: cli
-        run: zig build -Doptimize=ReleaseSmall
+        run: |
+          cp VERSION cli/src/VERSION
+          cd cli && zig build -Doptimize=ReleaseSmall
 
       - name: Build Loader
         working-directory: loader
@@ -82,9 +84,9 @@ jobs:
           version: 0.15.2
 
       - name: Build CLI for ${{ matrix.target }}
-        working-directory: cli
         run: |
-          zig build -Doptimize=ReleaseSmall -Dtarget=${{ matrix.target }}
+          cp VERSION cli/src/VERSION
+          cd cli && zig build -Doptimize=ReleaseSmall -Dtarget=${{ matrix.target }}
           mv zig-out/bin/ucharm ../${{ matrix.artifact }}
 
       - name: Upload artifact
