@@ -117,9 +117,21 @@ static mp_obj_t partial_call(mp_obj_t self_in, size_t n_args, size_t n_kw, const
     mp_obj_t *stored_args;
     mp_obj_tuple_get(self->args, &stored_n_args, &stored_args);
     
-    // Combine args: stored_args + new args
+    // Get stored kwargs count
+    size_t stored_n_kw = 0;
+    mp_map_t *stored_kwargs_map = NULL;
+    if (self->kwargs != mp_const_none && mp_obj_is_type(self->kwargs, &mp_type_dict)) {
+        mp_obj_dict_t *stored_dict = MP_OBJ_TO_PTR(self->kwargs);
+        stored_kwargs_map = &stored_dict->map;
+        stored_n_kw = stored_kwargs_map->used;
+    }
+    
+    // Total keyword args: stored + new (new ones override stored if conflict)
+    size_t total_n_kw = stored_n_kw + n_kw;
+    
+    // Combine args: stored_args + new args + all kwargs
     size_t total_args = stored_n_args + n_args;
-    mp_obj_t *combined_args = m_new(mp_obj_t, total_args + 2 * n_kw);
+    mp_obj_t *combined_args = m_new(mp_obj_t, total_args + 2 * total_n_kw);
     
     // Copy stored positional args
     for (size_t i = 0; i < stored_n_args; i++) {
@@ -131,16 +143,43 @@ static mp_obj_t partial_call(mp_obj_t self_in, size_t n_args, size_t n_kw, const
         combined_args[stored_n_args + i] = args[i];
     }
     
-    // Copy new keyword args
-    for (size_t i = 0; i < 2 * n_kw; i++) {
-        combined_args[total_args + i] = args[n_args + i];
+    // Build combined kwargs: start with stored, then add/override with new
+    size_t kw_idx = 0;
+    
+    // First add stored kwargs
+    if (stored_kwargs_map != NULL) {
+        for (size_t i = 0; i < stored_kwargs_map->alloc; i++) {
+            if (mp_map_slot_is_filled(stored_kwargs_map, i)) {
+                // Check if this key is overridden by new kwargs
+                bool overridden = false;
+                for (size_t j = 0; j < n_kw; j++) {
+                    mp_obj_t new_key = args[n_args + j * 2];
+                    if (mp_obj_equal(stored_kwargs_map->table[i].key, new_key)) {
+                        overridden = true;
+                        break;
+                    }
+                }
+                if (!overridden) {
+                    combined_args[total_args + kw_idx * 2] = stored_kwargs_map->table[i].key;
+                    combined_args[total_args + kw_idx * 2 + 1] = stored_kwargs_map->table[i].value;
+                    kw_idx++;
+                }
+            }
+        }
     }
     
-    // TODO: Merge stored kwargs with new kwargs (stored takes precedence for conflicts)
-    // For now, just pass through new kwargs
+    // Then add new kwargs (these override stored ones)
+    for (size_t i = 0; i < n_kw; i++) {
+        combined_args[total_args + kw_idx * 2] = args[n_args + i * 2];
+        combined_args[total_args + kw_idx * 2 + 1] = args[n_args + i * 2 + 1];
+        kw_idx++;
+    }
     
-    mp_obj_t result = mp_call_function_n_kw(self->func, total_args, n_kw, combined_args);
-    m_del(mp_obj_t, combined_args, total_args + 2 * n_kw);
+    // Actual number of kwargs after deduplication
+    size_t final_n_kw = kw_idx;
+    
+    mp_obj_t result = mp_call_function_n_kw(self->func, total_args, final_n_kw, combined_args);
+    m_del(mp_obj_t, combined_args, total_args + 2 * total_n_kw);
     
     return result;
 }

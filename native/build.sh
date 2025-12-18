@@ -97,7 +97,17 @@ cd "$MPY_DIR/ports/unix"
 make clean > /dev/null 2>&1 || true
 
 # Build with our user modules
-make -j$NCPU USER_C_MODULES="$SCRIPT_DIR"
+# Disable built-in random and heapq modules so our native ones take precedence
+# Enable additional CPython compatibility features:
+#   - RE: match.groups(), match.start/end/span()
+#   - COLLECTIONS: namedtuple._asdict()
+CFLAGS_COMPAT="-DMICROPY_PY_RANDOM=0 \
+    -DMICROPY_PY_HEAPQ=0 \
+    -DMICROPY_PY_JSON=0 \
+    -DMICROPY_PY_RE_MATCH_GROUPS=1 \
+    -DMICROPY_PY_RE_MATCH_SPAN_START_END=1 \
+    -DMICROPY_PY_COLLECTIONS_NAMEDTUPLE__ASDICT=1"
+make -j$NCPU USER_C_MODULES="$SCRIPT_DIR" CFLAGS_EXTRA="$CFLAGS_COMPAT"
 
 # Copy the built binary
 mkdir -p "$OUTPUT_DIR"

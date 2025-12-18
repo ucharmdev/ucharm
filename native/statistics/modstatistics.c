@@ -232,6 +232,42 @@ MPY_FUNC_VAR(statistics, quantiles, 1, 2) {
 MPY_FUNC_OBJ_VAR(statistics, quantiles, 1, 2);
 
 // ============================================================================
+// Mode
+// ============================================================================
+
+// statistics.mode(data) -> most common value
+// Works with any hashable type (numbers, strings, etc.)
+MPY_FUNC_1(statistics, mode) {
+    size_t len;
+    mp_obj_t *items;
+    mp_obj_get_array(arg0, &len, &items);
+    
+    if (len == 0) {
+        mp_raise_ValueError(MP_ERROR_TEXT("mode requires at least one data point"));
+    }
+    
+    // Simple O(n^2) approach: count occurrences of each unique element
+    mp_obj_t best_item = items[0];
+    size_t best_count = 0;
+    
+    for (size_t i = 0; i < len; i++) {
+        size_t count = 0;
+        for (size_t j = 0; j < len; j++) {
+            if (mp_obj_equal(items[i], items[j])) {
+                count++;
+            }
+        }
+        if (count > best_count) {
+            best_count = count;
+            best_item = items[i];
+        }
+    }
+    
+    return best_item;
+}
+MPY_FUNC_OBJ_1(statistics, mode);
+
+// ============================================================================
 // Linear regression
 // ============================================================================
 
@@ -301,6 +337,7 @@ MPY_MODULE_BEGIN(statistics)
     MPY_MODULE_FUNC(statistics, median)
     MPY_MODULE_FUNC(statistics, median_low)
     MPY_MODULE_FUNC(statistics, median_high)
+    MPY_MODULE_FUNC(statistics, mode)
     MPY_MODULE_FUNC(statistics, variance)
     MPY_MODULE_FUNC(statistics, pvariance)
     MPY_MODULE_FUNC(statistics, stdev)
