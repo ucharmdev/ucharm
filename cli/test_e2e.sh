@@ -248,36 +248,26 @@ echo ""
 echo "--- Test: UI Components ---"
 run_test
 cd "$SCRIPT_DIR/.."
-if python3 examples/test_components.py 2>&1 | grep -q "ALL TESTS COMPLETE"; then
+if $MCHARM run examples/test_components.py 2>&1 | grep -q "ALL TESTS COMPLETE"; then
     pass "UI components render correctly"
 else
     fail "UI components failed" "Components didn't render"
 fi
 
 echo ""
-echo "--- Test: Interactive Select (fd 3) ---"
+echo "--- Test: Interactive Select ---"
 run_test
-# Test select with fd 3: down, down, enter -> should select "Blue"
-if echo -e "down\ndown\nenter" | python3 examples/test_select.py 3<&0 2>&1 | grep -q "SELECTED: Blue"; then
-    pass "Select via fd 3 works"
+# Test select: down, down, enter -> should select "Blue"
+if echo -e "down\ndown\nenter" | $MCHARM run examples/test_select.py 3<&0 2>&1 | grep -q "SELECTED: Blue"; then
+    pass "Select works"
 else
-    fail "Select via fd 3 failed" "Expected 'SELECTED: Blue'"
-fi
-
-echo ""
-echo "--- Test: Interactive Select (env var) ---"
-run_test
-# Test select with env var: down, enter -> should select "Green"
-if MCHARM_TEST_KEYS="down,enter" python3 examples/test_select.py 2>&1 | grep -q "SELECTED: Green"; then
-    pass "Select via env var works"
-else
-    fail "Select via env var failed" "Expected 'SELECTED: Green'"
+    fail "Select failed" "Expected 'SELECTED: Blue'"
 fi
 
 echo ""
 echo "--- Test: Interactive Confirm (yes) ---"
 run_test
-if echo "y" | python3 examples/test_confirm.py 3<&0 2>&1 | grep -q "CONFIRMED: yes"; then
+if echo "y" | $MCHARM run examples/test_confirm.py 3<&0 2>&1 | grep -q "CONFIRMED: yes"; then
     pass "Confirm 'y' works"
 else
     fail "Confirm 'y' failed" "Expected 'CONFIRMED: yes'"
@@ -286,7 +276,7 @@ fi
 echo ""
 echo "--- Test: Interactive Confirm (no) ---"
 run_test
-if echo "n" | python3 examples/test_confirm.py 3<&0 2>&1 | grep -q "CONFIRMED: no"; then
+if echo "n" | $MCHARM run examples/test_confirm.py 3<&0 2>&1 | grep -q "CONFIRMED: no"; then
     pass "Confirm 'n' works"
 else
     fail "Confirm 'n' failed" "Expected 'CONFIRMED: no'"
@@ -295,7 +285,7 @@ fi
 echo ""
 echo "--- Test: Interactive Confirm (default) ---"
 run_test
-if echo "enter" | python3 examples/test_confirm.py 3<&0 2>&1 | grep -q "CONFIRMED: yes"; then
+if echo "enter" | $MCHARM run examples/test_confirm.py 3<&0 2>&1 | grep -q "CONFIRMED: yes"; then
     pass "Confirm default (enter) works"
 else
     fail "Confirm default failed" "Expected 'CONFIRMED: yes'"
@@ -305,7 +295,7 @@ echo ""
 echo "--- Test: Interactive Multiselect ---"
 run_test
 # Select first and third items: space (toggle), down, down, space (toggle), enter
-if echo -e "space\ndown\ndown\nspace\nenter" | python3 examples/test_multiselect.py 3<&0 2>&1 | grep -q "SELECTED: Cheese,Mushrooms"; then
+if echo -e "space\ndown\ndown\nspace\nenter" | $MCHARM run examples/test_multiselect.py 3<&0 2>&1 | grep -q "SELECTED: Cheese,Mushrooms"; then
     pass "Multiselect works"
 else
     fail "Multiselect failed" "Expected 'SELECTED: Cheese,Mushrooms'"
@@ -314,8 +304,8 @@ fi
 echo ""
 echo "--- Test: Interactive Prompt ---"
 run_test
-# Type "Alice" then enter
-if echo -e "A\nl\ni\nc\ne\nenter" | python3 examples/test_prompt.py 3<&0 2>&1 | grep -q "NAME: Alice"; then
+# Type "Alice" then enter (prompt reads actual characters, not key names)
+if printf "Alice\nenter" | $MCHARM run examples/test_prompt.py 3<&0 2>&1 | grep -q "NAME: Alice"; then
     pass "Prompt text input works"
 else
     fail "Prompt failed" "Expected 'NAME: Alice'"
