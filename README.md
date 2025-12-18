@@ -19,7 +19,9 @@
 
 ### How it works
 
-μcharm bundles your Python code with [MicroPython](https://micropython.org/) (a lean Python implementation) and 23 native [Zig](https://ziglang.org/) modules into a single executable. The Zig modules provide [Charm](https://charm.sh/)-style TUI components (boxes, prompts, spinners) plus high-performance implementations of Python's standard library. The result: Python's developer experience with native speed and tiny binaries.
+μcharm bundles your Python code with [MicroPython](https://micropython.org/) (a lean Python implementation) and 23 native [Zig](https://ziglang.org/) modules into a single executable. The Zig modules provide [Charm](https://charm.sh/)-style TUI components (boxes, prompts, spinners) plus high-performance implementations of Python's standard library. 
+
+The result: Python's developer experience with native speed and tiny binaries.
 
 ---
 
@@ -350,6 +352,37 @@ ucharm build app.py -o app --mode executable
 
 # Just transform the Python file  
 ucharm build app.py -o app.py --mode single
+```
+
+### Cross-Compilation
+
+Build binaries for any supported platform from any platform:
+
+```bash
+# Build for Linux from macOS
+ucharm build app.py -o app-linux --target linux-x86_64
+
+# Build for macOS Intel from Apple Silicon
+ucharm build app.py -o app-intel --target macos-x86_64
+
+# List all available targets
+ucharm build --targets
+```
+
+**Supported targets:**
+| Target | Platform |
+|--------|----------|
+| `macos-aarch64` | macOS (Apple Silicon) |
+| `macos-x86_64` | macOS (Intel) |
+| `linux-x86_64` | Linux (x86_64) |
+| `linux-aarch64` | Linux (ARM64) |
+
+Cross-compilation requires the target runtime. Download it once:
+
+```bash
+mkdir -p ~/.ucharm/runtimes
+curl -L https://github.com/ucharmdev/ucharm/releases/latest/download/micropython-ucharm-linux-x86_64 \
+     -o ~/.ucharm/runtimes/micropython-ucharm-linux-x86_64
 ```
 
 ### Universal Binary Format

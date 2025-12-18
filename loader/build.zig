@@ -12,6 +12,7 @@ pub fn build(b: *std.Build) void {
         .{ .cpu_arch = .aarch64, .os_tag = .macos, .name = "loader-macos-aarch64" },
         .{ .cpu_arch = .x86_64, .os_tag = .macos, .name = "loader-macos-x86_64" },
         .{ .cpu_arch = .x86_64, .os_tag = .linux, .name = "loader-linux-x86_64" },
+        .{ .cpu_arch = .aarch64, .os_tag = .linux, .name = "loader-linux-aarch64" },
     };
 
     for (targets) |target_info| {

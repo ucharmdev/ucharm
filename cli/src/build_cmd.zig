@@ -2,13 +2,17 @@ const std = @import("std");
 const fs = std.fs;
 const Allocator = std.mem.Allocator;
 const io = @import("io.zig");
+const builtin = @import("builtin");
 
 // Embedded loader stubs for instant-startup universal binaries
 const stub_macos_aarch64 = @embedFile("stubs/loader-macos-aarch64");
 const stub_macos_x86_64 = @embedFile("stubs/loader-macos-x86_64");
 const stub_linux_x86_64 = @embedFile("stubs/loader-linux-x86_64");
+const stub_linux_aarch64 = @embedFile("stubs/loader-linux-aarch64");
 
-// Embedded micropython-ucharm binary (contains all native modules)
+// Embedded micropython-ucharm binaries (contains all native modules)
+// Note: Only the host platform binary is embedded. Cross-compilation requires
+// the target platform's micropython binary to be available in ~/.ucharm/runtimes/
 const micropython_macos_aarch64 = @embedFile("stubs/micropython-ucharm-macos-aarch64");
 
 // Trailer format constants (must match loader/src/trailer.zig)
@@ -21,6 +25,7 @@ const bold = "\x1b[1m";
 const cyan = "\x1b[36m";
 const green = "\x1b[32m";
 const yellow = "\x1b[33m";
+const red = "\x1b[31m";
 const reset = "\x1b[0m";
 
 // Symbols
@@ -34,10 +39,87 @@ const Mode = enum {
     universal,
 };
 
+const Target = enum {
+    macos_aarch64,
+    macos_x86_64,
+    linux_x86_64,
+    linux_aarch64,
+
+    pub fn name(self: Target) []const u8 {
+        return switch (self) {
+            .macos_aarch64 => "macos-aarch64",
+            .macos_x86_64 => "macos-x86_64",
+            .linux_x86_64 => "linux-x86_64",
+            .linux_aarch64 => "linux-aarch64",
+        };
+    }
+
+    pub fn displayName(self: Target) []const u8 {
+        return switch (self) {
+            .macos_aarch64 => "macOS (Apple Silicon)",
+            .macos_x86_64 => "macOS (Intel)",
+            .linux_x86_64 => "Linux (x86_64)",
+            .linux_aarch64 => "Linux (ARM64)",
+        };
+    }
+
+    pub fn fromString(s: []const u8) ?Target {
+        if (std.mem.eql(u8, s, "macos-aarch64") or std.mem.eql(u8, s, "macos-arm64")) {
+            return .macos_aarch64;
+        } else if (std.mem.eql(u8, s, "macos-x86_64") or std.mem.eql(u8, s, "macos-amd64")) {
+            return .macos_x86_64;
+        } else if (std.mem.eql(u8, s, "linux-x86_64") or std.mem.eql(u8, s, "linux-amd64")) {
+            return .linux_x86_64;
+        } else if (std.mem.eql(u8, s, "linux-aarch64") or std.mem.eql(u8, s, "linux-arm64")) {
+            return .linux_aarch64;
+        }
+        return null;
+    }
+
+    pub fn fromHost() Target {
+        const os = builtin.os.tag;
+        const arch = builtin.cpu.arch;
+
+        if (os == .macos) {
+            if (arch == .aarch64) {
+                return .macos_aarch64;
+            } else {
+                return .macos_x86_64;
+            }
+        } else {
+            // Linux (and other Unix-like)
+            if (arch == .aarch64) {
+                return .linux_aarch64;
+            } else {
+                return .linux_x86_64;
+            }
+        }
+    }
+
+    pub fn loaderStub(self: Target) []const u8 {
+        return switch (self) {
+            .macos_aarch64 => stub_macos_aarch64,
+            .macos_x86_64 => stub_macos_x86_64,
+            .linux_x86_64 => stub_linux_x86_64,
+            .linux_aarch64 => stub_linux_aarch64,
+        };
+    }
+
+    pub fn micropythonFilename(self: Target) []const u8 {
+        return switch (self) {
+            .macos_aarch64 => "micropython-ucharm-macos-aarch64",
+            .macos_x86_64 => "micropython-ucharm-macos-x86_64",
+            .linux_x86_64 => "micropython-ucharm-linux-x86_64",
+            .linux_aarch64 => "micropython-ucharm-linux-aarch64",
+        };
+    }
+};
+
 pub fn run(allocator: Allocator, args: []const [:0]const u8) !void {
     var script_path: ?[]const u8 = null;
     var output_path: ?[]const u8 = null;
     var mode: Mode = .universal;
+    var target: ?Target = null;
 
     // Parse arguments
     var i: usize = 0;
@@ -47,14 +129,14 @@ pub fn run(allocator: Allocator, args: []const [:0]const u8) !void {
         if (std.mem.eql(u8, arg, "-o") or std.mem.eql(u8, arg, "--output")) {
             i += 1;
             if (i >= args.len) {
-                io.eprint("\x1b[31mError:\x1b[0m -o requires an argument\n", .{});
+                io.eprint(red ++ "Error:" ++ reset ++ " -o requires an argument\n", .{});
                 std.process.exit(1);
             }
             output_path = args[i];
         } else if (std.mem.eql(u8, arg, "-m") or std.mem.eql(u8, arg, "--mode")) {
             i += 1;
             if (i >= args.len) {
-                io.eprint("\x1b[31mError:\x1b[0m --mode requires an argument\n", .{});
+                io.eprint(red ++ "Error:" ++ reset ++ " --mode requires an argument\n", .{});
                 std.process.exit(1);
             }
             const mode_str = args[i];
@@ -65,11 +147,38 @@ pub fn run(allocator: Allocator, args: []const [:0]const u8) !void {
             } else if (std.mem.eql(u8, mode_str, "universal")) {
                 mode = .universal;
             } else {
-                io.eprint("\x1b[31mError:\x1b[0m Unknown mode '{s}'. Use: single, executable, universal\n", .{mode_str});
+                io.eprint(red ++ "Error:" ++ reset ++ " Unknown mode '{s}'. Use: single, executable, universal\n", .{mode_str});
                 std.process.exit(1);
             }
+        } else if (std.mem.eql(u8, arg, "-t") or std.mem.eql(u8, arg, "--target")) {
+            i += 1;
+            if (i >= args.len) {
+                io.eprint(red ++ "Error:" ++ reset ++ " --target requires an argument\n", .{});
+                std.process.exit(1);
+            }
+            const target_str = args[i];
+            target = Target.fromString(target_str);
+            if (target == null) {
+                io.eprint(red ++ "Error:" ++ reset ++ " Unknown target '{s}'\n", .{target_str});
+                io.eprint("\nAvailable targets:\n", .{});
+                io.eprint("  macos-aarch64  " ++ dim ++ "(macOS Apple Silicon)" ++ reset ++ "\n", .{});
+                io.eprint("  macos-x86_64   " ++ dim ++ "(macOS Intel)" ++ reset ++ "\n", .{});
+                io.eprint("  linux-x86_64   " ++ dim ++ "(Linux x86_64)" ++ reset ++ "\n", .{});
+                io.eprint("  linux-aarch64  " ++ dim ++ "(Linux ARM64)" ++ reset ++ "\n", .{});
+                std.process.exit(1);
+            }
+        } else if (std.mem.eql(u8, arg, "--targets")) {
+            io.print("Available targets:\n", .{});
+            io.print("  macos-aarch64  " ++ dim ++ "(macOS Apple Silicon)" ++ reset ++ "\n", .{});
+            io.print("  macos-x86_64   " ++ dim ++ "(macOS Intel)" ++ reset ++ "\n", .{});
+            io.print("  linux-x86_64   " ++ dim ++ "(Linux x86_64)" ++ reset ++ "\n", .{});
+            io.print("  linux-aarch64  " ++ dim ++ "(Linux ARM64)" ++ reset ++ "\n", .{});
+            return;
+        } else if (std.mem.eql(u8, arg, "-h") or std.mem.eql(u8, arg, "--help")) {
+            printHelp();
+            return;
         } else if (std.mem.startsWith(u8, arg, "-")) {
-            io.eprint("\x1b[31mError:\x1b[0m Unknown option '{s}'\n", .{arg});
+            io.eprint(red ++ "Error:" ++ reset ++ " Unknown option '{s}'\n", .{arg});
             std.process.exit(1);
         } else {
             script_path = arg;
@@ -77,20 +186,23 @@ pub fn run(allocator: Allocator, args: []const [:0]const u8) !void {
     }
 
     if (script_path == null) {
-        io.eprint("\x1b[31mError:\x1b[0m No input script specified\n", .{});
-        io.eprint("Usage: ucharm build <script.py> -o <output> [--mode <mode>]\n", .{});
+        io.eprint(red ++ "Error:" ++ reset ++ " No input script specified\n", .{});
+        io.eprint("Usage: ucharm build <script.py> -o <output> [--mode <mode>] [--target <target>]\n", .{});
         std.process.exit(1);
     }
 
     if (output_path == null) {
-        io.eprint("\x1b[31mError:\x1b[0m No output path specified (-o)\n", .{});
+        io.eprint(red ++ "Error:" ++ reset ++ " No output path specified (-o)\n", .{});
         std.process.exit(1);
     }
+
+    // Default to host target
+    const build_target = target orelse Target.fromHost();
 
     // Check if script exists
     const script = script_path.?;
     fs.cwd().access(script, .{}) catch {
-        io.eprint("\x1b[31mError:\x1b[0m Script not found: {s}\n", .{script});
+        io.eprint(red ++ "Error:" ++ reset ++ " Script not found: {s}\n", .{script});
         std.process.exit(1);
     };
 
@@ -101,13 +213,51 @@ pub fn run(allocator: Allocator, args: []const [:0]const u8) !void {
     io.print(dim ++ "  Input:  " ++ reset ++ "{s}\n", .{script});
     io.print(dim ++ "  Output: " ++ reset ++ "{s}\n", .{output_path.?});
     io.print(dim ++ "  Mode:   " ++ reset ++ cyan ++ "{s}" ++ reset ++ "\n", .{@tagName(mode)});
+    if (mode == .universal) {
+        io.print(dim ++ "  Target: " ++ reset ++ cyan ++ "{s}" ++ reset ++ dim ++ " ({s})" ++ reset ++ "\n", .{ build_target.name(), build_target.displayName() });
+    }
     io.print(dim ++ "─────────────────────────────────────────" ++ reset ++ "\n\n", .{});
 
     switch (mode) {
         .single => try buildSingle(allocator, script, output_path.?),
         .executable => try buildExecutable(allocator, script, output_path.?),
-        .universal => try buildUniversal(allocator, script, output_path.?),
+        .universal => try buildUniversal(allocator, script, output_path.?, build_target),
     }
+}
+
+fn printHelp() void {
+    io.print(
+        \\{s}μcharm build{s} - Build standalone binaries from Python scripts
+        \\
+        \\{s}USAGE:{s}
+        \\    ucharm build <script.py> -o <output> [OPTIONS]
+        \\
+        \\{s}OPTIONS:{s}
+        \\    -o, --output <path>    Output file path (required)
+        \\    -m, --mode <mode>      Build mode: universal, executable, single
+        \\                           (default: universal)
+        \\    -t, --target <target>  Target platform for cross-compilation
+        \\                           (default: current platform)
+        \\    --targets              List available targets
+        \\    -h, --help             Show this help
+        \\
+        \\{s}TARGETS:{s}
+        \\    macos-aarch64          macOS on Apple Silicon
+        \\    macos-x86_64           macOS on Intel
+        \\    linux-x86_64           Linux on x86_64
+        \\    linux-aarch64          Linux on ARM64
+        \\
+        \\{s}MODES:{s}
+        \\    universal              Standalone binary (~900KB, no dependencies)
+        \\    executable             Shell wrapper (requires micropython-ucharm)
+        \\    single                 Transformed .py file (requires micropython-ucharm)
+        \\
+        \\{s}EXAMPLES:{s}
+        \\    ucharm build app.py -o app
+        \\    ucharm build app.py -o app-linux --target linux-x86_64
+        \\    ucharm build app.py -o app.py --mode single
+        \\
+    , .{ bold, reset, dim, reset, dim, reset, dim, reset, dim, reset, dim, reset });
 }
 
 fn transformScript(allocator: Allocator, script_path: []const u8) ![]u8 {
@@ -263,23 +413,26 @@ fn buildExecutable(allocator: Allocator, script: []const u8, output: []const u8)
     }
 }
 
-fn buildUniversal(allocator: Allocator, script: []const u8, output: []const u8) !void {
+fn buildUniversal(allocator: Allocator, script: []const u8, output: []const u8, target: Target) !void {
     // Transform script to use native modules
     const py_content = try transformScript(allocator, script);
     defer allocator.free(py_content);
 
-    // Use embedded micropython-ucharm (with native modules)
-    const mpy_binary = micropython_macos_aarch64;
-    io.print(green ++ check ++ reset ++ " Using embedded " ++ bold ++ "micropython-ucharm" ++ reset ++ dim ++ " (23 native modules)" ++ reset ++ "\n", .{});
+    // Get micropython binary for target
+    const mpy_binary = try getMicropythonBinary(allocator, target);
+    const mpy_is_allocated = mpy_binary.allocated;
+    defer if (mpy_is_allocated) allocator.free(mpy_binary.data);
 
-    // Select loader stub for host platform
-    const stub = selectLoaderStub();
-    io.print(green ++ check ++ reset ++ " Selected loader " ++ bold ++ "{s}" ++ reset ++ dim ++ " ({d} KB)" ++ reset ++ "\n", .{ stub.name, stub.data.len / 1024 });
+    io.print(green ++ check ++ reset ++ " Using " ++ bold ++ "micropython-ucharm" ++ reset ++ dim ++ " for {s} ({d} KB)" ++ reset ++ "\n", .{ target.name(), mpy_binary.data.len / 1024 });
+
+    // Select loader stub for target platform
+    const stub = target.loaderStub();
+    io.print(green ++ check ++ reset ++ " Selected loader " ++ bold ++ "{s}" ++ reset ++ dim ++ " ({d} KB)" ++ reset ++ "\n", .{ target.name(), stub.len / 1024 });
 
     // Calculate offsets for trailer
-    const stub_size: u64 = stub.data.len;
+    const stub_size: u64 = stub.len;
     const micropython_offset: u64 = stub_size;
-    const micropython_size: u64 = mpy_binary.len;
+    const micropython_size: u64 = mpy_binary.data.len;
     const python_offset: u64 = micropython_offset + micropython_size;
     const python_size: u64 = py_content.len;
 
@@ -296,8 +449,8 @@ fn buildUniversal(allocator: Allocator, script: []const u8, output: []const u8) 
     const output_file = try fs.cwd().createFile(output, .{});
     defer output_file.close();
 
-    try output_file.writeAll(stub.data);
-    try output_file.writeAll(mpy_binary);
+    try output_file.writeAll(stub);
+    try output_file.writeAll(mpy_binary.data);
     try output_file.writeAll(py_content);
     try output_file.writeAll(&trailer);
 
@@ -305,7 +458,7 @@ fn buildUniversal(allocator: Allocator, script: []const u8, output: []const u8) 
     defer file_for_chmod.close();
     try file_for_chmod.chmod(0o755);
 
-    const total_size = stub.data.len + mpy_binary.len + py_content.len + TRAILER_SIZE;
+    const total_size = stub.len + mpy_binary.data.len + py_content.len + TRAILER_SIZE;
     const total_kb = total_size / 1024;
     io.print(green ++ check ++ reset ++ " Wrote universal binary " ++ dim ++ "({d} KB)" ++ reset ++ "\n", .{total_kb});
 
@@ -313,6 +466,7 @@ fn buildUniversal(allocator: Allocator, script: []const u8, output: []const u8) 
     io.print("\n" ++ dim ++ "─────────────────────────────────────────" ++ reset ++ "\n", .{});
     io.print(green ++ bold ++ check ++ " Built successfully!" ++ reset ++ "\n", .{});
     io.print(dim ++ "  Output:  " ++ reset ++ "{s}\n", .{output});
+    io.print(dim ++ "  Target:  " ++ reset ++ "{s}\n", .{target.displayName()});
     io.print(dim ++ "  Size:    " ++ reset ++ "{d} KB " ++ dim ++ "(standalone, no dependencies)" ++ reset ++ "\n", .{total_kb});
     io.print(dim ++ "  Startup: " ++ reset ++ "~6ms " ++ dim ++ "(instant)" ++ reset ++ "\n", .{});
     // Show run command - handle absolute vs relative paths
@@ -323,24 +477,43 @@ fn buildUniversal(allocator: Allocator, script: []const u8, output: []const u8) 
     }
 }
 
-const LoaderStub = struct {
-    name: []const u8,
+const MicropythonBinary = struct {
     data: []const u8,
+    allocated: bool,
 };
 
-fn selectLoaderStub() LoaderStub {
-    // Select based on host OS and architecture
-    const os = @import("builtin").os.tag;
-    const arch = @import("builtin").cpu.arch;
-
-    if (os == .macos) {
-        if (arch == .aarch64) {
-            return .{ .name = "macos-aarch64", .data = stub_macos_aarch64 };
-        } else {
-            return .{ .name = "macos-x86_64", .data = stub_macos_x86_64 };
-        }
-    } else {
-        // Linux (and other Unix-like)
-        return .{ .name = "linux-x86_64", .data = stub_linux_x86_64 };
+fn getMicropythonBinary(allocator: Allocator, target: Target) !MicropythonBinary {
+    // For macOS ARM64, we have the binary embedded
+    if (target == .macos_aarch64) {
+        return .{ .data = micropython_macos_aarch64, .allocated = false };
     }
+
+    // For other targets, try to load from ~/.ucharm/runtimes/
+    const home = std.posix.getenv("HOME") orelse "/tmp";
+    const runtime_path = try std.fmt.allocPrint(allocator, "{s}/.ucharm/runtimes/{s}", .{ home, target.micropythonFilename() });
+    defer allocator.free(runtime_path);
+
+    const file = fs.cwd().openFile(runtime_path, .{}) catch |err| {
+        if (err == error.FileNotFound) {
+            io.eprint(red ++ "Error:" ++ reset ++ " MicroPython runtime not found for target '{s}'\n", .{target.name()});
+            io.eprint("\nThe runtime for this target is not embedded in the CLI.\n", .{});
+            io.eprint("To cross-compile, download the runtime:\n\n", .{});
+            io.eprint("  mkdir -p ~/.ucharm/runtimes\n", .{});
+            io.eprint("  curl -L https://github.com/ucharmdev/ucharm/releases/latest/download/{s} \\\n", .{target.micropythonFilename()});
+            io.eprint("       -o ~/.ucharm/runtimes/{s}\n\n", .{target.micropythonFilename()});
+            io.eprint("Or build for the current platform (no --target flag).\n", .{});
+            std.process.exit(1);
+        }
+        return err;
+    };
+    defer file.close();
+
+    const stat = try file.stat();
+    const data = try allocator.alloc(u8, stat.size);
+    const bytes_read = try file.readAll(data);
+    if (bytes_read != stat.size) {
+        return error.IncompleteRead;
+    }
+
+    return .{ .data = data, .allocated = true };
 }
