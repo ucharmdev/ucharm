@@ -17,8 +17,8 @@
 │   (bytecode interpreter)            │
 ├─────────────────────────────────────┤
 │   Native Modules (Zig → C ABI)      │
-│   18 modules: term, ansi, subprocess│
-│   signal, csv, functools, etc.      │
+│   23 modules: term, ansi, charm,    │
+│   input, copy, fnmatch, typing, etc.│
 ├─────────────────────────────────────┤
 │        Single Binary                │
 │   (universal, no dependencies)      │
@@ -28,10 +28,9 @@
 ## The ucharm CLI
 
 The `ucharm` CLI is a **fully self-contained binary** (~1.0MB) that embeds:
-- **micropython-ucharm**: Custom MicroPython with 18 native Zig modules
-- **ucharm Python library**: Pure Python TUI components for MicroPython
+- **micropython-ucharm**: Custom MicroPython with 23 native Zig modules
 
-This means `ucharm run script.py` works with zero external dependencies.
+This means `ucharm run script.py` works with zero external dependencies. All TUI functionality (boxes, colors, prompts) is provided by native modules.
 
 ## Directory Structure
 
@@ -45,7 +44,6 @@ ucharm/
 │   │   ├── run_cmd.zig       # Run Python scripts (embeds micropython)
 │   │   ├── io.zig            # Shared I/O utilities
 │   │   ├── tests.zig         # Unit tests
-│   │   ├── ucharm_bundle.py  # Embedded pure Python ucharm library
 │   │   └── stubs/            # Embedded binaries
 │   │       ├── loader-macos-aarch64
 │   │       ├── loader-macos-x86_64
@@ -64,10 +62,14 @@ ucharm/
 │   ├── ansi/                 # ANSI color codes
 │   ├── args/                 # CLI argument parsing
 │   ├── base64/               # Base64 encoding (4x faster)
+│   ├── charm/                # TUI components (box, rule, progress, status)
+│   ├── copy/                 # copy, deepcopy
 │   ├── csv/                  # CSV parsing (RFC 4180)
 │   ├── datetime/             # Date/time operations
+│   ├── fnmatch/              # Filename pattern matching
 │   ├── functools/            # reduce, partial, cmp_to_key
 │   ├── glob/                 # File pattern matching
+│   ├── input/                # Interactive prompts (select, confirm, prompt)
 │   ├── itertools/            # Iterators (count, cycle, chain, etc.)
 │   ├── logging/              # Logging framework
 │   ├── path/                 # Path manipulation
@@ -77,6 +79,7 @@ ucharm/
 │   ├── subprocess/           # Process spawning
 │   ├── tempfile/             # Temporary files
 │   ├── textwrap/             # Text wrapping
+│   ├── typing/               # Type hint stubs (no-op)
 │   ├── bridge/               # MicroPython C API bridge
 │   ├── build.sh              # Builds micropython-ucharm
 │   └── dist/                 # Built micropython-ucharm binary
@@ -142,34 +145,34 @@ ucharm run script.py
 │    → /tmp/ucharm-<hash>/micropython  │
 │    (cached by content hash)          │
 ├──────────────────────────────────────┤
-│ 2. Bundle script with ucharm lib     │
-│    → /tmp/ucharm_run.py              │
-│    (ucharm_bundle.py + user script)  │
+│ 2. Transform imports                 │
+│    from ucharm import X              │
+│    → from charm/input import X       │
 ├──────────────────────────────────────┤
 │ 3. Execute                           │
 │    micropython /tmp/ucharm_run.py    │
 └──────────────────────────────────────┘
 ```
 
-No external dependencies needed - micropython and the ucharm library are embedded in the CLI binary.
+No external dependencies needed - micropython with all native modules is embedded in the CLI binary.
 
 ## Build Modes
 
 | Mode | Output | Size | Dependencies |
 |------|--------|------|--------------|
-| `single` | Bundled .py file | ~41KB | Requires micropython |
-| `executable` | Bash wrapper + base64 | ~55KB | Requires micropython |
-| `universal` | Native loader binary | ~945KB | **None** (fully standalone) |
+| `single` | Transformed .py file | ~2KB | Requires micropython-ucharm |
+| `executable` | Bash wrapper + base64 | ~3KB | Requires micropython-ucharm |
+| `universal` | Native loader binary | ~899KB | **None** (fully standalone) |
 
 ### Universal Binary Format
 
 ```
 ┌────────────────────────────────────────┐
-│  Zig Loader Stub (~98KB)               │  ← Native executable
+│  Zig Loader Stub (~95KB)               │  ← Native executable
 ├────────────────────────────────────────┤
-│  MicroPython Binary (~806KB)           │  ← Interpreter + 18 native modules
+│  MicroPython Binary (~804KB)           │  ← Interpreter + 23 native modules
 ├────────────────────────────────────────┤
-│  Python Code (~41KB)                   │  ← User app + ucharm library
+│  Python Code (~2KB)                    │  ← User app (transformed)
 ├────────────────────────────────────────┤
 │  Trailer (48 bytes)                    │  ← Offsets and magic
 └────────────────────────────────────────┘
@@ -179,11 +182,15 @@ No external dependencies needed - micropython and the ucharm library are embedde
 - **Linux**: Uses `memfd_create` for zero-disk execution (~2ms)
 - **macOS**: Extracts to `/tmp/ucharm-{hash}/` with caching (~6ms cached)
 
-## Native Modules (18 total)
+## Native Modules (23 total)
 
 ### Core Terminal
 - `term` - Terminal control (size, raw mode, cursor, keys)
 - `ansi` - ANSI colors (fg, bg, rgb, bold, etc.)
+
+### TUI Components
+- `charm` - Box, rule, progress bar, status messages (success/error/warning/info), style
+- `input` - Interactive prompts: select, multiselect, confirm, prompt, password
 
 ### CLI & Parsing
 - `args` - CLI argument parsing with validation
@@ -201,16 +208,19 @@ No external dependencies needed - micropython and the ucharm library are embedde
 - `base64` - Fast encoding (4x faster)
 - `statistics` - mean, median, stdev (16x faster)
 - `datetime` - now, utcnow, timestamp, isoformat
+- `copy` - copy, deepcopy with circular reference support
 
 ### File System
 - `path` - basename, dirname, join, normalize
 - `shutil` - copy, move, rmtree, exists
-- `glob` / `fnmatch` - Pattern matching
+- `glob` - File pattern matching
+- `fnmatch` - Filename pattern matching (fnmatch, filter, translate)
 - `tempfile` - Temporary files and directories
 
 ### Utilities
 - `textwrap` - wrap, fill, dedent, indent
 - `logging` - debug, info, warning, error, Logger class
+- `typing` - Type hint stubs (no-op for MicroPython compatibility)
 
 ## Performance Benchmarks
 
@@ -228,9 +238,9 @@ No external dependencies needed - micropython and the ucharm library are embedde
 | Component | Size |
 |-----------|------|
 | ucharm CLI (with embedded micropython) | ~1.0MB |
-| Universal binary (full app) | ~945KB |
-| micropython-ucharm binary | ~806KB |
-| Loader stub (macos-aarch64) | ~98KB |
+| Universal binary (full app) | ~899KB |
+| micropython-ucharm binary | ~804KB |
+| Loader stub (macos-aarch64) | ~95KB |
 
 ## CI/CD
 
@@ -262,36 +272,55 @@ This runs `scripts/release.py` which:
 
 ## Development Workflow
 
-1. **Edit Python library**: `ucharm/*.py`
+1. **Edit Python library**: `ucharm/*.py` (for CPython development)
 2. **Edit CLI**: `cli/src/*.zig`
-3. **Edit embedded Python bundle**: `cli/src/ucharm_bundle.py`
-4. **Edit loader**: `loader/src/*.zig`
-5. **Edit native modules**: `native/*/` (Zig + C bridge)
-6. **Run tests**: `just test`
-7. **Rebuild CLI**: `just build`
-8. **Rebuild native MicroPython**: `just build-micropython`
+3. **Edit loader**: `loader/src/*.zig`
+4. **Edit native modules**: `native/*/` (Zig + C bridge)
+5. **Run tests**: `just test`
+6. **Rebuild CLI**: `just build`
+7. **Rebuild native MicroPython**: `just build-micropython`
 
 ## Adding Native Modules
+
+**IMPORTANT: Zig/C Only Policy**
+
+All native modules MUST be implemented in Zig (with C bridge for MicroPython). **NEVER write Python files for compatibility modules. No exceptions. Do not argue with yourself about this.**
+
+- Primary: Zig implementation + C bridge
+- Fallback: Pure C (only when Zig is genuinely not applicable)
+- **NEVER: Python** (not for "complex" modules, not for "framework" modules, not for any reason)
+
+This ensures:
+- Maximum performance (native code, not interpreted)
+- Smallest binary size (no Python bytecode overhead)
+- Consistent architecture across all modules
 
 Each native module follows this pattern:
 
 ```
 native/modulename/
-├── modulename.zig      # Core Zig implementation
+├── modulename.zig      # Core Zig implementation (optional if pure C)
 ├── modmodulename.c     # MicroPython C API bridge
 ├── micropython.mk      # MicroPython build integration
-├── build.zig           # Zig build for static library
+├── build.zig           # Zig build for static library (if using Zig)
 └── test_modulename.py  # Tests (work on both ucharm and CPython)
 ```
 
+**Module Types:**
+
+1. **New standalone modules** (e.g., `charm`, `input`): Full Zig implementation + C bridge
+2. **Module extensions/delegations** (e.g., `time`, `errno`, `re`): C-only, use `MP_REGISTER_MODULE_DELEGATION()` to add attributes to existing MicroPython modules
+3. **Module replacements** (e.g., `heapq`, `random`, `json`): Disable built-in with `-DMICROPY_PY_<MODULE>=0` in build.sh, provide full replacement
+
 Steps:
 1. Create module directory with files above
-2. Implement Zig logic in `modulename.zig`
+2. Implement Zig logic in `modulename.zig` (or pure C for simple extensions)
 3. Create C bridge using `native/bridge/mpy_bridge.h` macros
-4. Add to `native/build.sh` USER_C_MODULES path
+4. Add to `native/build.sh` USER_C_MODULES path (automatic if micropython.mk exists)
 5. Rebuild: `cd native && ./build.sh`
 6. Test: `./native/dist/micropython-ucharm native/modulename/test_modulename.py`
-7. Update `cli/src/ucharm_bundle.py` if needed for bundled usage
+7. Update CLI stubs: `cp native/dist/micropython-ucharm cli/src/stubs/micropython-ucharm-macos-aarch64`
+8. Rebuild CLI: `cd cli && zig build -Doptimize=ReleaseSmall`
 
 ## Environment Setup
 
@@ -316,10 +345,10 @@ brew install ucharm
 ## Common Issues
 
 ### "micropython not found"
-The `ucharm run` command embeds micropython, so this shouldn't happen. For `ucharm build`, install micropython: `brew install micropython` or build custom: `cd native && ./build.sh`
+The `ucharm run` command embeds micropython, so this shouldn't happen. If you see this, rebuild the CLI: `cd cli && zig build -Doptimize=ReleaseSmall`
 
 ### "Module not found" when using ucharm run
-The bundler strips `from ucharm import ...` statements. Make sure your imports match what's available in `cli/src/ucharm_bundle.py`.
+Make sure your imports use `from ucharm import X` syntax. The CLI automatically transforms these to native module imports (`from charm import X` or `from input import X`).
 
 ### Build fails on Linux
 Native modules use POSIX APIs that work on both macOS and Linux. Run `cd native && ./build.sh` on Linux to build micropython-ucharm.
@@ -333,6 +362,6 @@ See `TODO.md` for full roadmap. Current status:
 - ✅ Phase 4: CLI stdlib modules (subprocess, signal, csv, functools, itertools, logging)
 - ✅ Phase 5: Self-contained CLI with embedded micropython
 - ✅ Phase 6: CI/CD with AI release notes
-- 🔲 Phase 7: Remaining stdlib (contextlib, copy, enum, uuid)
+- ✅ Phase 7: Native TUI modules (charm, input, copy, fnmatch, typing)
 - 🔲 Phase 8: Tree-shaking for smaller binaries
 - 🔲 Phase 9: Developer experience (`ucharm check`, `ucharm dev`)

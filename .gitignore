@@ -41,3 +41,6 @@ native/dist/
 .env
 .env.local
 .env.*.local
+
+# temporary files
+_tmp*
