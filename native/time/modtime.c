@@ -8,6 +8,9 @@
  *   - time.perf_counter() -> performance counter
  */
 
+// Enable POSIX/XOpen features for strptime, clock_gettime
+#define _XOPEN_SOURCE 700
+
 #include "py/runtime.h"
 #include "py/objstr.h"
 #include <time.h>
