@@ -242,6 +242,43 @@ No external dependencies needed - micropython with all native modules is embedde
 | micropython-ucharm binary | ~804KB |
 | Loader stub (macos-aarch64) | ~95KB |
 
+## CPython Compatibility
+
+μcharm achieves **88.2% CPython compatibility** across 36 tested standard library modules.
+
+### Modules at 100% Compatibility (28 modules)
+
+argparse, base64, bisect, collections, copy, csv, datetime, errno, fnmatch, functools, glob, heapq, itertools, logging, math, operator, os, pathlib, random, shutil, signal, statistics, subprocess, tempfile, textwrap, time, typing, unittest
+
+### Partial Compatibility
+
+| Module | Compatibility | Notes |
+|--------|---------------|-------|
+| json | 97.2% | MicroPython allows trailing commas |
+| sys | 96.2% | sys.modules behavior differs |
+| re | 94.8% | MicroPython regex limitations |
+| hashlib | 74.1% | Some algorithms missing |
+
+### Running Compatibility Tests
+
+```bash
+python3 tests/compat_runner.py --report  # Full test suite
+./native/dist/micropython-ucharm tests/cpython/test_os.py  # Single module
+```
+
+### Key Enhancements for Compatibility
+
+The following MicroPython patches enable higher compatibility:
+
+1. **Module delegation chaining** (`py/objmodule.c`): Allows multiple extensions per module
+2. **os module extension** (`native/os/modos.c`): Adds environ, os.path, os.name, os.linesep
+3. **sys module extension** (`native/sys/modsys.c`): Adds getrecursionlimit, getsizeof, intern, flags
+4. **collections enhancements** (`py/objdict.c`, `py/objdeque.c`, `py/objnamedtuple.c`): 
+   - OrderedDict.move_to_end()
+   - deque.clear(), deque.rotate()
+   - namedtuple._replace(), namedtuple._fields
+5. **argparse improvements** (micropython-lib): subparsers, mutually_exclusive_group, choices, required
+
 ## CI/CD
 
 The project uses GitHub Actions:
