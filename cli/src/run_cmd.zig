@@ -7,6 +7,30 @@ const io = @import("io.zig");
 // Embedded micropython binary with native modules
 const micropython_macos_aarch64 = @embedFile("stubs/micropython-ucharm-macos-aarch64");
 
+const help_text =
+    \\[1mμcharm run[0m - Run a Python script with micropython-ucharm
+    \\
+    \\[2mUSAGE:[0m
+    \\    ucharm run <script.py> [args...]
+    \\
+    \\[2mARGUMENTS:[0m
+    \\    <script.py>    Python script to run
+    \\    [args...]      Arguments passed to the script
+    \\
+    \\[2mDESCRIPTION:[0m
+    \\    Runs your Python script using the embedded micropython-ucharm
+    \\    interpreter with all native μcharm modules available.
+    \\    
+    \\    The script is automatically transformed to use native modules
+    \\    instead of the ucharm Python package.
+    \\
+    \\[2mEXAMPLES:[0m
+    \\    ucharm run app.py
+    \\    ucharm run app.py --verbose
+    \\    ucharm run examples/demo.py
+    \\
+;
+
 pub fn run(allocator: Allocator, args: []const [:0]const u8) !void {
     if (args.len < 1) {
         io.eprint("\x1b[31mError:\x1b[0m No script specified\n", .{});
@@ -15,6 +39,12 @@ pub fn run(allocator: Allocator, args: []const [:0]const u8) !void {
     }
 
     const script = args[0];
+
+    // Handle --help / -h
+    if (std.mem.eql(u8, script, "--help") or std.mem.eql(u8, script, "-h")) {
+        _ = io.stdout().write(help_text) catch {};
+        return;
+    }
 
     // Check if script exists
     fs.cwd().access(script, .{}) catch {

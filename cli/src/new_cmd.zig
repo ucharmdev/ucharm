@@ -62,6 +62,21 @@ const template =
     \\
 ;
 
+const help_text =
+    \\[1mμcharm new[0m - Create a new μcharm project
+    \\
+    \\[2mUSAGE:[0m
+    \\    ucharm new <name>
+    \\
+    \\[2mARGUMENTS:[0m
+    \\    <name>    Project name (creates <name>.py)
+    \\
+    \\[2mEXAMPLES:[0m
+    \\    ucharm new myapp
+    \\    ucharm new "My CLI Tool"
+    \\
+;
+
 pub fn run(allocator: Allocator, args: []const [:0]const u8) !void {
     if (args.len < 1) {
         io.eprint("\x1b[31mError:\x1b[0m No project name specified\n", .{});
@@ -70,6 +85,12 @@ pub fn run(allocator: Allocator, args: []const [:0]const u8) !void {
     }
 
     const name = args[0];
+
+    // Handle --help / -h
+    if (std.mem.eql(u8, name, "--help") or std.mem.eql(u8, name, "-h")) {
+        _ = io.stdout().write(help_text) catch {};
+        return;
+    }
 
     // Convert name to filename (lowercase, underscores)
     var filename_buf: [256]u8 = undefined;
