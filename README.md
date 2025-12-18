@@ -377,13 +377,7 @@ ucharm build --targets
 | `linux-x86_64` | Linux (x86_64) |
 | `linux-aarch64` | Linux (ARM64) |
 
-Cross-compilation requires the target runtime. Download it once:
-
-```bash
-mkdir -p ~/.ucharm/runtimes
-curl -L https://github.com/ucharmdev/ucharm/releases/latest/download/micropython-ucharm-linux-x86_64 \
-     -o ~/.ucharm/runtimes/micropython-ucharm-linux-x86_64
-```
+When cross-compiling for the first time, μcharm will prompt to download the target runtime (~850KB) automatically.
 
 ### Universal Binary Format
 

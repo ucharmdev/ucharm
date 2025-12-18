@@ -490,19 +490,16 @@ fn getMicropythonBinary(allocator: Allocator, target: Target) !MicropythonBinary
 
     // For other targets, try to load from ~/.ucharm/runtimes/
     const home = std.posix.getenv("HOME") orelse "/tmp";
-    const runtime_path = try std.fmt.allocPrint(allocator, "{s}/.ucharm/runtimes/{s}", .{ home, target.micropythonFilename() });
+    const runtime_dir = try std.fmt.allocPrint(allocator, "{s}/.ucharm/runtimes", .{home});
+    defer allocator.free(runtime_dir);
+    const runtime_path = try std.fmt.allocPrint(allocator, "{s}/{s}", .{ runtime_dir, target.micropythonFilename() });
     defer allocator.free(runtime_path);
 
+    // Try to open existing runtime
     const file = fs.cwd().openFile(runtime_path, .{}) catch |err| {
         if (err == error.FileNotFound) {
-            io.eprint(red ++ "Error:" ++ reset ++ " MicroPython runtime not found for target '{s}'\n", .{target.name()});
-            io.eprint("\nThe runtime for this target is not embedded in the CLI.\n", .{});
-            io.eprint("To cross-compile, download the runtime:\n\n", .{});
-            io.eprint("  mkdir -p ~/.ucharm/runtimes\n", .{});
-            io.eprint("  curl -L https://github.com/ucharmdev/ucharm/releases/latest/download/{s} \\\n", .{target.micropythonFilename()});
-            io.eprint("       -o ~/.ucharm/runtimes/{s}\n\n", .{target.micropythonFilename()});
-            io.eprint("Or build for the current platform (no --target flag).\n", .{});
-            std.process.exit(1);
+            // Runtime not found - offer to download
+            return downloadRuntime(allocator, target, runtime_dir, runtime_path);
         }
         return err;
     };
@@ -514,6 +511,93 @@ fn getMicropythonBinary(allocator: Allocator, target: Target) !MicropythonBinary
     if (bytes_read != stat.size) {
         return error.IncompleteRead;
     }
+
+    return .{ .data = data, .allocated = true };
+}
+
+fn downloadRuntime(allocator: Allocator, target: Target, runtime_dir: []const u8, runtime_path: []const u8) !MicropythonBinary {
+    const download_url = try std.fmt.allocPrint(allocator, "https://github.com/ucharmdev/ucharm/releases/latest/download/{s}", .{target.micropythonFilename()});
+    defer allocator.free(download_url);
+
+    io.print(yellow ++ "?" ++ reset ++ " MicroPython runtime for " ++ bold ++ "{s}" ++ reset ++ " not found locally.\n", .{target.name()});
+    io.print("  Download from GitHub? " ++ dim ++ "(~850KB)" ++ reset ++ " [Y/n] ", .{});
+
+    // Read user input
+    var buf: [10]u8 = undefined;
+    const read_result = std.posix.read(std.posix.STDIN_FILENO, &buf) catch 0;
+
+    // Default to yes, or check for explicit no
+    const should_download = if (read_result == 0) true else blk: {
+        const input = std.mem.trim(u8, buf[0..read_result], " \t\n\r");
+        break :blk input.len == 0 or input[0] == 'y' or input[0] == 'Y';
+    };
+
+    if (!should_download) {
+        io.print("\n" ++ dim ++ "To download manually:" ++ reset ++ "\n", .{});
+        io.print("  mkdir -p {s}\n", .{runtime_dir});
+        io.print("  curl -L {s} -o {s}\n\n", .{ download_url, runtime_path });
+        std.process.exit(1);
+    }
+
+    io.print("\n", .{});
+
+    // Create runtime directory
+    fs.cwd().makePath(runtime_dir) catch |err| {
+        io.eprint(red ++ "Error:" ++ reset ++ " Failed to create directory {s}: {}\n", .{ runtime_dir, err });
+        std.process.exit(1);
+    };
+
+    // Download using curl (available on macOS and most Linux)
+    io.print(dim ++ "  Downloading..." ++ reset, .{});
+
+    var child = std.process.Child.init(&[_][]const u8{
+        "curl",
+        "-fSL",
+        "--progress-bar",
+        "-o",
+        runtime_path,
+        download_url,
+    }, allocator);
+    child.stderr_behavior = .Inherit;
+    child.stdout_behavior = .Inherit;
+
+    _ = child.spawn() catch |err| {
+        io.eprint("\n" ++ red ++ "Error:" ++ reset ++ " Failed to run curl: {}\n", .{err});
+        io.eprint(dim ++ "Install curl or download manually:\n" ++ reset, .{});
+        io.eprint("  curl -L {s} -o {s}\n", .{ download_url, runtime_path });
+        std.process.exit(1);
+    };
+
+    const result = child.wait() catch |err| {
+        io.eprint("\n" ++ red ++ "Error:" ++ reset ++ " Download failed: {}\n", .{err});
+        std.process.exit(1);
+    };
+
+    if (result.Exited != 0) {
+        io.eprint("\n" ++ red ++ "Error:" ++ reset ++ " Download failed (curl exit code: {})\n", .{result.Exited});
+        io.eprint(dim ++ "The runtime may not be available yet. Try again after the next release.\n" ++ reset, .{});
+        std.process.exit(1);
+    }
+
+    io.print(" " ++ green ++ check ++ reset ++ "\n", .{});
+
+    // Make it executable
+    const file_for_chmod = try fs.cwd().openFile(runtime_path, .{ .mode = .read_write });
+    defer file_for_chmod.close();
+    try file_for_chmod.chmod(0o755);
+
+    // Now read and return the downloaded file
+    const file = try fs.cwd().openFile(runtime_path, .{});
+    defer file.close();
+
+    const stat = try file.stat();
+    const data = try allocator.alloc(u8, stat.size);
+    const bytes_read = try file.readAll(data);
+    if (bytes_read != stat.size) {
+        return error.IncompleteRead;
+    }
+
+    io.print(green ++ check ++ reset ++ " Downloaded runtime to " ++ dim ++ "{s}" ++ reset ++ "\n\n", .{runtime_path});
 
     return .{ .data = data, .allocated = true };
 }
