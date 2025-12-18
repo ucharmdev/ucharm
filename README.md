@@ -21,6 +21,7 @@
 
 ## Quick Demo
 
+**app.py**
 ```python
 from ucharm import box, select, confirm, success, style
 
@@ -39,7 +40,31 @@ if confirm("Are you sure?"):
     success(f"You selected: {style(choice, bold=True)}")
 ```
 
-<img src="https://github.com/user-attachments/assets/placeholder-demo.gif" alt="μcharm demo" width="600">
+**Run it:**
+```bash
+$ ucharm run app.py
+╭─ Hello ─────────────────────╮
+│ Welcome to μcharm!          │
+╰─────────────────────────────╯
+
+? What would you like to do?
+  › Create a new project
+    Run tests
+    Deploy to production
+
+? Are you sure? (Y/n) y
+✓ You selected: Create a new project
+```
+
+**Build & ship:**
+```bash
+$ ucharm build app.py -o app
+✓ Built universal binary (899 KB)
+
+$ ./app  # runs anywhere, no dependencies
+```
+
+![μcharm demo](demo.gif)
 
 ---
 
