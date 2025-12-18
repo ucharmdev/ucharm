@@ -56,19 +56,21 @@ fi
 
 echo "--- Test: Version ---"
 run_test
-if $MCHARM --version | grep -q "ucharm 0.1.0"; then
-    pass "Version output correct"
+# Read expected version from VERSION file
+EXPECTED_VERSION=$(cat "$SCRIPT_DIR/src/VERSION" | tr -d '\n\r ')
+if $MCHARM --version | grep -q "μcharm.*v$EXPECTED_VERSION"; then
+    pass "Version output correct (v$EXPECTED_VERSION)"
 else
-    fail "Version output incorrect" "Expected 'ucharm 0.1.0'"
+    fail "Version output incorrect" "Expected 'μcharm v$EXPECTED_VERSION'"
 fi
 
 echo ""
 echo "--- Test: Help ---"
 run_test
-if $MCHARM --help | grep -q "Commands"; then
+if $MCHARM --help | grep -q "COMMANDS"; then
     pass "Help displays commands"
 else
-    fail "Help missing commands" "Expected 'Commands' in output"
+    fail "Help missing commands" "Expected 'COMMANDS' in output"
 fi
 
 echo ""

@@ -6,44 +6,81 @@ const init_cmd = @import("init_cmd.zig");
 const new_cmd = @import("new_cmd.zig");
 const run_cmd = @import("run_cmd.zig");
 const test_cmd = @import("test_cmd.zig");
+const style = @import("style.zig");
 
 // Version is read from VERSION file at compile time
 const version_raw = @embedFile("VERSION");
 const version = std.mem.trim(u8, version_raw, " \t\n\r");
 
-// ANSI codes
-const dim = "\x1b[2m";
-const bold = "\x1b[1m";
-const cyan = "\x1b[36m";
-const reset = "\x1b[0m";
-
-// Logo is built dynamically to include version
+// Branded logo with visual flair
 fn printLogo() void {
-    print("\n  " ++ cyan ++ bold ++ "μcharm" ++ reset ++ " " ++ dim ++ "v{s}" ++ reset ++ "\n", .{version});
-    print("  " ++ dim ++ "Beautiful CLIs with MicroPython" ++ reset ++ "\n\n", .{});
+    // Box width: 37 chars inner content
+    // "μcharm v0.2.3" = 13 chars visible (μ is 1 char visually)
+    // "Beautiful CLIs with MicroPython" = 31 chars
+    const tagline = "Beautiful CLIs with MicroPython";
+    const box_width = tagline.len + 6; // 37
+
+    print("\n", .{});
+
+    // Top border
+    print(style.brand ++ style.bold ++ "  ╭", .{});
+    for (0..box_width) |_| print("─", .{});
+    print("╮\n" ++ style.reset, .{});
+
+    // Title line: center "μcharm vX.Y.Z"
+    // "μcharm v" = 8 chars + version length, but μ takes 2 bytes
+    const title_visible_len = 8 + version.len; // "μcharm v" + version
+    const title_pad_total = box_width - title_visible_len;
+    const title_pad_left = title_pad_total / 2;
+    const title_pad_right = title_pad_total - title_pad_left;
+
+    print(style.brand ++ style.bold ++ "  │" ++ style.reset, .{});
+    for (0..title_pad_left) |_| print(" ", .{});
+    print(style.brand ++ style.bold ++ "μcharm" ++ style.reset ++ " " ++ style.dim ++ "v{s}" ++ style.reset, .{version});
+    for (0..title_pad_right) |_| print(" ", .{});
+    print(style.brand ++ style.bold ++ "│\n" ++ style.reset, .{});
+
+    // Tagline line: center tagline
+    const tagline_pad_total = box_width - tagline.len;
+    const tagline_pad_left = tagline_pad_total / 2;
+    const tagline_pad_right = tagline_pad_total - tagline_pad_left;
+
+    print(style.brand ++ style.bold ++ "  │" ++ style.reset, .{});
+    for (0..tagline_pad_left) |_| print(" ", .{});
+    print(style.dim ++ tagline ++ style.reset, .{});
+    for (0..tagline_pad_right) |_| print(" ", .{});
+    print(style.brand ++ style.bold ++ "│\n" ++ style.reset, .{});
+
+    // Bottom border
+    print(style.brand ++ style.bold ++ "  ╰", .{});
+    for (0..box_width) |_| print("─", .{});
+    print("╯\n" ++ style.reset, .{});
+
+    print("\n", .{});
 }
 
 const usage =
-    \\[1mUsage:[0m ucharm <command> [options]
+    \\[1mUSAGE[0m
+    \\    ucharm [36m<command>[0m [options]
     \\
-    \\[1mCommands:[0m
-    \\  [36mbuild[0m    Build a standalone executable
-    \\  [36minit[0m     Initialize ucharm in current directory
-    \\  [36mnew[0m      Create a new μcharm project
-    \\  [36mrun[0m      Run a script with micropython
-    \\  [36mtest[0m     Run compatibility tests
+    \\[1mCOMMANDS[0m
+    \\    [36mnew[0m [2m<name>[0m        Create a new project
+    \\    [36mrun[0m [2m<file>[0m        Run a script with micropython
+    \\    [36mbuild[0m [2m<file>[0m      Build a standalone binary
+    \\    [36minit[0m              Initialize ucharm in current directory
+    \\    [36mtest[0m              Run compatibility tests
     \\
-    \\[1mOptions:[0m
-    \\  -h, --help       Show this help
-    \\  -v, --version    Show version
+    \\[1mOPTIONS[0m
+    \\    [36m-h[0m, [36m--help[0m        Show this help
+    \\    [36m-v[0m, [36m--version[0m     Show version
     \\
-    \\[1mExamples:[0m
-    \\  [2m$[0m ucharm new myapp
-    \\  [2m$[0m ucharm run myapp.py
-    \\  [2m$[0m ucharm build myapp.py -o myapp --mode universal
-    \\  [2m$[0m ucharm init --stubs --ai claude
+    \\[1mEXAMPLES[0m
+    \\    [2m$[0m ucharm new myapp                  [2m# Create new project[0m
+    \\    [2m$[0m ucharm run app.py                 [2m# Run with micropython[0m
+    \\    [2m$[0m ucharm build app.py -o app        [2m# Build universal binary[0m
+    \\    [2m$[0m ucharm init --stubs --ai claude   [2m# Add IDE support[0m
     \\
-    \\[2mDocs: https://github.com/ucharmdev/ucharm[0m
+    \\[2m    Docs: https://github.com/ucharmdev/ucharm[0m
     \\
 ;
 
@@ -91,7 +128,7 @@ pub fn main() !void {
     }
 
     if (std.mem.eql(u8, command, "-v") or std.mem.eql(u8, command, "--version")) {
-        print("ucharm {s}\n", .{version});
+        print(style.brand ++ style.bold ++ "μcharm" ++ style.reset ++ " " ++ style.dim ++ "v{s}" ++ style.reset ++ "\n", .{version});
         return;
     }
 
@@ -106,8 +143,8 @@ pub fn main() !void {
     } else if (std.mem.eql(u8, command, "test")) {
         try test_cmd.run(allocator, args[2..]);
     } else {
-        eprint("\x1b[31mError:\x1b[0m Unknown command '{s}'\n", .{command});
-        printUsage();
+        eprint(style.err_prefix ++ "Unknown command '" ++ style.bold ++ "{s}" ++ style.reset ++ "'\n", .{command});
+        eprint(style.dim ++ "Run '" ++ style.reset ++ "ucharm --help" ++ style.dim ++ "' for usage." ++ style.reset ++ "\n", .{});
         std.process.exit(1);
     }
 }

@@ -146,23 +146,55 @@ def main():
 
     print()
 
+    # Update VERSION file
+    info("Updating VERSION file...")
+    try:
+        with open("VERSION", "w") as f:
+            f.write(new_version + "\n")
+        success("Updated VERSION file")
+    except Exception as e:
+        error(f"Failed to update VERSION file: {e}")
+        sys.exit(1)
+
+    # Commit VERSION change
+    info("Committing version bump...")
+    _, code = run(
+        f'git add VERSION && git commit -m "chore: bump version to {new_version}"'
+    )
+    if code != 0:
+        error("Failed to commit version bump")
+        # Restore VERSION file
+        run("git checkout VERSION")
+        sys.exit(1)
+    success("Committed version bump")
+
     # Create tag
     info("Creating tag...")
     _, code = run(f'git tag -a "v{new_version}" -m "Release v{new_version}"')
     if code != 0:
         error(f"Failed to create tag v{new_version}")
+        # Undo the commit
+        run("git reset --hard HEAD~1")
         sys.exit(1)
     success(f"Created tag v{new_version}")
 
-    # Push tag
+    # Push commit and tag
     info("Pushing to origin...")
+    _, code = run("git push origin main", capture=False)
+    if code != 0:
+        error("Failed to push commit")
+        # Cleanup
+        run(f'git tag -d "v{new_version}"')
+        run("git reset --hard HEAD~1")
+        sys.exit(1)
+
     _, code = run(f'git push origin "v{new_version}"', capture=False)
     if code != 0:
         error("Failed to push tag")
         # Cleanup
         run(f'git tag -d "v{new_version}"')
         sys.exit(1)
-    success("Pushed tag to origin")
+    success("Pushed to origin")
 
     print()
     rule()
