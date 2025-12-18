@@ -295,6 +295,15 @@ fn transformScript(allocator: Allocator, script_path: []const u8) ![]u8 {
             if (containsAny(import_part, &.{ "select", "multiselect", "confirm", "prompt", "password" })) {
                 needs_input = true;
             }
+        } else if (std.mem.startsWith(u8, trimmed, "from ucharm.input import")) {
+            // from ucharm.input import select, etc.
+            needs_input = true;
+        } else if (std.mem.startsWith(u8, trimmed, "from ucharm.components import") or
+            std.mem.startsWith(u8, trimmed, "from ucharm.style import") or
+            std.mem.startsWith(u8, trimmed, "from ucharm.table import"))
+        {
+            // from ucharm.components/style/table import ...
+            needs_charm = true;
         } else if (std.mem.startsWith(u8, trimmed, "import ucharm")) {
             needs_charm = true;
             needs_input = true;
