@@ -11,7 +11,17 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
-    // Create command modules with io dependency
+    // Create project module (shared by init and new)
+    const project_mod = b.createModule(.{
+        .root_source_file = b.path("src/project.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{
+            .{ .name = "io.zig", .module = io_mod },
+        },
+    });
+
+    // Create command modules with dependencies
     const build_cmd_mod = b.createModule(.{
         .root_source_file = b.path("src/build_cmd.zig"),
         .target = target,
@@ -27,6 +37,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
         .imports = &.{
             .{ .name = "io.zig", .module = io_mod },
+            .{ .name = "project.zig", .module = project_mod },
         },
     });
 
@@ -39,6 +50,16 @@ pub fn build(b: *std.Build) void {
         },
     });
 
+    const init_cmd_mod = b.createModule(.{
+        .root_source_file = b.path("src/init_cmd.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{
+            .{ .name = "io.zig", .module = io_mod },
+            .{ .name = "project.zig", .module = project_mod },
+        },
+    });
+
     const exe = b.addExecutable(.{
         .name = "ucharm",
         .root_module = b.createModule(.{
@@ -47,6 +68,7 @@ pub fn build(b: *std.Build) void {
             .optimize = optimize,
             .imports = &.{
                 .{ .name = "build_cmd.zig", .module = build_cmd_mod },
+                .{ .name = "init_cmd.zig", .module = init_cmd_mod },
                 .{ .name = "new_cmd.zig", .module = new_cmd_mod },
                 .{ .name = "run_cmd.zig", .module = run_cmd_mod },
             },

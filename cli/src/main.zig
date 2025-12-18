@@ -2,6 +2,7 @@ const std = @import("std");
 const builtin = @import("builtin");
 
 const build_cmd = @import("build_cmd.zig");
+const init_cmd = @import("init_cmd.zig");
 const new_cmd = @import("new_cmd.zig");
 const run_cmd = @import("run_cmd.zig");
 const test_cmd = @import("test_cmd.zig");
@@ -27,6 +28,7 @@ const usage =
     \\
     \\[1mCommands:[0m
     \\  [36mbuild[0m    Build a standalone executable
+    \\  [36minit[0m     Initialize ucharm in current directory
     \\  [36mnew[0m      Create a new μcharm project
     \\  [36mrun[0m      Run a script with micropython
     \\  [36mtest[0m     Run compatibility tests
@@ -39,6 +41,7 @@ const usage =
     \\  [2m$[0m ucharm new myapp
     \\  [2m$[0m ucharm run myapp.py
     \\  [2m$[0m ucharm build myapp.py -o myapp --mode universal
+    \\  [2m$[0m ucharm init --stubs --ai claude
     \\
     \\[2mDocs: https://github.com/ucharmdev/ucharm[0m
     \\
@@ -94,6 +97,8 @@ pub fn main() !void {
 
     if (std.mem.eql(u8, command, "build")) {
         try build_cmd.run(allocator, args[2..]);
+    } else if (std.mem.eql(u8, command, "init")) {
+        try init_cmd.run(allocator, args[2..]);
     } else if (std.mem.eql(u8, command, "new")) {
         try new_cmd.run(allocator, args[2..]);
     } else if (std.mem.eql(u8, command, "run")) {
