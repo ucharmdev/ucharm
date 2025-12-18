@@ -31,6 +31,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
+#include <errno.h>
+#include <signal.h>
 
 // ============================================================================
 // Zig Function Declarations
@@ -78,9 +80,23 @@ static void init_test_mode(void) {
         return;
     }
     
-    // Check if fd 3 is readable
+    // Check if fd 3 is readable - use non-blocking check
+    // First verify fd 3 is valid and a regular file or pipe
+    int flags = fcntl(TEST_FD, F_GETFL);
+    if (flags == -1) {
+        // fd 3 doesn't exist, that's fine
+        return;
+    }
+    
+    // Set non-blocking temporarily to avoid hanging
+    fcntl(TEST_FD, F_SETFL, flags | O_NONBLOCK);
+    
     char buf[4096];
     ssize_t n = read(TEST_FD, buf, sizeof(buf) - 1);
+    
+    // Restore original flags
+    fcntl(TEST_FD, F_SETFL, flags);
+    
     if (n > 0) {
         buf[n] = '\0';
         // Convert newlines to commas for consistent parsing
@@ -181,7 +197,8 @@ static int read_test_key(void) {
 // Uses /dev/tty to work even when stdin is redirected (e.g., via just, make)
 static int get_tty_fd(void) {
     if (input_tty_fd < 0) {
-        input_tty_fd = open("/dev/tty", O_RDONLY);
+        // Open with O_RDWR | O_NOCTTY for terminal control
+        input_tty_fd = open("/dev/tty", O_RDWR | O_NOCTTY);
         if (input_tty_fd < 0) {
             // Fallback to stdin if /dev/tty not available
             input_tty_fd = STDIN_FILENO;
@@ -192,16 +209,50 @@ static int get_tty_fd(void) {
 
 static void enable_raw_mode(void) {
     if (!input_raw_mode_enabled) {
-        int fd = get_tty_fd();
-        tcgetattr(fd, &input_orig_termios);
-        struct termios raw = input_orig_termios;
-        raw.c_lflag &= ~(ECHO | ICANON | ISIG | IEXTEN);
-        raw.c_iflag &= ~(IXON | ICRNL | BRKINT | INPCK | ISTRIP);
-        raw.c_oflag &= ~(OPOST);
-        raw.c_cflag |= (CS8);
-        raw.c_cc[VMIN] = 0;
-        raw.c_cc[VTIME] = 1;
-        tcsetattr(fd, TCSAFLUSH, &raw);
+        int stdin_fd = STDIN_FILENO;
+        int tty_fd = get_tty_fd();
+        
+        // Check if stdin is a tty
+        if (isatty(stdin_fd)) {
+            // Normal case: stdin is a tty, use it for termios
+            tcgetattr(stdin_fd, &input_orig_termios);
+            struct termios raw = input_orig_termios;
+            raw.c_lflag &= ~(ECHO | ICANON | ISIG | IEXTEN);
+            raw.c_iflag &= ~(IXON | ICRNL | BRKINT | INPCK | ISTRIP);
+            raw.c_oflag &= ~(OPOST);
+            raw.c_cflag |= (CS8);
+            raw.c_cc[VMIN] = 0;
+            raw.c_cc[VTIME] = 1;
+            tcsetattr(stdin_fd, TCSANOW, &raw);
+        } else {
+            // When stdin is not a tty (e.g., under just, make), we are a background process.
+            // We need to become the foreground process group to read from the terminal.
+            // First, ignore SIGTTOU and SIGTTIN to prevent being stopped.
+            struct sigaction sa_new;
+            sa_new.sa_handler = SIG_IGN;
+            sigemptyset(&sa_new.sa_mask);
+            sa_new.sa_flags = 0;
+            sigaction(SIGTTOU, &sa_new, NULL);
+            sigaction(SIGTTIN, &sa_new, NULL);
+            
+            // Try to become the foreground process group
+            pid_t our_pgrp = getpgrp();
+            pid_t fg_pgrp = tcgetpgrp(tty_fd);
+            if (our_pgrp != fg_pgrp) {
+                tcsetpgrp(tty_fd, our_pgrp);
+            }
+            
+            // Use /dev/tty for both termios and reading
+            tcgetattr(tty_fd, &input_orig_termios);
+            struct termios raw = input_orig_termios;
+            raw.c_lflag &= ~(ECHO | ICANON | ISIG | IEXTEN);
+            raw.c_iflag &= ~(IXON | ICRNL | BRKINT | INPCK | ISTRIP);
+            raw.c_oflag &= ~(OPOST);
+            raw.c_cflag |= (CS8);
+            raw.c_cc[VMIN] = 0;
+            raw.c_cc[VTIME] = 1;
+            tcsetattr(tty_fd, TCSANOW, &raw);
+        }
         input_raw_mode_enabled = 1;
     }
 }
