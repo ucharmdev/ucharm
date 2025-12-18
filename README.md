@@ -17,6 +17,10 @@
 
 μcharm combines Python's ease of use with the performance of native code. Write your CLI in familiar Python syntax, then compile it to a single standalone binary that starts instantly and runs anywhere.
 
+### How it works
+
+μcharm bundles your Python code with [MicroPython](https://micropython.org/) (a lean Python implementation) and 23 native [Zig](https://ziglang.org/) modules into a single executable. The Zig modules provide [Charm](https://charm.sh/)-style TUI components (boxes, prompts, spinners) plus high-performance implementations of Python's standard library. The result: Python's developer experience with native speed and tiny binaries.
+
 ---
 
 ## Quick Demo
