@@ -1,10 +1,18 @@
-# μcharm
+<p align="center">
+  <img src="assets/logo.png" alt="μcharm logo" width="200">
+</p>
 
-**Build beautiful command-line apps in Python. Ship them as tiny, fast binaries.**
+<h1 align="center">μcharm</h1>
 
-[![CI](https://github.com/ucharmdev/ucharm/actions/workflows/ci.yml/badge.svg)](https://github.com/ucharmdev/ucharm/actions/workflows/ci.yml)
-[![Release](https://github.com/ucharmdev/ucharm/actions/workflows/release.yml/badge.svg)](https://github.com/ucharmdev/ucharm/releases)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+<p align="center">
+  <strong>Build beautiful command-line apps in Python. Ship them as tiny, fast binaries.</strong>
+</p>
+
+<p align="center">
+  <a href="https://github.com/ucharmdev/ucharm/actions/workflows/ci.yml"><img src="https://github.com/ucharmdev/ucharm/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/ucharmdev/ucharm/releases"><img src="https://github.com/ucharmdev/ucharm/actions/workflows/release.yml/badge.svg" alt="Release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"></a>
+</p>
 
 ```
 ╭─────────────────────────────────────────────────╮
