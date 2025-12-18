@@ -40,15 +40,19 @@ ucharm/
 │   ├── src/
 │   │   ├── main.zig          # Entry point, command routing
 │   │   ├── build_cmd.zig     # Build command (single/executable/universal)
+│   │   ├── init_cmd.zig      # Initialize project (stubs, AI instructions)
 │   │   ├── new_cmd.zig       # Project scaffolding
 │   │   ├── run_cmd.zig       # Run Python scripts (embeds micropython)
 │   │   ├── io.zig            # Shared I/O utilities
 │   │   ├── tests.zig         # Unit tests
-│   │   └── stubs/            # Embedded binaries
-│   │       ├── loader-macos-aarch64
-│   │       ├── loader-macos-x86_64
-│   │       ├── loader-linux-x86_64
-│   │       └── micropython-ucharm-macos-aarch64
+│   │   ├── stubs/            # Embedded binaries and type stubs
+│   │   │   ├── *.pyi         # Python type stubs for native modules
+│   │   │   ├── loader-*      # Platform-specific loaders
+│   │   │   └── micropython-* # MicroPython binaries
+│   │   └── templates/        # AI instruction templates (edit these!)
+│   │       ├── AGENTS.md     # Universal (Cursor, Windsurf, Zed)
+│   │       ├── CLAUDE.md     # Claude Code instructions
+│   │       └── copilot-instructions.md  # GitHub Copilot
 │   ├── build.zig             # Zig build configuration
 │   └── test_e2e.sh           # End-to-end test suite
 ├── loader/                   # Universal binary loader (Zig)
@@ -317,6 +321,19 @@ This runs `scripts/release.py` which:
 6. **Rebuild CLI**: `just build`
 7. **Rebuild native MicroPython**: `just build-micropython`
 
+## Committing Changes
+
+**IMPORTANT**: Always use the `/commit` slash command before committing changes. This runs through a checklist to ensure:
+
+- All tests pass (e2e and compatibility)
+- Type stubs are regenerated and up to date
+- AI instruction templates are updated (`cli/src/templates/`)
+- Documentation is in sync (CLAUDE.md, README.md)
+- CLI templates are updated
+- Changes are grouped into logical commits with conventional commit format
+
+Never commit directly without running `/commit` first.
+
 ## Adding Native Modules
 
 **IMPORTANT: Zig/C Only Policy**
@@ -358,6 +375,39 @@ Steps:
 6. Test: `./native/dist/micropython-ucharm native/modulename/test_modulename.py`
 7. Update CLI stubs: `cp native/dist/micropython-ucharm cli/src/stubs/micropython-ucharm-macos-aarch64`
 8. Rebuild CLI: `cd cli && zig build -Doptimize=ReleaseSmall`
+
+## Keeping Templates and Stubs Up to Date
+
+When adding or modifying native modules, **keep these files in sync**:
+
+### Type Stubs (`stubs/` and `cli/src/stubs/`)
+
+Type stubs provide IDE autocomplete for ucharm users. Update them when:
+- Adding new native modules
+- Adding/changing functions in existing modules
+- Changing function signatures or return types
+
+```bash
+# Regenerate stubs from C source
+python3 scripts/generate_stubs.py
+
+# Copy to CLI for embedding
+cp stubs/*.pyi cli/src/stubs/
+```
+
+### AI Instruction Templates (`cli/src/templates/`)
+
+These templates are used by `ucharm init --ai` to help AI coding assistants understand ucharm projects. **Update them when**:
+- Adding new native modules (update the module list)
+- Adding new TUI functions (update Available Functions)
+- Changing import patterns or API conventions
+
+Files to update:
+- `cli/src/templates/AGENTS.md` - Universal format (Cursor, Windsurf, Zed)
+- `cli/src/templates/CLAUDE.md` - Claude Code specific
+- `cli/src/templates/copilot-instructions.md` - GitHub Copilot
+
+These are plain Markdown files that get embedded at compile time, so they're easy to edit and review in PRs.
 
 ## Environment Setup
 
