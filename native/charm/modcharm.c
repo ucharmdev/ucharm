@@ -124,6 +124,7 @@ static size_t build_style_code(char *buf, size_t buf_size,
 
 // ============================================================================
 // charm.visible_len(text) -> int
+// Calculate visible length of text, ignoring ANSI escape sequences.
 // ============================================================================
 
 MPY_FUNC_1(charm, visible_len) {
@@ -133,7 +134,8 @@ MPY_FUNC_1(charm, visible_len) {
 MPY_FUNC_OBJ_1(charm, visible_len);
 
 // ============================================================================
-// charm.style(text, fg=None, bg=None, bold=False, ...) -> str
+// charm.style(text, fg, bg, bold, dim, italic, underline, strikethrough) -> str
+// Apply ANSI styling to text and return the styled string.
 // ============================================================================
 
 // Using keyword arguments pattern from logging module
@@ -189,7 +191,8 @@ static mp_obj_t charm_style_func(size_t n_args, const mp_obj_t *pos_args, mp_map
 MP_DEFINE_CONST_FUN_OBJ_KW(charm_style_obj, 1, charm_style_func);
 
 // ============================================================================
-// charm.box(content, title=None, border="rounded", border_color=None, padding=1)
+// charm.box(content, title, border, border_color, padding) -> None
+// Draw a box around content with optional title and styling.
 // ============================================================================
 
 // Helper to find max visible length across lines
@@ -334,7 +337,8 @@ static mp_obj_t charm_box_func(size_t n_args, const mp_obj_t *pos_args, mp_map_t
 MP_DEFINE_CONST_FUN_OBJ_KW(charm_box_obj, 1, charm_box_func);
 
 // ============================================================================
-// charm.rule(title=None, char='─', color=None, width=None)
+// charm.rule(title=None, char='─', color=None, width=None) -> None
+// Print a horizontal rule with optional centered title.
 // ============================================================================
 
 static mp_obj_t charm_rule_func(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args) {
@@ -384,7 +388,8 @@ static mp_obj_t charm_rule_func(size_t n_args, const mp_obj_t *pos_args, mp_map_
 MP_DEFINE_CONST_FUN_OBJ_KW(charm_rule_obj, 0, charm_rule_func);
 
 // ============================================================================
-// charm.success/error/warning/info(message)
+// charm.success(message) -> None
+// Print a success message with a green checkmark symbol.
 // ============================================================================
 
 MPY_FUNC_1(charm, success) {
@@ -394,6 +399,11 @@ MPY_FUNC_1(charm, success) {
 }
 MPY_FUNC_OBJ_1(charm, success);
 
+// ============================================================================
+// charm.error(message) -> None
+// Print an error message with a red cross symbol.
+// ============================================================================
+
 MPY_FUNC_1(charm, error) {
     const char *msg = mpy_str(arg0);
     printf("\x1b[1;31m%s \x1b[0m%s\n", charm_symbol_error(), msg);
@@ -401,12 +411,22 @@ MPY_FUNC_1(charm, error) {
 }
 MPY_FUNC_OBJ_1(charm, error);
 
+// ============================================================================
+// charm.warning(message) -> None
+// Print a warning message with a yellow warning symbol.
+// ============================================================================
+
 MPY_FUNC_1(charm, warning) {
     const char *msg = mpy_str(arg0);
     printf("\x1b[1;33m%s \x1b[0m%s\n", charm_symbol_warning(), msg);
     return mpy_none();
 }
 MPY_FUNC_OBJ_1(charm, warning);
+
+// ============================================================================
+// charm.info(message) -> None
+// Print an info message with a blue info symbol.
+// ============================================================================
 
 MPY_FUNC_1(charm, info) {
     const char *msg = mpy_str(arg0);
@@ -416,7 +436,8 @@ MPY_FUNC_1(charm, info) {
 MPY_FUNC_OBJ_1(charm, info);
 
 // ============================================================================
-// charm.progress(current, total, label=None, width=40, color=None)
+// charm.progress(current, total, label=None, width=40, color=None) -> None
+// Display an animated progress bar with percentage.
 // ============================================================================
 
 static mp_obj_t charm_progress_func(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args) {
@@ -465,6 +486,7 @@ MP_DEFINE_CONST_FUN_OBJ_KW(charm_progress_obj, 2, charm_progress_func);
 
 // ============================================================================
 // charm.spinner_frame(index) -> str
+// Get a spinner animation frame by index (cycles through frames).
 // ============================================================================
 
 MPY_FUNC_1(charm, spinner_frame) {
