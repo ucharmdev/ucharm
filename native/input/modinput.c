@@ -14,6 +14,13 @@
  *   confirmed = input.confirm("Continue?", True)
  *   name = input.prompt("Name:", "default")
  *   secret = input.password("Password:")
+ *
+ * Test Mode:
+ *   For automated testing, provide keystrokes via environment variable:
+ *   MCHARM_TEST_KEYS="down,down,enter" ./my_app
+ *
+ *   Key names: up, down, enter, space, escape, backspace, y, n
+ *   Single characters are sent as-is.
  */
 
 #include "../bridge/mpy_bridge.h"
@@ -21,6 +28,7 @@
 #include <unistd.h>
 #include <termios.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 // ============================================================================
@@ -39,6 +47,112 @@ ZIG_EXTERN int input_wrap_index(int value, int count);
 
 static struct termios input_orig_termios;
 static int input_raw_mode_enabled = 0;
+
+// ============================================================================
+// Test Mode Support
+// ============================================================================
+
+// Test input can come from:
+// 1. Environment variable: MCHARM_TEST_KEYS="down,down,enter"
+// 2. File descriptor 3: echo -e "down\nenter" | ./app 3<&0
+
+static char *test_keys_buf = NULL;      // Buffer for test keys
+static char *test_keys_ptr = NULL;      // Current position in buffer
+static int test_mode_initialized = 0;
+static int test_mode_source = 0;        // 0=none, 1=env, 2=fd3
+
+#define TEST_FD 3
+
+static void init_test_mode(void) {
+    if (test_mode_initialized) return;
+    test_mode_initialized = 1;
+    
+    // Check environment variable first
+    const char *env = getenv("MCHARM_TEST_KEYS");
+    if (env && *env) {
+        test_keys_buf = strdup(env);
+        test_keys_ptr = test_keys_buf;
+        test_mode_source = 1;
+        return;
+    }
+    
+    // Check if fd 3 is readable
+    char buf[4096];
+    ssize_t n = read(TEST_FD, buf, sizeof(buf) - 1);
+    if (n > 0) {
+        buf[n] = '\0';
+        // Convert newlines to commas for consistent parsing
+        for (ssize_t i = 0; i < n; i++) {
+            if (buf[i] == '\n') buf[i] = ',';
+        }
+        // Remove trailing comma if present
+        if (n > 0 && buf[n-1] == ',') buf[n-1] = '\0';
+        test_keys_buf = strdup(buf);
+        test_keys_ptr = test_keys_buf;
+        test_mode_source = 2;
+    }
+}
+
+static int is_test_mode(void) {
+    init_test_mode();
+    return test_keys_buf != NULL;
+}
+
+// Map a key name to internal key code
+static int map_key_name(const char *key_name, size_t len) {
+    if (len == 0) return 0;
+    
+    // Named keys
+    if (len == 2 && strncmp(key_name, "up", 2) == 0) return 'u';
+    if (len == 4 && strncmp(key_name, "down", 4) == 0) return 'd';
+    if (len == 5 && strncmp(key_name, "enter", 5) == 0) return 'e';
+    if (len == 5 && strncmp(key_name, "space", 5) == 0) return 's';
+    if (len == 6 && strncmp(key_name, "escape", 6) == 0) return 'q';
+    if (len == 9 && strncmp(key_name, "backspace", 9) == 0) return 'b';
+    
+    // Vim-style navigation
+    if (len == 1 && key_name[0] == 'k') return 'u';
+    if (len == 1 && key_name[0] == 'j') return 'd';
+    
+    // Single characters
+    if (len == 1) {
+        char c = key_name[0];
+        if (c == 'y' || c == 'Y' || c == 'n' || c == 'N') return c;
+        return c;
+    }
+    
+    return 0;
+}
+
+// Read next test key, returns key code or 0 if no more keys
+static int read_test_key(void) {
+    init_test_mode();
+    
+    if (!test_keys_ptr || !*test_keys_ptr) return 0;
+    
+    // Skip leading whitespace and commas
+    while (*test_keys_ptr == ',' || *test_keys_ptr == ' ' || *test_keys_ptr == '\t') {
+        test_keys_ptr++;
+    }
+    if (!*test_keys_ptr) return 0;
+    
+    // Find end of current key (comma or end of string)
+    char *end = test_keys_ptr;
+    while (*end && *end != ',') end++;
+    size_t len = (size_t)(end - test_keys_ptr);
+    
+    // Trim trailing whitespace
+    while (len > 0 && (test_keys_ptr[len-1] == ' ' || test_keys_ptr[len-1] == '\t')) {
+        len--;
+    }
+    
+    int key = map_key_name(test_keys_ptr, len);
+    
+    // Advance pointer
+    test_keys_ptr = *end ? end + 1 : end;
+    
+    return key;
+}
 
 // ============================================================================
 // ANSI Escape Sequences and Symbols
@@ -111,6 +225,11 @@ static void write_newline(void) {
 
 // Read a key and return a key code
 static int read_key(void) {
+    // Check test mode first
+    if (is_test_mode()) {
+        return read_test_key();
+    }
+    
     char buf[8];
     ssize_t n = read(STDIN_FILENO, buf, sizeof(buf) - 1);
     
