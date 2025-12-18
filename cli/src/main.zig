@@ -7,56 +7,61 @@ const new_cmd = @import("new_cmd.zig");
 const run_cmd = @import("run_cmd.zig");
 const test_cmd = @import("test_cmd.zig");
 const style = @import("style.zig");
+const tui = @import("tui");
 
 // Version is read from VERSION file at compile time
 const version_raw = @embedFile("VERSION");
 const version = std.mem.trim(u8, version_raw, " \t\n\r");
 
-// Branded logo with visual flair
+// Branded logo with visual flair - uses shared tui library
 fn printLogo() void {
-    // Box width: 37 chars inner content
-    // "μcharm v0.2.3" = 13 chars visible (μ is 1 char visually)
-    // "Beautiful CLIs with MicroPython" = 31 chars
+    const out = stdout();
+
+    // Use comptime box characters for rounded style
+    const box = comptime tui.getBoxChars(.rounded);
+
+    // Box dimensions
     const tagline = "Beautiful CLIs with MicroPython";
     const box_width = tagline.len + 6; // 37
 
-    print("\n", .{});
+    _ = out.write("\n") catch return;
 
     // Top border
-    print(style.brand ++ style.bold ++ "  ╭", .{});
-    for (0..box_width) |_| print("─", .{});
-    print("╮\n" ++ style.reset, .{});
+    _ = out.write(tui.ansi.cyan ++ tui.ansi.bold ++ "  " ++ box.tl) catch return;
+    for (0..box_width) |_| _ = out.write(box.h) catch return;
+    _ = out.write(box.tr ++ "\n" ++ tui.ansi.reset) catch return;
 
     // Title line: center "μcharm vX.Y.Z"
-    // "μcharm v" = 8 chars + version length, but μ takes 2 bytes
     const title_visible_len = 8 + version.len; // "μcharm v" + version
     const title_pad_total = box_width - title_visible_len;
     const title_pad_left = title_pad_total / 2;
     const title_pad_right = title_pad_total - title_pad_left;
 
-    print(style.brand ++ style.bold ++ "  │" ++ style.reset, .{});
-    for (0..title_pad_left) |_| print(" ", .{});
-    print(style.brand ++ style.bold ++ "μcharm" ++ style.reset ++ " " ++ style.dim ++ "v{s}" ++ style.reset, .{version});
-    for (0..title_pad_right) |_| print(" ", .{});
-    print(style.brand ++ style.bold ++ "│\n" ++ style.reset, .{});
+    _ = out.write(tui.ansi.cyan ++ tui.ansi.bold ++ "  " ++ box.v ++ tui.ansi.reset) catch return;
+    for (0..title_pad_left) |_| _ = out.write(" ") catch return;
+    _ = out.write(tui.ansi.cyan ++ tui.ansi.bold ++ "\xce\xbc" ++ "charm" ++ tui.ansi.reset ++ " " ++ tui.ansi.dim ++ "v") catch return;
+    _ = out.write(version) catch return;
+    _ = out.write(tui.ansi.reset) catch return;
+    for (0..title_pad_right) |_| _ = out.write(" ") catch return;
+    _ = out.write(tui.ansi.cyan ++ tui.ansi.bold ++ box.v ++ "\n" ++ tui.ansi.reset) catch return;
 
     // Tagline line: center tagline
     const tagline_pad_total = box_width - tagline.len;
     const tagline_pad_left = tagline_pad_total / 2;
     const tagline_pad_right = tagline_pad_total - tagline_pad_left;
 
-    print(style.brand ++ style.bold ++ "  │" ++ style.reset, .{});
-    for (0..tagline_pad_left) |_| print(" ", .{});
-    print(style.dim ++ tagline ++ style.reset, .{});
-    for (0..tagline_pad_right) |_| print(" ", .{});
-    print(style.brand ++ style.bold ++ "│\n" ++ style.reset, .{});
+    _ = out.write(tui.ansi.cyan ++ tui.ansi.bold ++ "  " ++ box.v ++ tui.ansi.reset) catch return;
+    for (0..tagline_pad_left) |_| _ = out.write(" ") catch return;
+    _ = out.write(tui.ansi.dim ++ tagline ++ tui.ansi.reset) catch return;
+    for (0..tagline_pad_right) |_| _ = out.write(" ") catch return;
+    _ = out.write(tui.ansi.cyan ++ tui.ansi.bold ++ box.v ++ "\n" ++ tui.ansi.reset) catch return;
 
     // Bottom border
-    print(style.brand ++ style.bold ++ "  ╰", .{});
-    for (0..box_width) |_| print("─", .{});
-    print("╯\n" ++ style.reset, .{});
+    _ = out.write(tui.ansi.cyan ++ tui.ansi.bold ++ "  " ++ box.bl) catch return;
+    for (0..box_width) |_| _ = out.write(box.h) catch return;
+    _ = out.write(box.br ++ "\n" ++ tui.ansi.reset) catch return;
 
-    print("\n", .{});
+    _ = out.write("\n") catch return;
 }
 
 const usage =
@@ -128,7 +133,7 @@ pub fn main() !void {
     }
 
     if (std.mem.eql(u8, command, "-v") or std.mem.eql(u8, command, "--version")) {
-        print(style.brand ++ style.bold ++ "μcharm" ++ style.reset ++ " " ++ style.dim ++ "v{s}" ++ style.reset ++ "\n", .{version});
+        print(tui.ansi.cyan ++ tui.ansi.bold ++ "\xce\xbc" ++ "charm" ++ tui.ansi.reset ++ " " ++ tui.ansi.dim ++ "v{s}" ++ tui.ansi.reset ++ "\n", .{version});
         return;
     }
 

@@ -4,11 +4,31 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
+    // Create shared TUI module (from ../shared/)
+    const tui_mod = b.createModule(.{
+        .root_source_file = b.path("../shared/tui.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+
+    // Create style module (shared by all) - wraps tui for backwards compat
+    const style_mod = b.createModule(.{
+        .root_source_file = b.path("src/style.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{
+            .{ .name = "tui", .module = tui_mod },
+        },
+    });
+
     // Create io module that all commands will use
     const io_mod = b.createModule(.{
         .root_source_file = b.path("src/io.zig"),
         .target = target,
         .optimize = optimize,
+        .imports = &.{
+            .{ .name = "style.zig", .module = style_mod },
+        },
     });
 
     // Create project module (shared by init and new)
@@ -60,6 +80,15 @@ pub fn build(b: *std.Build) void {
         },
     });
 
+    const test_cmd_mod = b.createModule(.{
+        .root_source_file = b.path("src/test_cmd.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{
+            .{ .name = "io.zig", .module = io_mod },
+        },
+    });
+
     const exe = b.addExecutable(.{
         .name = "ucharm",
         .root_module = b.createModule(.{
@@ -71,6 +100,9 @@ pub fn build(b: *std.Build) void {
                 .{ .name = "init_cmd.zig", .module = init_cmd_mod },
                 .{ .name = "new_cmd.zig", .module = new_cmd_mod },
                 .{ .name = "run_cmd.zig", .module = run_cmd_mod },
+                .{ .name = "test_cmd.zig", .module = test_cmd_mod },
+                .{ .name = "style.zig", .module = style_mod },
+                .{ .name = "tui", .module = tui_mod },
             },
         }),
     });
