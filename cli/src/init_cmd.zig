@@ -1,34 +1,33 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 const io = @import("io.zig");
+const style = io.style;
 const project = @import("project.zig");
 
 const help_text =
-    \\[1mucharm init[0m - Initialize ucharm in current directory
-    \\
-    \\[2mUSAGE:[0m
-    \\    ucharm init [options]
-    \\
-    \\[2mOPTIONS:[0m
-    \\    --stubs          Add type stubs for IDE autocomplete
-    \\    --ai <type>      Add AI assistant instructions
-    \\                     Types: agents, claude, copilot, all
-    \\    --all            Add both stubs and AI instructions (agents + claude)
-    \\    -h, --help       Show this help
-    \\
-    \\[2mEXAMPLES:[0m
-    \\    ucharm init --stubs
-    \\    ucharm init --ai agents
-    \\    ucharm init --all
-    \\
-    \\[2mFILES CREATED:[0m
-    \\    .ucharm/stubs/                   Type stubs for 24 native modules
-    \\    pyrightconfig.json               Pyright configuration
-    \\    AGENTS.md                        Universal (Cursor, Windsurf, Zed)
-    \\    CLAUDE.md                        Claude Code
-    \\    .github/copilot-instructions.md  GitHub Copilot
-    \\
-;
+    style.bold ++ "ucharm init" ++ style.reset ++ " - Initialize ucharm in current directory\n" ++
+    "\n" ++
+    style.dim ++ "USAGE:" ++ style.reset ++ "\n" ++
+    "    ucharm init [options]\n" ++
+    "\n" ++
+    style.dim ++ "OPTIONS:" ++ style.reset ++ "\n" ++
+    "    --stubs          Add type stubs for IDE autocomplete\n" ++
+    "    --ai <type>      Add AI assistant instructions\n" ++
+    "                     Types: agents, claude, copilot, all\n" ++
+    "    --all            Add both stubs and AI instructions (agents + claude)\n" ++
+    "    -h, --help       Show this help\n" ++
+    "\n" ++
+    style.dim ++ "EXAMPLES:" ++ style.reset ++ "\n" ++
+    "    ucharm init --stubs\n" ++
+    "    ucharm init --ai agents\n" ++
+    "    ucharm init --all\n" ++
+    "\n" ++
+    style.dim ++ "FILES CREATED:" ++ style.reset ++ "\n" ++
+    "    .ucharm/stubs/                   Type stubs for 24 native modules\n" ++
+    "    pyrightconfig.json               Pyright configuration\n" ++
+    "    AGENTS.md                        Universal (Cursor, Windsurf, Zed)\n" ++
+    "    CLAUDE.md                        Claude Code\n" ++
+    "    .github/copilot-instructions.md  GitHub Copilot\n";
 
 pub fn run(allocator: Allocator, args: []const [:0]const u8) !void {
     var options = project.Options{};
@@ -46,7 +45,7 @@ pub fn run(allocator: Allocator, args: []const [:0]const u8) !void {
         } else if (std.mem.eql(u8, arg, "--ai")) {
             i += 1;
             if (i >= args.len) {
-                io.eprint("\x1b[31mError:\x1b[0m --ai requires a type (agents, claude, copilot, all)\n", .{});
+                io.eprint(style.err_prefix ++ "--ai requires a type (agents, claude, copilot, all)\n", .{});
                 std.process.exit(1);
             }
             options.ai_type = args[i];
@@ -58,21 +57,21 @@ pub fn run(allocator: Allocator, args: []const [:0]const u8) !void {
 
     // If no options, show help
     if (!options.add_stubs and options.ai_type == null) {
-        io.print("\x1b[33mNo options specified.\x1b[0m Use --stubs, --ai, or --all\n\n", .{});
+        io.print(style.warning ++ "No options specified." ++ style.reset ++ " Use --stubs, --ai, or --all\n\n", .{});
         _ = io.stdout().write(help_text) catch {};
         return;
     }
 
     // Initialize in current directory
     const files_created = project.init(null, options) catch |err| {
-        io.eprint("\x1b[31mError:\x1b[0m Failed to initialize: {}\n", .{err});
+        io.eprint(style.err_prefix ++ "Failed to initialize: {}\n", .{err});
         std.process.exit(1);
     };
 
-    io.print("\n\x1b[32mDone!\x1b[0m Initialized ucharm in current directory.\n", .{});
+    io.print("\n" ++ style.success ++ "Done!" ++ style.reset ++ " Initialized ucharm in current directory.\n", .{});
 
     if (options.add_stubs and files_created > 0) {
-        io.print("\n\x1b[2mIDE autocomplete should now work for ucharm modules.\x1b[0m\n", .{});
+        io.print("\n" ++ style.dim ++ "IDE autocomplete should now work for ucharm modules." ++ style.reset ++ "\n", .{});
     }
 
     _ = allocator;

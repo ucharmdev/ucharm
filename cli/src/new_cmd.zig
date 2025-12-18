@@ -2,49 +2,46 @@ const std = @import("std");
 const fs = std.fs;
 const Allocator = std.mem.Allocator;
 const io = @import("io.zig");
+const style = io.style;
 const project = @import("project.zig");
 
 const logo =
-    \\ 
-    \\[36m┌┬┐┌─┐┬ ┬┌─┐┬─┐┌┬┐[0m
-    \\[36m││││  ├─┤├─┤├┬┘│││[0m
-    \\[36m┴ ┴└─┘┴ ┴┴ ┴┴└─┴ ┴[0m
-    \\[2mBeautiful CLIs with MicroPython[0m
-    \\
-    \\
-;
+    "\n" ++
+    style.cyan ++ "┌┬┐┌─┐┬ ┬┌─┐┬─┐┌┬┐" ++ style.reset ++ "\n" ++
+    style.cyan ++ "││││  ├─┤├─┤├┬┘│││" ++ style.reset ++ "\n" ++
+    style.cyan ++ "┴ ┴└─┘┴ ┴┴ ┴┴└─┴ ┴" ++ style.reset ++ "\n" ++
+    style.dim ++ "Beautiful CLIs with MicroPython" ++ style.reset ++ "\n" ++
+    "\n";
 
 const help_text =
-    \\[1mucharm new[0m - Create a new ucharm project
-    \\
-    \\[2mUSAGE:[0m
-    \\    ucharm new <name> [options]
-    \\
-    \\[2mARGUMENTS:[0m
-    \\    <name>           Project name (creates <name>/ directory)
-    \\
-    \\[2mOPTIONS:[0m
-    \\    --stubs          Add type stubs for IDE autocomplete
-    \\    --ai <type>      Add AI assistant instructions
-    \\                     Types: agents, claude, copilot, all
-    \\    --all            Add stubs and AI instructions (agents + claude)
-    \\    --minimal        Just create the .py file (no directory)
-    \\    -h, --help       Show this help
-    \\
-    \\[2mEXAMPLES:[0m
-    \\    ucharm new myapp
-    \\    ucharm new myapp --all
-    \\    ucharm new myapp --stubs --ai claude
-    \\    ucharm new myapp --minimal
-    \\
-    \\[2mFILES CREATED:[0m
-    \\    myapp/
-    \\      myapp.py                       Main application file
-    \\      .ucharm/stubs/                 Type stubs (with --stubs)
-    \\      pyrightconfig.json             Pyright config (with --stubs)
-    \\      AGENTS.md                      AI instructions (with --ai)
-    \\
-;
+    style.bold ++ "ucharm new" ++ style.reset ++ " - Create a new ucharm project\n" ++
+    "\n" ++
+    style.dim ++ "USAGE:" ++ style.reset ++ "\n" ++
+    "    ucharm new <name> [options]\n" ++
+    "\n" ++
+    style.dim ++ "ARGUMENTS:" ++ style.reset ++ "\n" ++
+    "    <name>           Project name (creates <name>/ directory)\n" ++
+    "\n" ++
+    style.dim ++ "OPTIONS:" ++ style.reset ++ "\n" ++
+    "    --stubs          Add type stubs for IDE autocomplete\n" ++
+    "    --ai <type>      Add AI assistant instructions\n" ++
+    "                     Types: agents, claude, copilot, all\n" ++
+    "    --all            Add stubs and AI instructions (agents + claude)\n" ++
+    "    --minimal        Just create the .py file (no directory)\n" ++
+    "    -h, --help       Show this help\n" ++
+    "\n" ++
+    style.dim ++ "EXAMPLES:" ++ style.reset ++ "\n" ++
+    "    ucharm new myapp\n" ++
+    "    ucharm new myapp --all\n" ++
+    "    ucharm new myapp --stubs --ai claude\n" ++
+    "    ucharm new myapp --minimal\n" ++
+    "\n" ++
+    style.dim ++ "FILES CREATED:" ++ style.reset ++ "\n" ++
+    "    myapp/\n" ++
+    "      myapp.py                       Main application file\n" ++
+    "      .ucharm/stubs/                 Type stubs (with --stubs)\n" ++
+    "      pyrightconfig.json             Pyright config (with --stubs)\n" ++
+    "      AGENTS.md                      AI instructions (with --ai)\n";
 
 pub fn run(allocator: Allocator, args: []const [:0]const u8) !void {
     var options = project.Options{
@@ -66,7 +63,7 @@ pub fn run(allocator: Allocator, args: []const [:0]const u8) !void {
         } else if (std.mem.eql(u8, arg, "--ai")) {
             i += 1;
             if (i >= args.len) {
-                io.eprint("\x1b[31mError:\x1b[0m --ai requires a type (agents, claude, copilot, all)\n", .{});
+                io.eprint(style.err_prefix ++ "--ai requires a type (agents, claude, copilot, all)\n", .{});
                 std.process.exit(1);
             }
             options.ai_type = args[i];
@@ -82,8 +79,8 @@ pub fn run(allocator: Allocator, args: []const [:0]const u8) !void {
 
     // Check for project name
     if (name == null) {
-        io.eprint("\x1b[31mError:\x1b[0m No project name specified\n", .{});
-        io.eprint("Usage: ucharm new <name>\n", .{});
+        io.eprint(style.err_prefix ++ "No project name specified\n", .{});
+        io.eprint(style.dim ++ "Usage: " ++ style.reset ++ "ucharm new <name>\n", .{});
         std.process.exit(1);
     }
 
@@ -91,12 +88,12 @@ pub fn run(allocator: Allocator, args: []const [:0]const u8) !void {
 
     // Print logo
     _ = io.stdout().write(logo) catch {};
-    io.print("Creating new project: \x1b[1m{s}\x1b[0m\n\n", .{name.?});
+    io.print("Creating new project: " ++ style.bold ++ "{s}" ++ style.reset ++ "\n\n", .{name.?});
 
     if (minimal) {
         // Just create the .py file in current directory
         _ = project.init(null, options) catch |err| {
-            io.eprint("\x1b[31mError:\x1b[0m Failed to create project: {}\n", .{err});
+            io.eprint(style.err_prefix ++ "Failed to create project: {}\n", .{err});
             std.process.exit(1);
         };
     } else {
@@ -122,34 +119,34 @@ pub fn run(allocator: Allocator, args: []const [:0]const u8) !void {
         // Create and open directory
         fs.cwd().makeDir(dirname) catch |err| {
             if (err == error.PathAlreadyExists) {
-                io.eprint("\x1b[31mError:\x1b[0m Directory '{s}' already exists\n", .{dirname});
+                io.eprint(style.err_prefix ++ "Directory '{s}' already exists\n", .{dirname});
                 std.process.exit(1);
             }
-            io.eprint("\x1b[31mError:\x1b[0m Failed to create directory: {}\n", .{err});
+            io.eprint(style.err_prefix ++ "Failed to create directory: {}\n", .{err});
             std.process.exit(1);
         };
 
         var dir = fs.cwd().openDir(dirname, .{}) catch |err| {
-            io.eprint("\x1b[31mError:\x1b[0m Failed to open directory: {}\n", .{err});
+            io.eprint(style.err_prefix ++ "Failed to open directory: {}\n", .{err});
             std.process.exit(1);
         };
         defer dir.close();
 
-        io.print("\x1b[32m+\x1b[0m Created {s}/\n", .{dirname});
+        io.print(style.created_prefix ++ "Created {s}/\n", .{dirname});
 
         // Initialize project in the new directory
         _ = project.init(dir, options) catch |err| {
-            io.eprint("\x1b[31mError:\x1b[0m Failed to initialize project: {}\n", .{err});
+            io.eprint(style.err_prefix ++ "Failed to initialize project: {}\n", .{err});
             std.process.exit(1);
         };
 
         // Print next steps
-        io.print("\n\x1b[32mDone!\x1b[0m Project created.\n\n", .{});
-        io.print("Next steps:\n", .{});
-        io.print("  \x1b[36mcd {s}\x1b[0m\n", .{dirname});
-        io.print("  \x1b[36mucharm run {s}.py\x1b[0m\n\n", .{dirname});
-        io.print("Build standalone binary:\n", .{});
-        io.print("  \x1b[36mucharm build {s}.py -o {s} --mode universal\x1b[0m\n", .{ dirname, dirname });
+        io.print("\n" ++ style.success ++ "Done!" ++ style.reset ++ " Project created.\n\n", .{});
+        io.print(style.bold ++ "Next steps:\n" ++ style.reset, .{});
+        io.print("  " ++ style.dim ++ "$" ++ style.reset ++ " " ++ style.brand ++ "cd {s}" ++ style.reset ++ "\n", .{dirname});
+        io.print("  " ++ style.dim ++ "$" ++ style.reset ++ " " ++ style.brand ++ "ucharm run {s}.py" ++ style.reset ++ "\n\n", .{dirname});
+        io.print(style.bold ++ "Build standalone binary:\n" ++ style.reset, .{});
+        io.print("  " ++ style.dim ++ "$" ++ style.reset ++ " " ++ style.brand ++ "ucharm build {s}.py -o {s} --mode universal" ++ style.reset ++ "\n", .{ dirname, dirname });
     }
 
     _ = allocator;

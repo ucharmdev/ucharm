@@ -3,37 +3,36 @@ const fs = std.fs;
 const builtin = @import("builtin");
 const Allocator = std.mem.Allocator;
 const io = @import("io.zig");
+const style = io.style;
 
 // Embedded micropython binary with native modules
 const micropython_macos_aarch64 = @embedFile("stubs/micropython-ucharm-macos-aarch64");
 
 const help_text =
-    \\[1mμcharm run[0m - Run a Python script with micropython-ucharm
-    \\
-    \\[2mUSAGE:[0m
-    \\    ucharm run <script.py> [args...]
-    \\
-    \\[2mARGUMENTS:[0m
-    \\    <script.py>    Python script to run
-    \\    [args...]      Arguments passed to the script
-    \\
-    \\[2mDESCRIPTION:[0m
-    \\    Runs your Python script using the embedded micropython-ucharm
-    \\    interpreter with all native μcharm modules available.
-    \\
-    \\    The script is automatically transformed to use native modules
-    \\    instead of the ucharm Python package.
-    \\
-    \\[2mEXAMPLES:[0m
-    \\    ucharm run app.py
-    \\    ucharm run app.py --verbose
-    \\    ucharm run examples/demo.py
-    \\
-;
+    style.bold ++ "μcharm run" ++ style.reset ++ " - Run a Python script with micropython-ucharm\n" ++
+    "\n" ++
+    style.dim ++ "USAGE:" ++ style.reset ++ "\n" ++
+    "    ucharm run <script.py> [args...]\n" ++
+    "\n" ++
+    style.dim ++ "ARGUMENTS:" ++ style.reset ++ "\n" ++
+    "    <script.py>    Python script to run\n" ++
+    "    [args...]      Arguments passed to the script\n" ++
+    "\n" ++
+    style.dim ++ "DESCRIPTION:" ++ style.reset ++ "\n" ++
+    "    Runs your Python script using the embedded micropython-ucharm\n" ++
+    "    interpreter with all native μcharm modules available.\n" ++
+    "\n" ++
+    "    The script is automatically transformed to use native modules\n" ++
+    "    instead of the ucharm Python package.\n" ++
+    "\n" ++
+    style.dim ++ "EXAMPLES:" ++ style.reset ++ "\n" ++
+    "    ucharm run app.py\n" ++
+    "    ucharm run app.py --verbose\n" ++
+    "    ucharm run examples/demo.py\n";
 
 pub fn run(allocator: Allocator, args: []const [:0]const u8) !void {
     if (args.len < 1) {
-        io.eprint("\x1b[31mError:\x1b[0m No script specified\n", .{});
+        io.eprint(style.err_prefix ++ "No script specified\n", .{});
         io.eprint("Usage: ucharm run <script.py> [args...]\n", .{});
         std.process.exit(1);
     }
@@ -48,20 +47,20 @@ pub fn run(allocator: Allocator, args: []const [:0]const u8) !void {
 
     // Check if script exists
     fs.cwd().access(script, .{}) catch {
-        io.eprint("\x1b[31mError:\x1b[0m Script not found: {s}\n", .{script});
+        io.eprint(style.err_prefix ++ "Script not found: {s}\n", .{script});
         std.process.exit(1);
     };
 
     // Extract embedded micropython
     const mpy_path = extractMicropython(allocator) catch {
-        io.eprint("\x1b[31mError:\x1b[0m Failed to extract micropython\n", .{});
+        io.eprint(style.err_prefix ++ "Failed to extract micropython\n", .{});
         std.process.exit(1);
     };
     defer allocator.free(mpy_path);
 
     // Transform script to use native modules instead of ucharm package
     const transformed_path = transformScript(allocator, script) catch {
-        io.eprint("\x1b[31mError:\x1b[0m Failed to transform script\n", .{});
+        io.eprint(style.err_prefix ++ "Failed to transform script\n", .{});
         std.process.exit(1);
     };
     defer allocator.free(transformed_path);
@@ -84,22 +83,22 @@ pub fn run(allocator: Allocator, args: []const [:0]const u8) !void {
 
     for (argv.items) |arg| {
         const arg_z = allocator.dupeZ(u8, arg) catch {
-            io.eprint("\x1b[31mError:\x1b[0m Out of memory\n", .{});
+            io.eprint(style.err_prefix ++ "Out of memory\n", .{});
             std.process.exit(1);
         };
         argv_z.append(allocator, arg_z) catch {
-            io.eprint("\x1b[31mError:\x1b[0m Out of memory\n", .{});
+            io.eprint(style.err_prefix ++ "Out of memory\n", .{});
             std.process.exit(1);
         };
     }
     argv_z.append(allocator, null) catch {
-        io.eprint("\x1b[31mError:\x1b[0m Out of memory\n", .{});
+        io.eprint(style.err_prefix ++ "Out of memory\n", .{});
         std.process.exit(1);
     };
 
     // Use execv to replace current process - this properly inherits the terminal
     const mpy_path_z = allocator.dupeZ(u8, mpy_path) catch {
-        io.eprint("\x1b[31mError:\x1b[0m Out of memory\n", .{});
+        io.eprint(style.err_prefix ++ "Out of memory\n", .{});
         std.process.exit(1);
     };
 
@@ -107,7 +106,7 @@ pub fn run(allocator: Allocator, args: []const [:0]const u8) !void {
     _ = std.posix.execveZ(mpy_path_z, @ptrCast(argv_z.items.ptr), @ptrCast(std.os.environ.ptr)) catch {};
 
     // If we get here, exec failed
-    io.eprint("\x1b[31mError:\x1b[0m Failed to exec micropython\n", .{});
+    io.eprint(style.err_prefix ++ "Failed to exec micropython\n", .{});
     std.process.exit(1);
 }
 
