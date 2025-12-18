@@ -65,10 +65,10 @@ fi
 echo ""
 echo "--- Test: Help ---"
 run_test
-if $MCHARM --help | grep -q "USAGE"; then
-    pass "Help displays usage"
+if $MCHARM --help | grep -q "Commands"; then
+    pass "Help displays commands"
 else
-    fail "Help missing usage" "Expected 'USAGE' in output"
+    fail "Help missing commands" "Expected 'Commands' in output"
 fi
 
 echo ""
@@ -76,24 +76,24 @@ echo "--- Test: New Command ---"
 run_test
 cd "$TEST_DIR"
 if $MCHARM new "Test App" 2>&1 | grep -q "Created"; then
-    if [ -f "test_app.py" ]; then
-        pass "New command creates test_app.py"
+    if [ -f "test_app/test_app.py" ]; then
+        pass "New command creates test_app/test_app.py"
     else
-        fail "New command file missing" "test_app.py not created"
+        fail "New command file missing" "test_app/test_app.py not created"
     fi
 else
     fail "New command failed" "No 'Created' in output"
 fi
 
 run_test
-if grep -q "μcharm" test_app.py; then
-    pass "Generated file contains μcharm reference"
+if grep -q "ucharm" test_app/test_app.py; then
+    pass "Generated file contains ucharm reference"
 else
-    fail "Generated file incorrect" "Missing μcharm reference"
+    fail "Generated file incorrect" "Missing ucharm reference"
 fi
 
 run_test
-if [ -x "test_app.py" ]; then
+if [ -x "test_app/test_app.py" ]; then
     pass "Generated file is executable"
 else
     fail "Generated file not executable" "Missing execute permission"
@@ -103,9 +103,22 @@ echo ""
 echo "--- Test: New Command (Duplicate) ---"
 run_test
 if $MCHARM new "Test App" 2>&1 | grep -q "already exists"; then
-    pass "New command detects existing file"
+    pass "New command detects existing directory"
 else
-    fail "New command should detect existing file" "No error for duplicate"
+    fail "New command should detect existing directory" "No error for duplicate"
+fi
+
+echo ""
+echo "--- Test: New Command (Minimal) ---"
+run_test
+if $MCHARM new "minimal_app" --minimal 2>&1 | grep -q "Created"; then
+    if [ -f "minimal_app.py" ]; then
+        pass "New --minimal creates file in current dir"
+    else
+        fail "New --minimal file missing" "minimal_app.py not created"
+    fi
+else
+    fail "New --minimal failed" "No 'Created' in output"
 fi
 
 echo ""
@@ -122,10 +135,10 @@ from ucharm import success
 success("Hello from simple!")
 EOF
 
-if $MCHARM build "$TEST_DIR/simple.py" -o "$TEST_DIR/simple_out.py" --mode single 2>&1 | grep -q "Created"; then
+if $MCHARM build "$TEST_DIR/simple.py" -o "$TEST_DIR/simple_out.py" --mode single 2>&1 | grep -q "Transformed"; then
     pass "Build single mode creates output"
 else
-    fail "Build single mode failed" "No 'Created' in output"
+    fail "Build single mode failed" "No 'Transformed' in output"
 fi
 
 run_test
@@ -136,10 +149,10 @@ else
 fi
 
 run_test
-if grep -q "Embedded ucharm" "$TEST_DIR/simple_out.py"; then
-    pass "Single mode embeds library"
+if grep -q "from charm import\|from input import" "$TEST_DIR/simple_out.py"; then
+    pass "Single mode transforms imports"
 else
-    fail "Single mode doesn't embed library" "Missing embedded comment"
+    fail "Single mode doesn't transform imports" "Missing transformed imports"
 fi
 
 echo ""
