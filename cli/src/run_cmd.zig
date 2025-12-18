@@ -78,30 +78,37 @@ pub fn run(allocator: Allocator, args: []const [:0]const u8) !void {
         try argv.append(allocator, arg);
     }
 
-    // Execute micropython with inherited terminal
-    var child = std.process.Child.init(argv.items, allocator);
-    // Explicitly inherit stdin/stdout/stderr for proper terminal interaction
-    child.stdin_behavior = .Inherit;
-    child.stdout_behavior = .Inherit;
-    child.stderr_behavior = .Inherit;
-    child.spawn() catch |err| {
-        io.eprint("\x1b[31mError:\x1b[0m Failed to spawn micropython: {}\n", .{err});
-        std.process.exit(1);
-    };
+    // Convert to null-terminated strings for execv
+    var argv_z: std.ArrayList(?[*:0]const u8) = .empty;
+    defer argv_z.deinit(allocator);
 
-    const result = child.wait() catch |err| {
-        io.eprint("\x1b[31mError:\x1b[0m Failed to wait for micropython: {}\n", .{err});
-        std.process.exit(1);
-    };
-
-    // Clean up temp script
-    fs.deleteFileAbsolute(transformed_path) catch {};
-
-    switch (result) {
-        .Exited => |code| std.process.exit(code),
-        .Signal => |sig| std.process.exit(128 + @as(u8, @intCast(sig))),
-        else => std.process.exit(1),
+    for (argv.items) |arg| {
+        const arg_z = allocator.dupeZ(u8, arg) catch {
+            io.eprint("\x1b[31mError:\x1b[0m Out of memory\n", .{});
+            std.process.exit(1);
+        };
+        argv_z.append(allocator, arg_z) catch {
+            io.eprint("\x1b[31mError:\x1b[0m Out of memory\n", .{});
+            std.process.exit(1);
+        };
     }
+    argv_z.append(allocator, null) catch {
+        io.eprint("\x1b[31mError:\x1b[0m Out of memory\n", .{});
+        std.process.exit(1);
+    };
+
+    // Use execv to replace current process - this properly inherits the terminal
+    const mpy_path_z = allocator.dupeZ(u8, mpy_path) catch {
+        io.eprint("\x1b[31mError:\x1b[0m Out of memory\n", .{});
+        std.process.exit(1);
+    };
+
+    // execveZ never returns on success, only on error
+    _ = std.posix.execveZ(mpy_path_z, @ptrCast(argv_z.items.ptr), @ptrCast(std.os.environ.ptr)) catch {};
+
+    // If we get here, exec failed
+    io.eprint("\x1b[31mError:\x1b[0m Failed to exec micropython\n", .{});
+    std.process.exit(1);
 }
 
 fn extractMicropython(allocator: Allocator) ![]const u8 {
