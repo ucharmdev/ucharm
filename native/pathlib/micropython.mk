@@ -1,9 +1,11 @@
 # Pathlib native module for MicroPython
-# This module provides path manipulation functions using Zig
+# This module provides:
+# - Native 'path' module with low-level path functions (Zig)
+# - Pure Python 'pathlib' module with Path class (in pathlib.py)
 
 PATHLIB_MOD_DIR := $(USERMOD_DIR)
 
-# Add the C bridge source
+# Add the C bridge source for the native 'path' module
 SRC_USERMOD_C += $(PATHLIB_MOD_DIR)/modpathlib.c
 
 # Link the Zig static library

@@ -11,11 +11,19 @@ pub export fn path_basename(
     output: [*]u8,
     output_len: usize,
 ) i32 {
-    const p = path[0..path_len];
+    var p = path[0..path_len];
 
     // Handle special cases
     if (p.len == 0) return 0;
     if (mem.eql(u8, p, ".")) return 0;
+
+    // Strip trailing slashes
+    while (p.len > 1 and p[p.len - 1] == '/') {
+        p = p[0 .. p.len - 1];
+    }
+
+    // Handle root path
+    if (p.len == 1 and p[0] == '/') return 0;
 
     // Find last separator
     var last_sep: ?usize = null;
@@ -117,6 +125,7 @@ pub export fn path_extname(
 }
 
 /// Get the stem (name without suffix)
+/// Note: Exported as both path_stem and zig_path_stem for C compatibility
 pub export fn path_stem(
     path: [*]const u8,
     path_len: usize,
@@ -162,6 +171,16 @@ pub export fn path_stem(
     if (name.len > output_len) return -1;
     @memcpy(output[0..name.len], name);
     return @intCast(name.len);
+}
+
+/// Alias for path_stem (for C code that needs to avoid name collision)
+pub export fn zig_path_stem(
+    path: [*]const u8,
+    path_len: usize,
+    output: [*]u8,
+    output_len: usize,
+) i32 {
+    return path_stem(path, path_len, output, output_len);
 }
 
 /// Check if path is absolute
