@@ -20,7 +20,7 @@ const help_text =
     \\[2mDESCRIPTION:[0m
     \\    Runs your Python script using the embedded micropython-ucharm
     \\    interpreter with all native μcharm modules available.
-    \\    
+    \\
     \\    The script is automatically transformed to use native modules
     \\    instead of the ucharm Python package.
     \\
@@ -78,8 +78,12 @@ pub fn run(allocator: Allocator, args: []const [:0]const u8) !void {
         try argv.append(allocator, arg);
     }
 
-    // Execute micropython
+    // Execute micropython with inherited terminal
     var child = std.process.Child.init(argv.items, allocator);
+    // Explicitly inherit stdin/stdout/stderr for proper terminal interaction
+    child.stdin_behavior = .Inherit;
+    child.stdout_behavior = .Inherit;
+    child.stderr_behavior = .Inherit;
     child.spawn() catch |err| {
         io.eprint("\x1b[31mError:\x1b[0m Failed to spawn micropython: {}\n", .{err});
         std.process.exit(1);
