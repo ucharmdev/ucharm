@@ -30,6 +30,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <fcntl.h>
 
 // ============================================================================
 // Zig Function Declarations
@@ -47,6 +48,7 @@ ZIG_EXTERN int input_wrap_index(int value, int count);
 
 static struct termios input_orig_termios;
 static int input_raw_mode_enabled = 0;
+static int input_tty_fd = -1;  // File descriptor for /dev/tty
 
 // ============================================================================
 // Test Mode Support
@@ -175,9 +177,23 @@ static int read_test_key(void) {
 // Terminal Helpers
 // ============================================================================
 
+// Get file descriptor for terminal input
+// Uses /dev/tty to work even when stdin is redirected (e.g., via just, make)
+static int get_tty_fd(void) {
+    if (input_tty_fd < 0) {
+        input_tty_fd = open("/dev/tty", O_RDONLY);
+        if (input_tty_fd < 0) {
+            // Fallback to stdin if /dev/tty not available
+            input_tty_fd = STDIN_FILENO;
+        }
+    }
+    return input_tty_fd;
+}
+
 static void enable_raw_mode(void) {
     if (!input_raw_mode_enabled) {
-        tcgetattr(STDIN_FILENO, &input_orig_termios);
+        int fd = get_tty_fd();
+        tcgetattr(fd, &input_orig_termios);
         struct termios raw = input_orig_termios;
         raw.c_lflag &= ~(ECHO | ICANON | ISIG | IEXTEN);
         raw.c_iflag &= ~(IXON | ICRNL | BRKINT | INPCK | ISTRIP);
@@ -185,14 +201,15 @@ static void enable_raw_mode(void) {
         raw.c_cflag |= (CS8);
         raw.c_cc[VMIN] = 0;
         raw.c_cc[VTIME] = 1;
-        tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
+        tcsetattr(fd, TCSAFLUSH, &raw);
         input_raw_mode_enabled = 1;
     }
 }
 
 static void disable_raw_mode(void) {
     if (input_raw_mode_enabled) {
-        tcsetattr(STDIN_FILENO, TCSAFLUSH, &input_orig_termios);
+        int fd = get_tty_fd();
+        tcsetattr(fd, TCSAFLUSH, &input_orig_termios);
         input_raw_mode_enabled = 0;
     }
 }
@@ -231,7 +248,8 @@ static int read_key(void) {
     }
     
     char buf[8];
-    ssize_t n = read(STDIN_FILENO, buf, sizeof(buf) - 1);
+    int fd = get_tty_fd();
+    ssize_t n = read(fd, buf, sizeof(buf) - 1);
     
     if (n <= 0) return 0;
     
@@ -242,7 +260,7 @@ static int read_key(void) {
         // If we only got the escape byte, try to read more
         if (n == 1) {
             // Wait a bit for the rest of the escape sequence
-            ssize_t n2 = read(STDIN_FILENO, buf + 1, sizeof(buf) - 2);
+            ssize_t n2 = read(fd, buf + 1, sizeof(buf) - 2);
             if (n2 > 0) {
                 n += n2;
                 buf[n] = '\0';
