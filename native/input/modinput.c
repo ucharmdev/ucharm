@@ -314,6 +314,11 @@ MPY_FUNC_VAR(input, select, 2, 3) {
     while (1) {
         int key = read_key();
         
+        // Skip if no key pressed (timeout)
+        if (key == 0) {
+            continue;
+        }
+        
         if (key == 'd') {
             selected = input_wrap_index(selected + 1, (int)choices_len);
         } else if (key == 'u') {
@@ -323,8 +328,12 @@ MPY_FUNC_VAR(input, select, 2, 3) {
             break;
         } else if (key == 'q') {
             break;
+        } else {
+            // Unknown key, don't redraw
+            continue;
         }
         
+        // Only redraw when selection changed
         cursor_up((int)choices_len);
         for (size_t i = 0; i < choices_len; i++) {
             clear_line();
@@ -419,6 +428,11 @@ MPY_FUNC_VAR(input, multiselect, 2, 3) {
     while (1) {
         int key = read_key();
         
+        // Skip if no key pressed (timeout)
+        if (key == 0) {
+            continue;
+        }
+        
         if (key == 'd') {
             cursor = input_wrap_index(cursor + 1, (int)choices_len);
         } else if (key == 'u') {
@@ -432,8 +446,12 @@ MPY_FUNC_VAR(input, multiselect, 2, 3) {
             break;
         } else if (key == 'q') {
             break;
+        } else {
+            // Unknown key, don't redraw
+            continue;
         }
         
+        // Only redraw when selection changed
         cursor_up((int)(choices_len < 256 ? choices_len : 256));
         for (size_t i = 0; i < choices_len && i < 256; i++) {
             clear_line();
@@ -498,6 +516,11 @@ static mp_obj_t input_confirm_func(size_t n_args, const mp_obj_t *pos_args, mp_m
     
     while (1) {
         int key = read_key();
+        
+        // Skip if no key pressed (timeout)
+        if (key == 0) {
+            continue;
+        }
         
         if (key == 'y' || key == 'Y') {
             result = 1;
