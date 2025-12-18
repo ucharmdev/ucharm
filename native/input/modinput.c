@@ -25,6 +25,7 @@
 
 #include "../bridge/mpy_bridge.h"
 
+#include <sys/types.h>
 #include <unistd.h>
 #include <termios.h>
 #include <stdio.h>
