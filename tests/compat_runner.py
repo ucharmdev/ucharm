@@ -386,7 +386,9 @@ def progress_bar(current: int, total: int, width: int = 30) -> str:
     """Create a progress bar string."""
     if total == 0:
         return BAR_EMPTY * width
-    filled = int(width * current / total)
+    # Cap at 100% to prevent overflow
+    ratio = min(current / total, 1.0)
+    filled = int(width * ratio)
     return BAR_FULL * filled + BAR_EMPTY * (width - filled)
 
 
@@ -598,8 +600,10 @@ def test_module(
         status = f"{RED}✗{RESET}"
         bar_color = RED
 
+    # Format parity - need to account for ANSI codes in format_percent
+    parity_formatted = format_percent(parity)
     print(
-        f"{bar_color}{bar}{RESET} {cpython_str:>7} → {ucharm_str:>7}  {format_percent(parity):>8}  {status}"
+        f"{bar_color}{bar}{RESET}  {cpython_str:>7} → {ucharm_str:>7}  {parity_formatted}  {status}"
     )
 
     if verbose and result.failures:
@@ -614,7 +618,7 @@ def print_category_header(title: str):
     print(f"\n{BOLD}{title}{RESET}")
     print(f"{DIM}{'─' * 75}{RESET}")
     print(
-        f"  {'Module':<15} {'Progress':<22} {'CPython':>7}   {'μcharm':>7}  {'Parity':>8}  Status"
+        f"  {'Module':<15} {'Progress':<21}  {'CPython':>7}   {'μcharm':>7}  {'Parity'}  Status"
     )
     print(f"{DIM}{'─' * 75}{RESET}")
 
