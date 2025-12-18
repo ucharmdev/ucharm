@@ -9,6 +9,8 @@
 const std = @import("std");
 const fs = std.fs;
 const Allocator = std.mem.Allocator;
+const io = @import("io.zig");
+const style = io.style;
 
 // I/O helpers
 fn stdout() std.fs.File {
@@ -133,8 +135,8 @@ fn findCompatRunner(allocator: Allocator) ![]const u8 {
     }
 
     // Error - not found
-    puts("\x1b[31mError:\x1b[0m Could not find tests/compat_runner.py\n");
-    puts("Make sure you're running from the ucharm repository root.\n");
+    puts(style.err_prefix ++ "Could not find tests/compat_runner.py\n");
+    puts(style.dim ++ "Make sure you're running from the ucharm repository root.\n" ++ style.reset);
     std.process.exit(1);
 }
 
@@ -194,21 +196,22 @@ fn getMicropythonPath(allocator: Allocator) ![]const u8 {
 }
 
 fn printUsage() void {
-    puts("\n  \x1b[36m\x1b[1m" ++ "μcharm test" ++ "\x1b[0m - CPython Compatibility Testing\n");
-    puts("\n\x1b[1mUsage:\x1b[0m ucharm test [options] [file]\n");
-    puts("\n\x1b[1mOptions:\x1b[0m\n");
-    puts("  --compat        Run full CPython compatibility test suite\n");
-    puts("  --report, -r    Generate compat_report.md\n");
-    puts("  --verbose, -v   Show failure details\n");
-    puts("  --module, -m    Test only specified module\n");
-    puts("  -h, --help      Show this help\n");
-    puts("\n\x1b[1mExamples:\x1b[0m\n");
-    puts("  \x1b[2m$\x1b[0m ucharm test --compat              \x1b[2m# Full compatibility suite\x1b[0m\n");
-    puts("  \x1b[2m$\x1b[0m ucharm test --compat --report     \x1b[2m# Generate markdown report\x1b[0m\n");
-    puts("  \x1b[2m$\x1b[0m ucharm test --compat -m functools \x1b[2m# Test single module\x1b[0m\n");
-    puts("  \x1b[2m$\x1b[0m ucharm test mytest.py             \x1b[2m# Run with micropython-ucharm\x1b[0m\n");
-    puts("\n\x1b[1mAbout:\x1b[0m\n");
-    puts("  Tests μcharm's compatibility with CPython standard library.\n");
-    puts("  Runs each test file with both CPython and micropython-ucharm,\n");
-    puts("  comparing results to calculate compatibility percentages.\n\n");
+    puts("\n  " ++ style.brand ++ style.bold ++ "μcharm test" ++ style.reset ++ " - CPython Compatibility Testing\n");
+    puts("\n" ++ style.bold ++ "USAGE" ++ style.reset ++ "\n");
+    puts("    ucharm test [options] [file]\n");
+    puts("\n" ++ style.bold ++ "OPTIONS" ++ style.reset ++ "\n");
+    puts("    " ++ style.brand ++ "--compat" ++ style.reset ++ "        Run full CPython compatibility test suite\n");
+    puts("    " ++ style.brand ++ "--report" ++ style.reset ++ ", -r    Generate compat_report.md\n");
+    puts("    " ++ style.brand ++ "--verbose" ++ style.reset ++ ", -v   Show failure details\n");
+    puts("    " ++ style.brand ++ "--module" ++ style.reset ++ ", -m    Test only specified module\n");
+    puts("    " ++ style.brand ++ "-h" ++ style.reset ++ ", --help      Show this help\n");
+    puts("\n" ++ style.bold ++ "EXAMPLES" ++ style.reset ++ "\n");
+    puts("    " ++ style.dim ++ "$" ++ style.reset ++ " ucharm test --compat              " ++ style.dim ++ "# Full compatibility suite" ++ style.reset ++ "\n");
+    puts("    " ++ style.dim ++ "$" ++ style.reset ++ " ucharm test --compat --report     " ++ style.dim ++ "# Generate markdown report" ++ style.reset ++ "\n");
+    puts("    " ++ style.dim ++ "$" ++ style.reset ++ " ucharm test --compat -m functools " ++ style.dim ++ "# Test single module" ++ style.reset ++ "\n");
+    puts("    " ++ style.dim ++ "$" ++ style.reset ++ " ucharm test mytest.py             " ++ style.dim ++ "# Run with micropython-ucharm" ++ style.reset ++ "\n");
+    puts("\n" ++ style.bold ++ "ABOUT" ++ style.reset ++ "\n");
+    puts("    Tests μcharm's compatibility with CPython standard library.\n");
+    puts("    Runs each test file with both CPython and micropython-ucharm,\n");
+    puts("    comparing results to calculate compatibility percentages.\n\n");
 }

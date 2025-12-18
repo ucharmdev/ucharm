@@ -2,6 +2,7 @@ const std = @import("std");
 const fs = std.fs;
 const Allocator = std.mem.Allocator;
 const io = @import("io.zig");
+const style = io.style;
 const builtin = @import("builtin");
 
 // Version is read from VERSION file at compile time
@@ -23,19 +24,10 @@ const micropython_macos_aarch64 = @embedFile("stubs/micropython-ucharm-macos-aar
 const TRAILER_MAGIC: *const [8]u8 = "MCHARM01";
 const TRAILER_SIZE: usize = 48;
 
-// ANSI color codes
-const dim = "\x1b[2m";
-const bold = "\x1b[1m";
-const cyan = "\x1b[36m";
-const green = "\x1b[32m";
-const yellow = "\x1b[33m";
-const red = "\x1b[31m";
-const reset = "\x1b[0m";
-
-// Symbols
-const check = "✓";
-const arrow = "→";
-const bullet = "•";
+// Import style symbols for convenience
+const check = style.symbols.check;
+const arrow = style.symbols.arrow_right;
+const bullet = style.symbols.bullet;
 
 const Mode = enum {
     single,
@@ -133,14 +125,14 @@ pub fn run(allocator: Allocator, args: []const [:0]const u8) !void {
         if (std.mem.eql(u8, arg, "-o") or std.mem.eql(u8, arg, "--output")) {
             i += 1;
             if (i >= args.len) {
-                io.eprint(red ++ "Error:" ++ reset ++ " -o requires an argument\n", .{});
+                io.eprint(style.err_prefix ++ " -o requires an argument\n", .{});
                 std.process.exit(1);
             }
             output_path = args[i];
         } else if (std.mem.eql(u8, arg, "-m") or std.mem.eql(u8, arg, "--mode")) {
             i += 1;
             if (i >= args.len) {
-                io.eprint(red ++ "Error:" ++ reset ++ " --mode requires an argument\n", .{});
+                io.eprint(style.err_prefix ++ " --mode requires an argument\n", .{});
                 std.process.exit(1);
             }
             const mode_str = args[i];
@@ -151,38 +143,38 @@ pub fn run(allocator: Allocator, args: []const [:0]const u8) !void {
             } else if (std.mem.eql(u8, mode_str, "universal")) {
                 mode = .universal;
             } else {
-                io.eprint(red ++ "Error:" ++ reset ++ " Unknown mode '{s}'. Use: single, executable, universal\n", .{mode_str});
+                io.eprint(style.err_prefix ++ " Unknown mode '{s}'. Use: single, executable, universal\n", .{mode_str});
                 std.process.exit(1);
             }
         } else if (std.mem.eql(u8, arg, "-t") or std.mem.eql(u8, arg, "--target")) {
             i += 1;
             if (i >= args.len) {
-                io.eprint(red ++ "Error:" ++ reset ++ " --target requires an argument\n", .{});
+                io.eprint(style.err_prefix ++ " --target requires an argument\n", .{});
                 std.process.exit(1);
             }
             const target_str = args[i];
             target = Target.fromString(target_str);
             if (target == null) {
-                io.eprint(red ++ "Error:" ++ reset ++ " Unknown target '{s}'\n", .{target_str});
+                io.eprint(style.err_prefix ++ " Unknown target '{s}'\n", .{target_str});
                 io.eprint("\nAvailable targets:\n", .{});
-                io.eprint("  macos-aarch64  " ++ dim ++ "(macOS Apple Silicon)" ++ reset ++ "\n", .{});
-                io.eprint("  macos-x86_64   " ++ dim ++ "(macOS Intel)" ++ reset ++ "\n", .{});
-                io.eprint("  linux-x86_64   " ++ dim ++ "(Linux x86_64)" ++ reset ++ "\n", .{});
-                io.eprint("  linux-aarch64  " ++ dim ++ "(Linux ARM64)" ++ reset ++ "\n", .{});
+                io.eprint("  macos-aarch64  " ++ style.dim ++ "(macOS Apple Silicon)" ++ style.reset ++ "\n", .{});
+                io.eprint("  macos-x86_64   " ++ style.dim ++ "(macOS Intel)" ++ style.reset ++ "\n", .{});
+                io.eprint("  linux-x86_64   " ++ style.dim ++ "(Linux x86_64)" ++ style.reset ++ "\n", .{});
+                io.eprint("  linux-aarch64  " ++ style.dim ++ "(Linux ARM64)" ++ style.reset ++ "\n", .{});
                 std.process.exit(1);
             }
         } else if (std.mem.eql(u8, arg, "--targets")) {
             io.print("Available targets:\n", .{});
-            io.print("  macos-aarch64  " ++ dim ++ "(macOS Apple Silicon)" ++ reset ++ "\n", .{});
-            io.print("  macos-x86_64   " ++ dim ++ "(macOS Intel)" ++ reset ++ "\n", .{});
-            io.print("  linux-x86_64   " ++ dim ++ "(Linux x86_64)" ++ reset ++ "\n", .{});
-            io.print("  linux-aarch64  " ++ dim ++ "(Linux ARM64)" ++ reset ++ "\n", .{});
+            io.print("  macos-aarch64  " ++ style.dim ++ "(macOS Apple Silicon)" ++ style.reset ++ "\n", .{});
+            io.print("  macos-x86_64   " ++ style.dim ++ "(macOS Intel)" ++ style.reset ++ "\n", .{});
+            io.print("  linux-x86_64   " ++ style.dim ++ "(Linux x86_64)" ++ style.reset ++ "\n", .{});
+            io.print("  linux-aarch64  " ++ style.dim ++ "(Linux ARM64)" ++ style.reset ++ "\n", .{});
             return;
         } else if (std.mem.eql(u8, arg, "-h") or std.mem.eql(u8, arg, "--help")) {
             printHelp();
             return;
         } else if (std.mem.startsWith(u8, arg, "-")) {
-            io.eprint(red ++ "Error:" ++ reset ++ " Unknown option '{s}'\n", .{arg});
+            io.eprint(style.err_prefix ++ " Unknown option '{s}'\n", .{arg});
             std.process.exit(1);
         } else {
             script_path = arg;
@@ -190,13 +182,13 @@ pub fn run(allocator: Allocator, args: []const [:0]const u8) !void {
     }
 
     if (script_path == null) {
-        io.eprint(red ++ "Error:" ++ reset ++ " No input script specified\n", .{});
+        io.eprint(style.err_prefix ++ " No input script specified\n", .{});
         io.eprint("Usage: ucharm build <script.py> -o <output> [--mode <mode>] [--target <target>]\n", .{});
         std.process.exit(1);
     }
 
     if (output_path == null) {
-        io.eprint(red ++ "Error:" ++ reset ++ " No output path specified (-o)\n", .{});
+        io.eprint(style.err_prefix ++ " No output path specified (-o)\n", .{});
         std.process.exit(1);
     }
 
@@ -206,21 +198,21 @@ pub fn run(allocator: Allocator, args: []const [:0]const u8) !void {
     // Check if script exists
     const script = script_path.?;
     fs.cwd().access(script, .{}) catch {
-        io.eprint(red ++ "Error:" ++ reset ++ " Script not found: {s}\n", .{script});
+        io.eprint(style.err_prefix ++ " Script not found: {s}\n", .{script});
         std.process.exit(1);
     };
 
     // Print header
     io.print("\n", .{});
-    io.print(cyan ++ bold ++ "μcharm build" ++ reset ++ "\n", .{});
-    io.print(dim ++ "─────────────────────────────────────────" ++ reset ++ "\n", .{});
-    io.print(dim ++ "  Input:  " ++ reset ++ "{s}\n", .{script});
-    io.print(dim ++ "  Output: " ++ reset ++ "{s}\n", .{output_path.?});
-    io.print(dim ++ "  Mode:   " ++ reset ++ cyan ++ "{s}" ++ reset ++ "\n", .{@tagName(mode)});
+    io.print(style.brand ++ style.bold ++ "μcharm build" ++ style.reset ++ "\n", .{});
+    io.print(style.header_line ++ "\n", .{});
+    io.print(style.dim ++ "  Input:  " ++ style.reset ++ "{s}\n", .{script});
+    io.print(style.dim ++ "  Output: " ++ style.reset ++ "{s}\n", .{output_path.?});
+    io.print(style.dim ++ "  Mode:   " ++ style.reset ++ style.brand ++ "{s}" ++ style.reset ++ "\n", .{@tagName(mode)});
     if (mode == .universal) {
-        io.print(dim ++ "  Target: " ++ reset ++ cyan ++ "{s}" ++ reset ++ dim ++ " ({s})" ++ reset ++ "\n", .{ build_target.name(), build_target.displayName() });
+        io.print(style.dim ++ "  Target: " ++ style.reset ++ style.brand ++ "{s}" ++ style.reset ++ style.dim ++ " ({s})" ++ style.reset ++ "\n", .{ build_target.name(), build_target.displayName() });
     }
-    io.print(dim ++ "─────────────────────────────────────────" ++ reset ++ "\n\n", .{});
+    io.print(style.header_line ++ "\n\n", .{});
 
     switch (mode) {
         .single => try buildSingle(allocator, script, output_path.?),
@@ -261,7 +253,7 @@ fn printHelp() void {
         \\    ucharm build app.py -o app-linux --target linux-x86_64
         \\    ucharm build app.py -o app.py --mode single
         \\
-    , .{ bold, reset, dim, reset, dim, reset, dim, reset, dim, reset, dim, reset });
+    , .{ style.bold, style.reset, style.dim, style.reset, style.dim, style.reset, style.dim, style.reset, style.dim, style.reset, style.dim, style.reset });
 }
 
 fn transformScript(allocator: Allocator, script_path: []const u8) ![]u8 {
@@ -372,8 +364,8 @@ fn buildSingle(allocator: Allocator, script: []const u8, output: []const u8) !vo
     defer file_for_chmod.close();
     try file_for_chmod.chmod(0o755);
 
-    io.print(green ++ check ++ reset ++ " Transformed Python code " ++ dim ++ "({d} bytes)" ++ reset ++ "\n", .{transformed.len});
-    io.print("\n" ++ dim ++ "Note: Requires micropython-ucharm with native modules" ++ reset ++ "\n", .{});
+    io.print(style.success ++ check ++ style.reset ++ " Transformed Python code " ++ style.dim ++ "({d} bytes)" ++ style.reset ++ "\n", .{transformed.len});
+    io.print("\n" ++ style.dim ++ "Note: Requires micropython-ucharm with native modules" ++ style.reset ++ "\n", .{});
 }
 
 fn buildExecutable(allocator: Allocator, script: []const u8, output: []const u8) !void {
@@ -416,13 +408,13 @@ fn buildExecutable(allocator: Allocator, script: []const u8, output: []const u8)
     defer file_for_chmod.close();
     try file_for_chmod.chmod(0o755);
 
-    io.print(green ++ check ++ reset ++ " Created shell wrapper " ++ dim ++ "({d} bytes)" ++ reset ++ "\n", .{wrapper.items.len});
-    io.print("\n" ++ dim ++ "─────────────────────────────────────────" ++ reset ++ "\n", .{});
-    io.print(green ++ bold ++ check ++ " Built successfully!" ++ reset ++ "\n", .{});
+    io.print(style.success ++ check ++ style.reset ++ " Created shell wrapper " ++ style.dim ++ "({d} bytes)" ++ style.reset ++ "\n", .{wrapper.items.len});
+    io.print("\n" ++ style.header_line ++ "\n", .{});
+    io.print(style.success ++ style.bold ++ check ++ " Built successfully!" ++ style.reset ++ "\n", .{});
     if (output[0] == '/') {
-        io.print(dim ++ "  Run with: " ++ reset ++ "{s}\n\n", .{output});
+        io.print(style.dim ++ "  Run with: " ++ style.reset ++ "{s}\n\n", .{output});
     } else {
-        io.print(dim ++ "  Run with: " ++ reset ++ "./{s}\n\n", .{output});
+        io.print(style.dim ++ "  Run with: " ++ style.reset ++ "./{s}\n\n", .{output});
     }
 }
 
@@ -436,11 +428,11 @@ fn buildUniversal(allocator: Allocator, script: []const u8, output: []const u8, 
     const mpy_is_allocated = mpy_binary.allocated;
     defer if (mpy_is_allocated) allocator.free(mpy_binary.data);
 
-    io.print(green ++ check ++ reset ++ " Using " ++ bold ++ "micropython-ucharm" ++ reset ++ dim ++ " for {s} ({d} KB)" ++ reset ++ "\n", .{ target.name(), mpy_binary.data.len / 1024 });
+    io.print(style.success ++ check ++ style.reset ++ " Using " ++ style.bold ++ "micropython-ucharm" ++ style.reset ++ style.dim ++ " for {s} ({d} KB)" ++ style.reset ++ "\n", .{ target.name(), mpy_binary.data.len / 1024 });
 
     // Select loader stub for target platform
     const stub = target.loaderStub();
-    io.print(green ++ check ++ reset ++ " Selected loader " ++ bold ++ "{s}" ++ reset ++ dim ++ " ({d} KB)" ++ reset ++ "\n", .{ target.name(), stub.len / 1024 });
+    io.print(style.success ++ check ++ style.reset ++ " Selected loader " ++ style.bold ++ "{s}" ++ style.reset ++ style.dim ++ " ({d} KB)" ++ style.reset ++ "\n", .{ target.name(), stub.len / 1024 });
 
     // Calculate offsets for trailer
     const stub_size: u64 = stub.len;
@@ -473,20 +465,20 @@ fn buildUniversal(allocator: Allocator, script: []const u8, output: []const u8, 
 
     const total_size = stub.len + mpy_binary.data.len + py_content.len + TRAILER_SIZE;
     const total_kb = total_size / 1024;
-    io.print(green ++ check ++ reset ++ " Wrote universal binary " ++ dim ++ "({d} KB)" ++ reset ++ "\n", .{total_kb});
+    io.print(style.success ++ check ++ style.reset ++ " Wrote universal binary " ++ style.dim ++ "({d} KB)" ++ style.reset ++ "\n", .{total_kb});
 
     // Success summary
-    io.print("\n" ++ dim ++ "─────────────────────────────────────────" ++ reset ++ "\n", .{});
-    io.print(green ++ bold ++ check ++ " Built successfully!" ++ reset ++ "\n", .{});
-    io.print(dim ++ "  Output:  " ++ reset ++ "{s}\n", .{output});
-    io.print(dim ++ "  Target:  " ++ reset ++ "{s}\n", .{target.displayName()});
-    io.print(dim ++ "  Size:    " ++ reset ++ "{d} KB " ++ dim ++ "(standalone, no dependencies)" ++ reset ++ "\n", .{total_kb});
-    io.print(dim ++ "  Startup: " ++ reset ++ "~6ms " ++ dim ++ "(instant)" ++ reset ++ "\n", .{});
+    io.print("\n" ++ style.header_line ++ "\n", .{});
+    io.print(style.success ++ style.bold ++ check ++ " Built successfully!" ++ style.reset ++ "\n", .{});
+    io.print(style.dim ++ "  Output:  " ++ style.reset ++ "{s}\n", .{output});
+    io.print(style.dim ++ "  Target:  " ++ style.reset ++ "{s}\n", .{target.displayName()});
+    io.print(style.dim ++ "  Size:    " ++ style.reset ++ "{d} KB " ++ style.dim ++ "(standalone, no dependencies)" ++ style.reset ++ "\n", .{total_kb});
+    io.print(style.dim ++ "  Startup: " ++ style.reset ++ "~6ms " ++ style.dim ++ "(instant)" ++ style.reset ++ "\n", .{});
     // Show run command - handle absolute vs relative paths
     if (output[0] == '/') {
-        io.print("\n" ++ dim ++ "  Run with: " ++ reset ++ "{s}\n\n", .{output});
+        io.print("\n" ++ style.dim ++ "  Run with: " ++ style.reset ++ "{s}\n\n", .{output});
     } else {
-        io.print("\n" ++ dim ++ "  Run with: " ++ reset ++ "./{s}\n\n", .{output});
+        io.print("\n" ++ style.dim ++ "  Run with: " ++ style.reset ++ "./{s}\n\n", .{output});
     }
 }
 
@@ -525,12 +517,12 @@ fn getMicropythonBinary(allocator: Allocator, target: Target) !MicropythonBinary
     if (cached_version) |ver| {
         if (!std.mem.eql(u8, ver, VERSION)) {
             // Version mismatch - offer to update
-            io.print(yellow ++ "!" ++ reset ++ " Cached runtime for " ++ bold ++ "{s}" ++ reset ++ " is version " ++ dim ++ "{s}" ++ reset ++ ", CLI is " ++ dim ++ "{s}" ++ reset ++ "\n", .{ target.name(), ver, VERSION });
+            io.print(style.warning ++ "!" ++ style.reset ++ " Cached runtime for " ++ style.bold ++ "{s}" ++ style.reset ++ " is version " ++ style.dim ++ "{s}" ++ style.reset ++ ", CLI is " ++ style.dim ++ "{s}" ++ style.reset ++ "\n", .{ target.name(), ver, VERSION });
             return downloadRuntime(allocator, target, runtime_dir, runtime_path, version_path, true);
         }
     } else {
         // No version file - offer to re-download to get proper versioning
-        io.print(yellow ++ "!" ++ reset ++ " Cached runtime for " ++ bold ++ "{s}" ++ reset ++ " has no version info\n", .{target.name()});
+        io.print(style.warning ++ "!" ++ style.reset ++ " Cached runtime for " ++ style.bold ++ "{s}" ++ style.reset ++ " has no version info\n", .{target.name()});
         return downloadRuntime(allocator, target, runtime_dir, runtime_path, version_path, true);
     }
 
@@ -566,10 +558,10 @@ fn downloadRuntime(allocator: Allocator, target: Target, runtime_dir: []const u8
     defer allocator.free(download_url);
 
     if (is_update) {
-        io.print("  Update to version " ++ bold ++ "{s}" ++ reset ++ "? " ++ dim ++ "(~850KB)" ++ reset ++ " [Y/n] ", .{VERSION});
+        io.print("  Update to version " ++ style.bold ++ "{s}" ++ style.reset ++ "? " ++ style.dim ++ "(~850KB)" ++ style.reset ++ " [Y/n] ", .{VERSION});
     } else {
-        io.print(yellow ++ "?" ++ reset ++ " MicroPython runtime for " ++ bold ++ "{s}" ++ reset ++ " not found locally.\n", .{target.name()});
-        io.print("  Download version " ++ bold ++ "{s}" ++ reset ++ " from GitHub? " ++ dim ++ "(~850KB)" ++ reset ++ " [Y/n] ", .{VERSION});
+        io.print(style.warning ++ "?" ++ style.reset ++ " MicroPython runtime for " ++ style.bold ++ "{s}" ++ style.reset ++ " not found locally.\n", .{target.name()});
+        io.print("  Download version " ++ style.bold ++ "{s}" ++ style.reset ++ " from GitHub? " ++ style.dim ++ "(~850KB)" ++ style.reset ++ " [Y/n] ", .{VERSION});
     }
 
     // Read user input
@@ -583,7 +575,7 @@ fn downloadRuntime(allocator: Allocator, target: Target, runtime_dir: []const u8
     };
 
     if (!should_download) {
-        io.print("\n" ++ dim ++ "To download manually:" ++ reset ++ "\n", .{});
+        io.print("\n" ++ style.dim ++ "To download manually:" ++ style.reset ++ "\n", .{});
         io.print("  mkdir -p {s}\n", .{runtime_dir});
         io.print("  curl -L {s} -o {s}\n", .{ download_url, runtime_path });
         io.print("  echo '{s}' > {s}\n\n", .{ VERSION, version_path });
@@ -594,12 +586,12 @@ fn downloadRuntime(allocator: Allocator, target: Target, runtime_dir: []const u8
 
     // Create runtime directory
     fs.cwd().makePath(runtime_dir) catch |err| {
-        io.eprint(red ++ "Error:" ++ reset ++ " Failed to create directory {s}: {}\n", .{ runtime_dir, err });
+        io.eprint(style.err_prefix ++ " Failed to create directory {s}: {}\n", .{ runtime_dir, err });
         std.process.exit(1);
     };
 
     // Download using curl (available on macOS and most Linux)
-    io.print(dim ++ "  Downloading..." ++ reset, .{});
+    io.print(style.dim ++ "  Downloading..." ++ style.reset, .{});
 
     var child = std.process.Child.init(&[_][]const u8{
         "curl",
@@ -613,24 +605,24 @@ fn downloadRuntime(allocator: Allocator, target: Target, runtime_dir: []const u8
     child.stdout_behavior = .Inherit;
 
     _ = child.spawn() catch |err| {
-        io.eprint("\n" ++ red ++ "Error:" ++ reset ++ " Failed to run curl: {}\n", .{err});
-        io.eprint(dim ++ "Install curl or download manually:\n" ++ reset, .{});
+        io.eprint("\n" ++ style.err_prefix ++ "Failed to run curl: {}\n", .{err});
+        io.eprint(style.dim ++ "Install curl or download manually:\n" ++ style.reset, .{});
         io.eprint("  curl -L {s} -o {s}\n", .{ download_url, runtime_path });
         std.process.exit(1);
     };
 
     const result = child.wait() catch |err| {
-        io.eprint("\n" ++ red ++ "Error:" ++ reset ++ " Download failed: {}\n", .{err});
+        io.eprint("\n" ++ style.err_prefix ++ "Download failed: {}\n", .{err});
         std.process.exit(1);
     };
 
     if (result.Exited != 0) {
-        io.eprint("\n" ++ red ++ "Error:" ++ reset ++ " Download failed (curl exit code: {})\n", .{result.Exited});
-        io.eprint(dim ++ "The runtime may not be available yet. Try again after the next release.\n" ++ reset, .{});
+        io.eprint("\n" ++ style.err_prefix ++ "Download failed (curl exit code: {})\n", .{result.Exited});
+        io.eprint(style.dim ++ "The runtime may not be available yet. Try again after the next release.\n" ++ style.reset, .{});
         std.process.exit(1);
     }
 
-    io.print(" " ++ green ++ check ++ reset ++ "\n", .{});
+    io.print(" " ++ style.success ++ check ++ style.reset ++ "\n", .{});
 
     // Make it executable
     const file_for_chmod = try fs.cwd().openFile(runtime_path, .{ .mode = .read_write });
@@ -654,7 +646,7 @@ fn downloadRuntime(allocator: Allocator, target: Target, runtime_dir: []const u8
         return error.IncompleteRead;
     }
 
-    io.print(green ++ check ++ reset ++ " Downloaded runtime " ++ dim ++ "v{s}" ++ reset ++ " to " ++ dim ++ "{s}" ++ reset ++ "\n\n", .{ VERSION, runtime_path });
+    io.print(style.success ++ check ++ style.reset ++ " Downloaded runtime " ++ style.dim ++ "v{s}" ++ style.reset ++ " to " ++ style.dim ++ "{s}" ++ style.reset ++ "\n\n", .{ VERSION, runtime_path });
 
     return .{ .data = data, .allocated = true };
 }
