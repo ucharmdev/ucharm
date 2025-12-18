@@ -114,6 +114,12 @@ mkdir -p "$OUTPUT_DIR"
 cp build-standard/micropython "$OUTPUT_DIR/micropython-ucharm"
 chmod +x "$OUTPUT_DIR/micropython-ucharm"
 
+# Sign the binary on macOS (required for proper execution)
+if [ "$(uname)" = "Darwin" ]; then
+    echo "Signing binary for macOS..."
+    codesign -s - "$OUTPUT_DIR/micropython-ucharm" 2>/dev/null || true
+fi
+
 echo ""
 echo "=== Build Complete ==="
 echo "Custom MicroPython: $OUTPUT_DIR/micropython-ucharm"
