@@ -23,6 +23,9 @@
  *   Single characters are sent as-is.
  */
 
+// Enable POSIX features for sigaction, tcsetpgrp, tcgetpgrp, sigemptyset
+#define _POSIX_C_SOURCE 200809L
+
 #include "../bridge/mpy_bridge.h"
 
 #include <sys/types.h>
