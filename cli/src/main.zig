@@ -64,30 +64,34 @@ fn printLogo() void {
     _ = out.write("\n") catch return;
 }
 
+// Usage text with proper ANSI escape codes
+const bold = tui.ansi.bold;
+const cyan = tui.ansi.cyan;
+const dim = tui.ansi.dim;
+const reset = tui.ansi.reset;
+
 const usage =
-    \\[1mUSAGE[0m
-    \\    ucharm [36m<command>[0m [options]
-    \\
-    \\[1mCOMMANDS[0m
-    \\    [36mnew[0m [2m<name>[0m        Create a new project
-    \\    [36mrun[0m [2m<file>[0m        Run a script with micropython
-    \\    [36mbuild[0m [2m<file>[0m      Build a standalone binary
-    \\    [36minit[0m              Initialize ucharm in current directory
-    \\    [36mtest[0m              Run compatibility tests
-    \\
-    \\[1mOPTIONS[0m
-    \\    [36m-h[0m, [36m--help[0m        Show this help
-    \\    [36m-v[0m, [36m--version[0m     Show version
-    \\
-    \\[1mEXAMPLES[0m
-    \\    [2m$[0m ucharm new myapp                  [2m# Create new project[0m
-    \\    [2m$[0m ucharm run app.py                 [2m# Run with micropython[0m
-    \\    [2m$[0m ucharm build app.py -o app        [2m# Build universal binary[0m
-    \\    [2m$[0m ucharm init --stubs --ai claude   [2m# Add IDE support[0m
-    \\
-    \\[2m    Docs: https://github.com/ucharmdev/ucharm[0m
-    \\
-;
+    bold ++ "USAGE" ++ reset ++ "\n" ++
+    "    ucharm " ++ cyan ++ "<command>" ++ reset ++ " [options]\n" ++
+    "\n" ++
+    bold ++ "COMMANDS" ++ reset ++ "\n" ++
+    "    " ++ cyan ++ "new" ++ reset ++ " " ++ dim ++ "<name>" ++ reset ++ "        Create a new project\n" ++
+    "    " ++ cyan ++ "run" ++ reset ++ " " ++ dim ++ "<file>" ++ reset ++ "        Run a script with micropython\n" ++
+    "    " ++ cyan ++ "build" ++ reset ++ " " ++ dim ++ "<file>" ++ reset ++ "      Build a standalone binary\n" ++
+    "    " ++ cyan ++ "init" ++ reset ++ "              Initialize ucharm in current directory\n" ++
+    "    " ++ cyan ++ "test" ++ reset ++ "              Run compatibility tests\n" ++
+    "\n" ++
+    bold ++ "OPTIONS" ++ reset ++ "\n" ++
+    "    " ++ cyan ++ "-h" ++ reset ++ ", " ++ cyan ++ "--help" ++ reset ++ "        Show this help\n" ++
+    "    " ++ cyan ++ "-v" ++ reset ++ ", " ++ cyan ++ "--version" ++ reset ++ "     Show version\n" ++
+    "\n" ++
+    bold ++ "EXAMPLES" ++ reset ++ "\n" ++
+    "    " ++ dim ++ "$" ++ reset ++ " ucharm new myapp                  " ++ dim ++ "# Create new project" ++ reset ++ "\n" ++
+    "    " ++ dim ++ "$" ++ reset ++ " ucharm run app.py                 " ++ dim ++ "# Run with micropython" ++ reset ++ "\n" ++
+    "    " ++ dim ++ "$" ++ reset ++ " ucharm build app.py -o app        " ++ dim ++ "# Build universal binary" ++ reset ++ "\n" ++
+    "    " ++ dim ++ "$" ++ reset ++ " ucharm init --stubs --ai claude   " ++ dim ++ "# Add IDE support" ++ reset ++ "\n" ++
+    "\n" ++
+    dim ++ "    Docs: https://github.com/ucharmdev/ucharm" ++ reset ++ "\n";
 
 // Helper for stdout/stderr in Zig 0.15
 fn stdout() std.fs.File {
