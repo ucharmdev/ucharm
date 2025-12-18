@@ -237,12 +237,33 @@ static int read_key(void) {
     
     buf[n] = '\0';
     
-    // Handle escape sequences
-    if (n >= 3 && buf[0] == '\x1b' && buf[1] == '[') {
-        switch (buf[2]) {
-            case 'A': return 'u';  // up
-            case 'B': return 'd';  // down
+    // Handle escape sequences (arrow keys, etc.)
+    if (buf[0] == '\x1b') {
+        // If we only got the escape byte, try to read more
+        if (n == 1) {
+            // Wait a bit for the rest of the escape sequence
+            ssize_t n2 = read(STDIN_FILENO, buf + 1, sizeof(buf) - 2);
+            if (n2 > 0) {
+                n += n2;
+                buf[n] = '\0';
+            } else {
+                // Just escape key pressed alone
+                return 'q';
+            }
         }
+        
+        // Now check for escape sequences
+        if (n >= 3 && buf[1] == '[') {
+            switch (buf[2]) {
+                case 'A': return 'u';  // up
+                case 'B': return 'd';  // down
+                case 'C': return 0;    // right (ignore)
+                case 'D': return 0;    // left (ignore)
+            }
+        }
+        
+        // Unknown escape sequence, ignore
+        return 0;
     }
     
     // Handle single characters
@@ -253,8 +274,7 @@ static int read_key(void) {
             case ' ':  return 's';  // space
             case 'j':  return 'd';  // vim down
             case 'k':  return 'u';  // vim up
-            case 'q':
-            case '\x1b': return 'q';  // quit/escape
+            case 'q': return 'q';   // quit
             case '\x03': return 'q';  // ctrl-c
             case 'y': return 'y';
             case 'Y': return 'Y';
