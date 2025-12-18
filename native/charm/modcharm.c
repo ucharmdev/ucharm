@@ -262,8 +262,13 @@ static mp_obj_t charm_box_func(size_t n_args, const mp_obj_t *pos_args, mp_map_t
     // Calculate dimensions - find max line width
     size_t max_content_width = max_line_visible_len(content);
     size_t title_len = title ? strlen(title) : 0;
-    size_t title_vis = title ? (title_len + 4) : 0; // " title "
-    size_t content_width = (max_content_width > title_vis - 2) ? max_content_width : (title_vis > 2 ? title_vis - 2 : 0);
+    size_t title_width = title ? (title_len + 4) : 0; // " title " plus some margin
+    
+    // Content width is max of content lines and title width (avoiding underflow)
+    size_t content_width = max_content_width;
+    if (title_width > 2 && title_width - 2 > content_width) {
+        content_width = title_width - 2;
+    }
     size_t inner_width = content_width + padding * 2;
     
     // Build color codes if needed

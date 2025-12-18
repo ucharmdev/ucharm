@@ -61,11 +61,9 @@ fmt-check:
 
 # Create a new release (interactive) - built with ucharm!
 
-# Interactive release (requires TTY)
-[no-exit-message]
+# Interactive release
 release:
-    #!/usr/bin/env bash
-    exec ./cli/zig-out/bin/ucharm run scripts/release.py
+    ./cli/zig-out/bin/ucharm run scripts/release.py
 
 # Show binary size breakdown
 size:
