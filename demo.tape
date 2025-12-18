@@ -22,7 +22,7 @@ Show
 Sleep 500ms
 
 # Show the code with syntax highlighting
-Type "bat --style=plain examples/quick_demo.py"
+Type "bat --style=plain --paging=never examples/quick_demo.py"
 Enter
 Sleep 5s
 
