@@ -11,6 +11,7 @@ pub fn build(b: *std.Build) void {
             .root_source_file = b.path("csv.zig"),
             .target = target,
             .optimize = optimize,
+            .pic = true,
         }),
         .linkage = .static,
     });
@@ -23,6 +24,7 @@ pub fn build(b: *std.Build) void {
             .root_source_file = b.path("csv.zig"),
             .target = target,
             .optimize = optimize,
+            .pic = true,
         }),
     });
 

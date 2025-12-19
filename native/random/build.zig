@@ -19,6 +19,8 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("random.zig"),
         .target = target,
         .optimize = optimize,
+        // MicroPython's Unix port links as PIE on Linux; our Zig objects must be PIC.
+        .pic = true,
     });
 
     // Add bridge module dependency
@@ -46,6 +48,8 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("random.zig"),
         .target = target,
         .optimize = optimize,
+        // MicroPython's Unix port links as PIE on Linux; our Zig objects must be PIC.
+        .pic = true,
     });
 
     test_mod.addImport("bridge", b.createModule(.{

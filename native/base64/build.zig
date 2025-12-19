@@ -11,6 +11,8 @@ pub fn build(b: *std.Build) void {
             .root_source_file = b.path("base64.zig"),
             .target = target,
             .optimize = optimize,
+            // MicroPython's Unix port links as PIE on Linux; ensure this builds as PIC.
+            .pic = true,
         }),
         .linkage = .static,
     });

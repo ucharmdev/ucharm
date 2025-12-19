@@ -11,6 +11,7 @@ pub fn build(b: *std.Build) void {
             .root_source_file = b.path("shutil.zig"),
             .target = target,
             .optimize = optimize,
+            .pic = true,
         }),
         .linkage = .static,
     });

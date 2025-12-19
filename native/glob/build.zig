@@ -11,6 +11,8 @@ pub fn build(b: *std.Build) void {
             .root_source_file = b.path("glob.zig"),
             .target = target,
             .optimize = optimize,
+            // MicroPython's Unix port links as PIE on Linux; our Zig objects must be PIC.
+            .pic = true,
         }),
         .linkage = .static,
     });
