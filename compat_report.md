@@ -1,6 +1,6 @@
 # μcharm Compatibility Report
 
-Generated: 2025-12-18 10:03:31
+Generated: 2025-12-19 03:33:25
 
 ## Summary
 

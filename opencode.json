@@ -1,0 +1,14 @@
+{
+  "tools": {
+    "bash": true,
+    "edit": true,
+    "write": true,
+    "read": true,
+    "grep": true,
+    "glob": true,
+    "list": true,
+    "patch": true,
+    "webfetch": true
+  },
+  "$schema": "https://opencode.ai/config.json"
+}
