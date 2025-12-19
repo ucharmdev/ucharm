@@ -44,3 +44,6 @@ native/dist/
 
 # temporary files
 _tmp*
+
+# Claude Code local settings (user-specific)
+.claude/settings.local.json
