@@ -1,13 +1,13 @@
 # μcharm Compatibility Report
 
-Generated: 2025-12-20 14:56:34
+Generated: 2025-12-20 15:18:23
 
 ## Summary
 
 ### Targeted Modules
 
-- **Tests passing**: 1,245/1,604 (77.6%)
-- **Modules at 100%**: 28/41
+- **Tests passing**: 1,316/1,610 (81.7%)
+- **Modules at 100%**: 30/41
 - **Modules partial**: 5/41
 
 ### CPython Stdlib Coverage
@@ -24,8 +24,10 @@ Generated: 2025-12-20 14:56:34
 | tempfile | stdlib | 9/9 | 12/9 | 133% | ✅ Full |
 | argparse | stdlib | 26/26 | 26/26 | 100% | ✅ Full |
 | base64 | stdlib | 18/18 | 18/18 | 100% | ✅ Full |
+| bisect | stdlib | 58/58 | 58/58 | 100% | ✅ Full |
 | csv | stdlib | 24/24 | 24/24 | 100% | ✅ Full |
 | datetime | stdlib | 21/21 | 21/21 | 100% | ✅ Full |
+| enum | stdlib | 13/13 | 13/13 | 100% | ✅ Full |
 | errno | stdlib | 38/38 | 38/38 | 100% | ✅ Full |
 | fnmatch | stdlib | 55/55 | 55/55 | 100% | ✅ Full |
 | hashlib | stdlib | 29/29 | 29/29 | 100% | ✅ Full |
@@ -54,10 +56,8 @@ Generated: 2025-12-20 14:56:34
 | unittest | stdlib | 40/40 | 1/40 | 2% | 1 skipped |
 | array | stdlib | 69/69 | 0/69 | 0% | 1 failing |
 | binascii | stdlib | 55/55 | 0/55 | 0% | 1 failing |
-| bisect | stdlib | 44/44 | 0/44 | 0% | 1 failing |
 | contextlib | stdlib | 14/14 | 0/14 | 0% | 1 failing |
 | copy | stdlib | 39/39 | 0/39 | 0% | 1 failing |
-| enum | stdlib | 21/21 | 0/21 | 0% | 1 failing |
 | urllib_parse | stdlib | 24/24 | 0/24 | 0% | 1 failing |
 | uuid | stdlib | 18/18 | 0/18 | 0% | 1 failing |
 
@@ -73,17 +73,7 @@ Generated: 2025-12-20 14:56:34
 - `error: PocketPyExecFailed
 `
 
-### bisect
-
-- `error: PocketPyExecFailed
-`
-
 ### contextlib
-
-- `error: PocketPyExecFailed
-`
-
-### enum
 
 - `error: PocketPyExecFailed
 `
@@ -108,6 +98,10 @@ Generated: 2025-12-20 14:56:34
 
 These tests require features not available in pocketpy-ucharm:
 
+### bisect
+
+- 5 tests skipped
+
 ### collections
 
 - 11 tests skipped
@@ -115,6 +109,10 @@ These tests require features not available in pocketpy-ucharm:
 ### configparser
 
 - 1 tests skipped
+
+### enum
+
+- 8 tests skipped
 
 ### json
 

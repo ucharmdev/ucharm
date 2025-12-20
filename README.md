@@ -245,8 +245,8 @@ ucharm/
 
 Current compatibility summary (from `tests/compat_report_pocketpy.md`):
 
-- 1,245/1,604 tests passing (77.6%)
-- 28/41 targeted modules at 100% parity
+- 1,316/1,610 tests passing (81.7%)
+- 30/41 targeted modules at 100% parity
 - ~3ms startup, ~965KB universal binaries
 
 ## Showcase
@@ -287,8 +287,8 @@ We evaluated both and chose PocketPy for CLI tooling:
 | **C API** | Clean, designed for embedding | Complex, hardware-focused |
 | **Syntax** | Full Python 3.x (f-strings, walrus, etc.) | Subset of Python 3.4 |
 | **Zig integration** | Excellent via C API | Requires more glue code |
-| **Binary size** | ~400KB | ~300KB |
-| **Startup** | ~3ms | ~5ms |
+| **Binary size** | ~400KB | ~600KB |
+| **Startup** | ~3ms | ~2ms |
 
 MicroPython excels at microcontrollers. PocketPy excels at embedding Python in applications - exactly what ucharm needs.
 
