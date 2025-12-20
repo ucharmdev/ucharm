@@ -4,6 +4,8 @@ const c = pk.c;
 
 // Type handles for custom classes
 var tp_ordereddict: c.py_Type = 0;
+var tp_counter: c.py_Type = 0;
+var tp_defaultdict: c.py_Type = 0;
 
 // ============================================================================
 // OrderedDict implementation
@@ -646,6 +648,7 @@ fn namedtupleReplace(argc: c_int, argv: c.py_StackRef) callconv(.c) bool {
 
 fn counterMostCommon(argc: c_int, argv: c.py_StackRef) callconv(.c) bool {
     const self = pk.argRef(argv, 0);
+    const dict = getCounterDict(self);
 
     // Default n = all items
     var n: c_int = -1;
@@ -678,7 +681,7 @@ fn counterMostCommon(argc: c_int, argv: c.py_StackRef) callconv(.c) bool {
     }.f;
 
     var collect_ctx = CollectCtx{};
-    _ = c.py_dict_apply(self, collectFn, &collect_ctx);
+    _ = c.py_dict_apply(dict, collectFn, &collect_ctx);
 
     // Sort by count descending (simple bubble sort for small lists)
     var i: usize = 0;
@@ -715,6 +718,7 @@ fn counterMostCommon(argc: c_int, argv: c.py_StackRef) callconv(.c) bool {
 
 fn counterElements(_: c_int, argv: c.py_StackRef) callconv(.c) bool {
     const self = pk.argRef(argv, 0);
+    const dict = getCounterDict(self);
 
     // Build a list with each element repeated by its count
     c.py_newlist(c.py_retval());
@@ -735,7 +739,7 @@ fn counterElements(_: c_int, argv: c.py_StackRef) callconv(.c) bool {
     }.f;
 
     var append_ctx = AppendCtx{ .result = c.py_retval() };
-    _ = c.py_dict_apply(self, appendFn, &append_ctx);
+    _ = c.py_dict_apply(dict, appendFn, &append_ctx);
 
     return true;
 }
@@ -748,9 +752,9 @@ fn counterSubtract(argc: c_int, argv: c.py_StackRef) callconv(.c) bool {
     const self = pk.argRef(argv, 0);
     const other = pk.argRef(argv, 1);
 
-    if (!c.py_isdict(other)) {
-        return c.py_exception(c.tp_TypeError, "subtract requires a Counter or dict");
-    }
+    const self_dict = getCounterDict(self);
+
+    const other_dict: c.py_Ref = if (c.py_isdict(other)) other else if (c.py_istype(other, tp_counter)) getCounterDict(other) else return c.py_exception(c.tp_TypeError, "subtract requires a Counter or dict");
 
     // Subtract counts using py_dict_apply
     const SubCtx = struct { self_ref: c.py_Ref };
@@ -776,10 +780,445 @@ fn counterSubtract(argc: c_int, argv: c.py_StackRef) callconv(.c) bool {
         }
     }.f;
 
-    var sub_ctx = SubCtx{ .self_ref = self };
-    _ = c.py_dict_apply(other, subFn, &sub_ctx);
+    var sub_ctx = SubCtx{ .self_ref = self_dict };
+    _ = c.py_dict_apply(other_dict, subFn, &sub_ctx);
 
     c.py_newnone(c.py_retval());
+    return true;
+}
+
+// ============================================================================
+// Proper Counter implementation as a class
+// ============================================================================
+
+fn getCounterDict(self: c.py_Ref) c.py_Ref {
+    return c.py_getslot(self, 0);
+}
+
+fn counterNew(_: c_int, _: c.py_StackRef) callconv(.c) bool {
+    _ = c.py_newobject(c.py_retval(), tp_counter, 1, 0);
+    c.py_newdict(c.py_r0());
+    c.py_setslot(c.py_retval(), 0, c.py_r0());
+    return true;
+}
+
+fn counterNewKwargs(_: c_int, _: c.py_StackRef) callconv(.c) bool {
+    // Signature-bound __new__ so the Counter constructor can accept kwargs.
+    _ = c.py_newobject(c.py_retval(), tp_counter, 1, 0);
+    c.py_newdict(c.py_r0());
+    c.py_setslot(c.py_retval(), 0, c.py_r0());
+    return true;
+}
+
+fn counterInit(argc: c_int, argv: c.py_StackRef) callconv(.c) bool {
+    const self = pk.argRef(argv, 0);
+    // Reset any existing state
+    c.py_newdict(c.py_r0());
+    c.py_setslot(self, 0, c.py_r0());
+    const dict = getCounterDict(self);
+
+    if (argc > 1) {
+        const arg = pk.argRef(argv, 1);
+
+        if (c.py_islist(arg)) {
+            // Count elements in list
+            const len = c.py_list_len(arg);
+            var i: c_int = 0;
+            while (i < len) : (i += 1) {
+                const item = c.py_list_getitem(arg, i);
+                const res = c.py_dict_getitem(dict, item);
+                var count: c.py_i64 = 1;
+                if (res > 0) {
+                    count = c.py_toint(c.py_retval()) + 1;
+                }
+                c.py_newint(c.py_r0(), count);
+                _ = c.py_dict_setitem(dict, item, c.py_r0());
+            }
+        } else if (c.py_isstr(arg)) {
+            // Count characters in string
+            const sv = c.py_tosv(arg);
+            const data: [*]const u8 = @ptrCast(sv.data);
+            const len: usize = @intCast(sv.size);
+            var i: usize = 0;
+            while (i < len) : (i += 1) {
+                // Create single-char string as key
+                const char_str = c.py_newstrn(c.py_r0(), 1);
+                char_str[0] = data[i];
+
+                const res = c.py_dict_getitem(dict, c.py_r0());
+                var count: c.py_i64 = 1;
+                if (res > 0) {
+                    count = c.py_toint(c.py_retval()) + 1;
+                }
+                c.py_newint(c.py_r1(), count);
+                _ = c.py_dict_setitem(dict, c.py_r0(), c.py_r1());
+            }
+        } else if (c.py_isdict(arg)) {
+            // Copy from dict
+            const CopyCtx = struct { dest: c.py_Ref };
+            const copyFn = struct {
+                fn f(key: c.py_Ref, val: c.py_Ref, ctx: ?*anyopaque) callconv(.c) bool {
+                    const copy_ctx: *CopyCtx = @ptrCast(@alignCast(ctx.?));
+                    _ = c.py_dict_setitem(copy_ctx.dest, key, val);
+                    return true;
+                }
+            }.f;
+            var copy_ctx = CopyCtx{ .dest = dict };
+            _ = c.py_dict_apply(arg, copyFn, &copy_ctx);
+        }
+    }
+
+    c.py_newnone(c.py_retval());
+    return true;
+}
+
+fn counterInitKwargs(argc: c_int, argv: c.py_StackRef) callconv(.c) bool {
+    const self = pk.argRef(argv, 0);
+
+    // Always reset state (CPython reinitializes on __init__ call)
+    c.py_newdict(c.py_r0());
+    c.py_setslot(self, 0, c.py_r0());
+    const dict = getCounterDict(self);
+
+    // Signature binding is expected to pass:
+    //   __init__(self, iterable=None, **kwargs)
+    // but be defensive about argv layout.
+    var iterable: ?c.py_Ref = null;
+    var kwargs: ?c.py_Ref = null;
+
+    if (argc >= 2) {
+        const a1 = pk.argRef(argv, 1);
+        if (c.py_isdict(a1) and (argc == 2)) {
+            // Some call paths may pass only kwargs dict
+            kwargs = a1;
+        } else if (!c.py_isnone(a1) and !c.py_isnil(a1)) {
+            iterable = a1;
+        }
+    }
+    if (argc >= 3) {
+        const a2 = pk.argRef(argv, 2);
+        if (c.py_isdict(a2)) kwargs = a2;
+    }
+
+    if (iterable) |arg| {
+        if (c.py_islist(arg)) {
+            // Count elements in list
+            const len = c.py_list_len(arg);
+            var i: c_int = 0;
+            while (i < len) : (i += 1) {
+                const item = c.py_list_getitem(arg, i);
+                const res = c.py_dict_getitem(dict, item);
+                var count: c.py_i64 = 1;
+                if (res > 0) {
+                    count = c.py_toint(c.py_retval()) + 1;
+                }
+                c.py_newint(c.py_r0(), count);
+                _ = c.py_dict_setitem(dict, item, c.py_r0());
+            }
+        } else if (c.py_isstr(arg)) {
+            // Count characters in string
+            const sv = c.py_tosv(arg);
+            const data: [*]const u8 = @ptrCast(sv.data);
+            const len: usize = @intCast(sv.size);
+            var i: usize = 0;
+            while (i < len) : (i += 1) {
+                const char_str = c.py_newstrn(c.py_r0(), 1);
+                char_str[0] = data[i];
+
+                const res = c.py_dict_getitem(dict, c.py_r0());
+                var count: c.py_i64 = 1;
+                if (res > 0) {
+                    count = c.py_toint(c.py_retval()) + 1;
+                }
+                c.py_newint(c.py_r1(), count);
+                _ = c.py_dict_setitem(dict, c.py_r0(), c.py_r1());
+            }
+        } else if (c.py_isdict(arg)) {
+            // Copy from dict (mapping of item->count)
+            const CopyCtx = struct { dest: c.py_Ref };
+            const copyFn = struct {
+                fn f(key: c.py_Ref, val: c.py_Ref, ctx: ?*anyopaque) callconv(.c) bool {
+                    const copy_ctx: *CopyCtx = @ptrCast(@alignCast(ctx.?));
+                    _ = c.py_dict_setitem(copy_ctx.dest, key, val);
+                    return true;
+                }
+            }.f;
+            var copy_ctx = CopyCtx{ .dest = dict };
+            _ = c.py_dict_apply(arg, copyFn, &copy_ctx);
+        }
+    }
+
+    if (kwargs) |kw| {
+        const KwCtx = struct { dest: c.py_Ref };
+        const kwFn = struct {
+            fn f(key: c.py_Ref, val: c.py_Ref, ctx: ?*anyopaque) callconv(.c) bool {
+                const kw_ctx: *KwCtx = @ptrCast(@alignCast(ctx.?));
+                _ = c.py_dict_setitem(kw_ctx.dest, key, val);
+                return true;
+            }
+        }.f;
+        var kw_ctx = KwCtx{ .dest = dict };
+        _ = c.py_dict_apply(kw, kwFn, &kw_ctx);
+    }
+
+    c.py_newnone(c.py_retval());
+    return true;
+}
+
+fn counterGetitem(_: c_int, argv: c.py_StackRef) callconv(.c) bool {
+    const self = pk.argRef(argv, 0);
+    const key = pk.argRef(argv, 1);
+    const dict = getCounterDict(self);
+
+    const res = c.py_dict_getitem(dict, key);
+    if (res > 0) {
+        return true;
+    }
+    // Missing key returns 0 for Counter
+    c.py_newint(c.py_retval(), 0);
+    return true;
+}
+
+fn counterSetitem(_: c_int, argv: c.py_StackRef) callconv(.c) bool {
+    const self = pk.argRef(argv, 0);
+    const key = pk.argRef(argv, 1);
+    const val = pk.argRef(argv, 2);
+    const dict = getCounterDict(self);
+    _ = c.py_dict_setitem(dict, key, val);
+    c.py_newnone(c.py_retval());
+    return true;
+}
+
+fn counterLen(_: c_int, argv: c.py_StackRef) callconv(.c) bool {
+    const self = pk.argRef(argv, 0);
+    const dict = getCounterDict(self);
+    c.py_newint(c.py_retval(), c.py_dict_len(dict));
+    return true;
+}
+
+fn counterIter(_: c_int, argv: c.py_StackRef) callconv(.c) bool {
+    const self = pk.argRef(argv, 0);
+    const dict = getCounterDict(self);
+    return c.py_iter(dict);
+}
+
+fn counterRepr(_: c_int, argv: c.py_StackRef) callconv(.c) bool {
+    const self = pk.argRef(argv, 0);
+    const dict = getCounterDict(self);
+
+    // Build "Counter({...})" string
+    var buffer: [4096]u8 = undefined;
+    var pos: usize = 0;
+
+    @memcpy(buffer[pos .. pos + 9], "Counter({");
+    pos += 9;
+
+    var first: bool = true;
+    const FormatCtx = struct {
+        buf: *[4096]u8,
+        pos: *usize,
+        first: *bool,
+    };
+    const formatFn = struct {
+        fn f(k: c.py_Ref, v: c.py_Ref, ctx: ?*anyopaque) callconv(.c) bool {
+            const fmt_ctx: *FormatCtx = @ptrCast(@alignCast(ctx.?));
+            if (fmt_ctx.pos.* >= 4080) return true;
+
+            if (!fmt_ctx.first.*) {
+                @memcpy(fmt_ctx.buf[fmt_ctx.pos.* .. fmt_ctx.pos.* + 2], ", ");
+                fmt_ctx.pos.* += 2;
+            }
+            fmt_ctx.first.* = false;
+
+            // Format key
+            if (c.py_isstr(k)) {
+                fmt_ctx.buf[fmt_ctx.pos.*] = '\'';
+                fmt_ctx.pos.* += 1;
+                const sv = c.py_tosv(k);
+                const key_len: usize = @intCast(sv.size);
+                const max_len = @min(key_len, 4080 - fmt_ctx.pos.*);
+                @memcpy(fmt_ctx.buf[fmt_ctx.pos.* .. fmt_ctx.pos.* + max_len], @as([*]const u8, @ptrCast(sv.data))[0..max_len]);
+                fmt_ctx.pos.* += max_len;
+                fmt_ctx.buf[fmt_ctx.pos.*] = '\'';
+                fmt_ctx.pos.* += 1;
+            } else if (c.py_isint(k)) {
+                const key_int = c.py_toint(k);
+                const result = std.fmt.bufPrint(fmt_ctx.buf[fmt_ctx.pos.*..], "{d}", .{key_int}) catch return true;
+                fmt_ctx.pos.* += result.len;
+            }
+
+            @memcpy(fmt_ctx.buf[fmt_ctx.pos.* .. fmt_ctx.pos.* + 2], ": ");
+            fmt_ctx.pos.* += 2;
+
+            // Format value
+            if (c.py_isint(v)) {
+                const val_int = c.py_toint(v);
+                const result = std.fmt.bufPrint(fmt_ctx.buf[fmt_ctx.pos.*..], "{d}", .{val_int}) catch return true;
+                fmt_ctx.pos.* += result.len;
+            }
+
+            return true;
+        }
+    }.f;
+
+    var fmt_ctx = FormatCtx{ .buf = &buffer, .pos = &pos, .first = &first };
+    _ = c.py_dict_apply(dict, formatFn, &fmt_ctx);
+
+    @memcpy(buffer[pos .. pos + 2], "})");
+    pos += 2;
+
+    const out = c.py_newstrn(c.py_retval(), @intCast(pos));
+    @memcpy(out[0..pos], buffer[0..pos]);
+    return true;
+}
+
+fn counterUpdate(argc: c_int, argv: c.py_StackRef) callconv(.c) bool {
+    if (argc < 2) {
+        c.py_newnone(c.py_retval());
+        return true;
+    }
+
+    const self = pk.argRef(argv, 0);
+    const arg = pk.argRef(argv, 1);
+    const dict = getCounterDict(self);
+
+    if (c.py_islist(arg)) {
+        // Count elements in list
+        const len = c.py_list_len(arg);
+        var i: c_int = 0;
+        while (i < len) : (i += 1) {
+            const item = c.py_list_getitem(arg, i);
+            const res = c.py_dict_getitem(dict, item);
+            var count: c.py_i64 = 1;
+            if (res > 0) {
+                count = c.py_toint(c.py_retval()) + 1;
+            }
+            c.py_newint(c.py_r0(), count);
+            _ = c.py_dict_setitem(dict, item, c.py_r0());
+        }
+    } else if (c.py_isdict(arg)) {
+        // Add counts from dict
+        const AddCtx = struct { dest: c.py_Ref };
+        const addFn = struct {
+            fn f(key: c.py_Ref, val: c.py_Ref, ctx: ?*anyopaque) callconv(.c) bool {
+                const add_ctx: *AddCtx = @ptrCast(@alignCast(ctx.?));
+                if (!c.py_isint(val)) return true;
+                const add_count = c.py_toint(val);
+                const res = c.py_dict_getitem(add_ctx.dest, key);
+                var new_count = add_count;
+                if (res > 0) {
+                    new_count += c.py_toint(c.py_retval());
+                }
+                c.py_newint(c.py_r0(), new_count);
+                _ = c.py_dict_setitem(add_ctx.dest, key, c.py_r0());
+                return true;
+            }
+        }.f;
+        var add_ctx = AddCtx{ .dest = dict };
+        _ = c.py_dict_apply(arg, addFn, &add_ctx);
+    }
+
+    c.py_newnone(c.py_retval());
+    return true;
+}
+
+// ============================================================================
+// Proper defaultdict implementation as a class
+// ============================================================================
+
+fn getDefaultdictDict(self: c.py_Ref) c.py_Ref {
+    return c.py_getslot(self, 0);
+}
+
+fn getDefaultdictFactory(self: c.py_Ref) c.py_Ref {
+    return c.py_getslot(self, 1);
+}
+
+fn defaultdictNew(_: c_int, _: c.py_StackRef) callconv(.c) bool {
+    _ = c.py_newobject(c.py_retval(), tp_defaultdict, 2, 0);
+    c.py_newdict(c.py_r0());
+    c.py_setslot(c.py_retval(), 0, c.py_r0());
+    c.py_newnone(c.py_r0());
+    c.py_setslot(c.py_retval(), 1, c.py_r0());
+    return true;
+}
+
+fn defaultdictInit(argc: c_int, argv: c.py_StackRef) callconv(.c) bool {
+    const self = pk.argRef(argv, 0);
+
+    if (argc > 1) {
+        const factory = pk.argRef(argv, 1);
+        c.py_setslot(self, 1, factory);
+    }
+
+    c.py_newnone(c.py_retval());
+    return true;
+}
+
+fn defaultdictGetitem(_: c_int, argv: c.py_StackRef) callconv(.c) bool {
+    const self = pk.argRef(argv, 0);
+    const key = pk.argRef(argv, 1);
+    const dict = getDefaultdictDict(self);
+
+    const res = c.py_dict_getitem(dict, key);
+    if (res > 0) {
+        return true;
+    }
+
+    // Key not found - call factory if available
+    const factory = getDefaultdictFactory(self);
+    if (c.py_isnil(factory) or c.py_isnone(factory)) {
+        return c.py_exception(c.tp_KeyError, "key not found");
+    }
+
+    // Call the factory with py_call (takes pointer to TValue)
+    var factory_copy: c.py_TValue = factory.*;
+    if (!c.py_call(&factory_copy, 0, null)) {
+        return false;
+    }
+
+    // Store the result in the dict
+    var result_copy: c.py_TValue = c.py_retval().*;
+    _ = c.py_dict_setitem(dict, key, &result_copy);
+    c.py_retval().* = result_copy;
+    return true;
+}
+
+fn defaultdictSetitem(_: c_int, argv: c.py_StackRef) callconv(.c) bool {
+    const self = pk.argRef(argv, 0);
+    const key = pk.argRef(argv, 1);
+    const val = pk.argRef(argv, 2);
+    const dict = getDefaultdictDict(self);
+    _ = c.py_dict_setitem(dict, key, val);
+    c.py_newnone(c.py_retval());
+    return true;
+}
+
+fn defaultdictLen(_: c_int, argv: c.py_StackRef) callconv(.c) bool {
+    const self = pk.argRef(argv, 0);
+    const dict = getDefaultdictDict(self);
+    c.py_newint(c.py_retval(), c.py_dict_len(dict));
+    return true;
+}
+
+fn defaultdictContains(_: c_int, argv: c.py_StackRef) callconv(.c) bool {
+    const self = pk.argRef(argv, 0);
+    const key = pk.argRef(argv, 1);
+    const dict = getDefaultdictDict(self);
+    const res = c.py_dict_getitem(dict, key);
+    c.py_newbool(c.py_retval(), res > 0);
+    return true;
+}
+
+fn defaultdictIter(_: c_int, argv: c.py_StackRef) callconv(.c) bool {
+    const self = pk.argRef(argv, 0);
+    const dict = getDefaultdictDict(self);
+    return c.py_iter(dict);
+}
+
+fn defaultdictDefaultFactory(_: c_int, argv: c.py_StackRef) callconv(.c) bool {
+    const self = pk.argRef(argv, 0);
+    c.py_retval().* = getDefaultdictFactory(self).*;
     return true;
 }
 
@@ -812,17 +1251,29 @@ pub fn register() void {
     c.py_bindmethod(tp_ordereddict, "move_to_end", orderedDictMoveToEnd);
     c.py_bindmethod(tp_ordereddict, "popitem", orderedDictPopitem);
 
-    // Get Counter type and enhance it
-    const counter_ptr = c.py_getdict(module, c.py_name("Counter"));
-    if (counter_ptr != null) {
-        // Counter is stored as a type object - use py_typeof to check, then get type
-        const counter_type = c.py_typeof(counter_ptr.?);
-        if (counter_type == c.tp_type) {
-            // It's a type object, we can get the py_Type value
-            const counter_tp = c.py_totype(counter_ptr.?);
-            c.py_bindmethod(counter_tp, "most_common", counterMostCommon);
-            c.py_bindmethod(counter_tp, "elements", counterElements);
-            c.py_bindmethod(counter_tp, "subtract", counterSubtract);
-        }
-    }
+    // Create Counter type (replaces PocketPy's function-based Counter)
+    tp_counter = c.py_newtype("Counter", c.tp_object, module, null);
+    // Use signature-bound __new__/__init__ so Counter(...) supports kwargs.
+    c.py_bind(c.py_tpobject(tp_counter), "__new__(cls, iterable=None, **kwargs)", counterNewKwargs);
+    c.py_bind(c.py_tpobject(tp_counter), "__init__(self, iterable=None, **kwargs)", counterInitKwargs);
+    c.py_bindmagic(tp_counter, c.py_name("__len__"), counterLen);
+    c.py_bindmagic(tp_counter, c.py_name("__getitem__"), counterGetitem);
+    c.py_bindmagic(tp_counter, c.py_name("__setitem__"), counterSetitem);
+    c.py_bindmagic(tp_counter, c.py_name("__iter__"), counterIter);
+    c.py_bindmagic(tp_counter, c.py_name("__repr__"), counterRepr);
+    c.py_bindmethod(tp_counter, "most_common", counterMostCommon);
+    c.py_bindmethod(tp_counter, "elements", counterElements);
+    c.py_bindmethod(tp_counter, "subtract", counterSubtract);
+    c.py_bindmethod(tp_counter, "update", counterUpdate);
+
+    // Create defaultdict type (replaces PocketPy's function-based defaultdict)
+    tp_defaultdict = c.py_newtype("defaultdict", c.tp_object, module, null);
+    c.py_bindmagic(tp_defaultdict, c.py_name("__new__"), defaultdictNew);
+    c.py_bindmagic(tp_defaultdict, c.py_name("__init__"), defaultdictInit);
+    c.py_bindmagic(tp_defaultdict, c.py_name("__len__"), defaultdictLen);
+    c.py_bindmagic(tp_defaultdict, c.py_name("__getitem__"), defaultdictGetitem);
+    c.py_bindmagic(tp_defaultdict, c.py_name("__setitem__"), defaultdictSetitem);
+    c.py_bindmagic(tp_defaultdict, c.py_name("__contains__"), defaultdictContains);
+    c.py_bindmagic(tp_defaultdict, c.py_name("__iter__"), defaultdictIter);
+    c.py_bindproperty(tp_defaultdict, "default_factory", defaultdictDefaultFactory, null);
 }

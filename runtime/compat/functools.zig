@@ -3,6 +3,7 @@ const c = pk.c;
 
 // Type for our lru_cache wrapper
 var tp_lru_cache_wrapper: c.py_Type = 0;
+var tp_wraps_decorator: c.py_Type = 0;
 
 // =============================================================================
 // Helper functions
@@ -121,8 +122,23 @@ fn lruCacheWrapperCall(argc: c_int, argv: c.py_StackRef) callconv(.c) bool {
     // Check cache
     const cache_result = c.py_dict_getitem(cache, &key_tuple);
     if (cache_result > 0) {
+        // hits += 1
+        if (c.py_getdict(self, c.py_name("_hits"))) |hits_ptr| {
+            if (c.py_isint(hits_ptr)) {
+                c.py_newint(c.py_r0(), c.py_toint(hits_ptr) + 1);
+                c.py_setdict(self, c.py_name("_hits"), c.py_r0());
+            }
+        }
         // Cache hit - return cached value
         return true;
+    }
+
+    // misses += 1
+    if (c.py_getdict(self, c.py_name("_misses"))) |misses_ptr| {
+        if (c.py_isint(misses_ptr)) {
+            c.py_newint(c.py_r0(), c.py_toint(misses_ptr) + 1);
+            c.py_setdict(self, c.py_name("_misses"), c.py_r0());
+        }
     }
 
     // Cache miss - call function
@@ -174,6 +190,52 @@ fn lruCacheWrapperCall(argc: c_int, argv: c.py_StackRef) callconv(.c) bool {
     return true;
 }
 
+fn lruCacheCacheInfo(_: c_int, argv: c.py_StackRef) callconv(.c) bool {
+    const self = pk.argRef(argv, 0);
+
+    const cache_ptr = c.py_getdict(self, c.py_name("_cache"));
+    const maxsize_ptr = c.py_getdict(self, c.py_name("_maxsize"));
+    const hits_ptr = c.py_getdict(self, c.py_name("_hits"));
+    const misses_ptr = c.py_getdict(self, c.py_name("_misses"));
+
+    const t = c.py_newtuple(c.py_retval(), 4);
+
+    if (hits_ptr != null) t[0] = hits_ptr.?.* else c.py_newint(c.py_r0(), 0);
+    if (hits_ptr == null) t[0] = c.py_r0().*;
+
+    if (misses_ptr != null) t[1] = misses_ptr.?.* else c.py_newint(c.py_r0(), 0);
+    if (misses_ptr == null) t[1] = c.py_r0().*;
+
+    if (maxsize_ptr != null) {
+        t[2] = maxsize_ptr.?.*;
+    } else {
+        c.py_newnone(c.py_r0());
+        t[2] = c.py_r0().*;
+    }
+
+    if (cache_ptr != null) {
+        c.py_newint(c.py_r0(), c.py_dict_len(cache_ptr.?));
+        t[3] = c.py_r0().*;
+    } else {
+        c.py_newint(c.py_r0(), 0);
+        t[3] = c.py_r0().*;
+    }
+
+    return true;
+}
+
+fn lruCacheCacheClear(_: c_int, argv: c.py_StackRef) callconv(.c) bool {
+    const self = pk.argRef(argv, 0);
+    c.py_newdict(c.py_r0());
+    c.py_setdict(self, c.py_name("_cache"), c.py_r0());
+    c.py_newint(c.py_r0(), 0);
+    c.py_setdict(self, c.py_name("_hits"), c.py_r0());
+    c.py_newint(c.py_r0(), 0);
+    c.py_setdict(self, c.py_name("_misses"), c.py_r0());
+    c.py_newnone(c.py_retval());
+    return true;
+}
+
 fn lruCacheFn(argc: c_int, argv: c.py_StackRef) callconv(.c) bool {
     var maxsize_val: c.py_TValue = undefined;
     c.py_newint(&maxsize_val, 128); // default
@@ -186,6 +248,10 @@ fn lruCacheFn(argc: c_int, argv: c.py_StackRef) callconv(.c) bool {
             c.py_newdict(c.py_r0());
             c.py_setdict(c.py_retval(), c.py_name("_cache"), c.py_r0());
             c.py_setdict(c.py_retval(), c.py_name("_maxsize"), &maxsize_val);
+            c.py_newint(c.py_r0(), 0);
+            c.py_setdict(c.py_retval(), c.py_name("_hits"), c.py_r0());
+            c.py_newint(c.py_r0(), 0);
+            c.py_setdict(c.py_retval(), c.py_name("_misses"), c.py_r0());
             return true;
         }
         maxsize_val = arg.*;
@@ -197,6 +263,10 @@ fn lruCacheFn(argc: c_int, argv: c.py_StackRef) callconv(.c) bool {
     c.py_setdict(c.py_retval(), c.py_name("_cache"), c.py_r0());
     c.py_newbool(c.py_r0(), true);
     c.py_setdict(c.py_retval(), c.py_name("_decorator_mode"), c.py_r0());
+    c.py_newint(c.py_r0(), 0);
+    c.py_setdict(c.py_retval(), c.py_name("_hits"), c.py_r0());
+    c.py_newint(c.py_r0(), 0);
+    c.py_setdict(c.py_retval(), c.py_name("_misses"), c.py_r0());
 
     return true;
 }
@@ -222,11 +292,62 @@ fn lruCacheDecoratorCall(argc: c_int, argv: c.py_StackRef) callconv(.c) bool {
         }
         c.py_newdict(c.py_r0());
         c.py_setdict(c.py_retval(), c.py_name("_cache"), c.py_r0());
+        c.py_newint(c.py_r0(), 0);
+        c.py_setdict(c.py_retval(), c.py_name("_hits"), c.py_r0());
+        c.py_newint(c.py_r0(), 0);
+        c.py_setdict(c.py_retval(), c.py_name("_misses"), c.py_r0());
 
         return true;
     }
 
     return lruCacheWrapperCall(argc, argv);
+}
+
+// =============================================================================
+// wraps implementation (decorator object)
+// =============================================================================
+
+fn wrapsDecoratorNew(_: c_int, _: c.py_StackRef) callconv(.c) bool {
+    _ = c.py_newobject(c.py_retval(), tp_wraps_decorator, 1, 0);
+    c.py_newnone(c.py_r0());
+    c.py_setslot(c.py_retval(), 0, c.py_r0());
+    return true;
+}
+
+fn wrapsDecoratorCall(argc: c_int, argv: c.py_StackRef) callconv(.c) bool {
+    if (argc < 2) return c.py_exception(c.tp_TypeError, "wraps decorator requires a function");
+    const self = pk.argRef(argv, 0);
+    const wrapper = pk.argRef(argv, 1);
+    const wrapped = c.py_getslot(self, 0);
+
+    if (c.py_isnone(wrapped) or c.py_isnil(wrapped)) {
+        c.py_retval().* = wrapper.*;
+        return true;
+    }
+
+    // Use attribute setters on function objects (PocketPy exposes __name__/__doc__ as properties).
+    if (c.py_getattr(wrapped, c.py_name("__name__"))) {
+        var name_copy: c.py_TValue = c.py_retval().*;
+        _ = c.py_setattr(wrapper, c.py_name("__name__"), &name_copy);
+    } else {
+        c.py_clearexc(null);
+    }
+    if (c.py_getattr(wrapped, c.py_name("__doc__"))) {
+        var doc_copy: c.py_TValue = c.py_retval().*;
+        _ = c.py_setattr(wrapper, c.py_name("__doc__"), &doc_copy);
+    } else {
+        c.py_clearexc(null);
+    }
+
+    c.py_retval().* = wrapper.*;
+    return true;
+}
+
+fn wrapsFnWrapped(ctx: *pk.Context) bool {
+    const wrapped = ctx.arg(0) orelse return ctx.typeError("wraps() requires a function");
+    _ = c.py_newobject(c.py_retval(), tp_wraps_decorator, 1, 0);
+    c.py_setslot(c.py_retval(), 0, wrapped.refConst());
+    return true;
 }
 
 // =============================================================================
@@ -384,10 +505,20 @@ pub fn register() void {
     tp_lru_cache_wrapper = lru_builder
         .magic("__new__", lruCacheWrapperNew)
         .magic("__call__", lruCacheDecoratorCall)
+        .method("cache_info", lruCacheCacheInfo)
+        .method("cache_clear", lruCacheCacheClear)
         .build();
 
     // Bind native lru_cache implementation
     _ = builder.func("_lru_cache_native", lruCacheFn);
+
+    // wraps decorator object + wraps() function
+    var wraps_builder = pk.TypeBuilder.newSimple("_WrapsDecorator", module);
+    tp_wraps_decorator = wraps_builder
+        .magic("__new__", wrapsDecoratorNew)
+        .magic("__call__", wrapsDecoratorCall)
+        .build();
+    _ = builder.funcWrapped("wraps", 1, 1, wrapsFnWrapped);
 
     // Create cmp_to_key types using TypeBuilder
     var cmp_key_builder = pk.TypeBuilder.newSimple("_K", module);

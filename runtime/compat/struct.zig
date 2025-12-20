@@ -51,27 +51,102 @@ fn bytearrayDtor(ud: ?*anyopaque) callconv(.c) void {
 }
 
 fn bytearrayNew(argc: c_int, argv: c.py_StackRef) callconv(.c) bool {
-    // __new__(cls, size=0)
+    // __new__(cls, source=None)
+    // source can be: int (size), bytes, bytearray, str, or iterable of ints
     if (argc > 2) return c.py_exception(c.tp_TypeError, "bytearray() takes at most 1 argument");
     _ = pk.argRef(argv, 0);
     const ud = c.py_newobject(c.py_retval(), tp_bytearray, -1, @sizeOf(ByteArrayState));
     const state: *ByteArrayState = @ptrCast(@alignCast(ud));
     state.* = .{};
 
-    var n: i64 = 0;
-    if (argc == 2) {
-        const v = c.py_toint(pk.argRef(argv, 1));
-        n = v;
+    if (argc == 1) {
+        // No argument - empty bytearray
+        return true;
     }
-    if (n < 0) return c.py_exception(c.tp_ValueError, "negative count");
-    const len: usize = @intCast(n);
-    if (len > 0) {
-        const mem = std.heap.page_allocator.alloc(u8, len) catch return c.py_exception(c.tp_RuntimeError, "out of memory");
-        @memset(mem, 0);
-        state.ptr = mem.ptr;
-        state.len = len;
+
+    const arg = pk.argRef(argv, 1);
+
+    // Case 1: Integer - create zero-filled bytearray of that size
+    if (c.py_isint(arg)) {
+        const n = c.py_toint(arg);
+        if (n < 0) return c.py_exception(c.tp_ValueError, "negative count");
+        const len: usize = @intCast(n);
+        if (len > 0) {
+            const mem = std.heap.page_allocator.alloc(u8, len) catch return c.py_exception(c.tp_RuntimeError, "out of memory");
+            @memset(mem, 0);
+            state.ptr = mem.ptr;
+            state.len = len;
+        }
+        return true;
     }
-    return true;
+
+    // Case 2: bytes object - copy the bytes
+    if (c.py_istype(arg, c.tp_bytes)) {
+        var src_len: c_int = 0;
+        const src_ptr = c.py_tobytes(arg, &src_len);
+        const len: usize = @intCast(src_len);
+        if (len > 0) {
+            const mem = std.heap.page_allocator.alloc(u8, len) catch return c.py_exception(c.tp_RuntimeError, "out of memory");
+            @memcpy(mem, src_ptr[0..len]);
+            state.ptr = mem.ptr;
+            state.len = len;
+        }
+        return true;
+    }
+
+    // Case 3: bytearray object - copy its contents
+    if (c.py_istype(arg, tp_bytearray)) {
+        const src_state: *ByteArrayState = @ptrCast(@alignCast(c.py_touserdata(arg)));
+        if (src_state.len > 0 and src_state.ptr != null) {
+            const mem = std.heap.page_allocator.alloc(u8, src_state.len) catch return c.py_exception(c.tp_RuntimeError, "out of memory");
+            @memcpy(mem, src_state.ptr.?[0..src_state.len]);
+            state.ptr = mem.ptr;
+            state.len = src_state.len;
+        }
+        return true;
+    }
+
+    // Case 4: str object - encode as UTF-8 (simplified: just copy the bytes)
+    if (c.py_isstr(arg)) {
+        const src_sv = c.py_tosv(arg);
+        const len: usize = @intCast(src_sv.size);
+        if (len > 0) {
+            const mem = std.heap.page_allocator.alloc(u8, len) catch return c.py_exception(c.tp_RuntimeError, "out of memory");
+            @memcpy(mem, @as([*]const u8, @ptrCast(src_sv.data))[0..len]);
+            state.ptr = mem.ptr;
+            state.len = len;
+        }
+        return true;
+    }
+
+    // Case 5: list of ints
+    if (c.py_istype(arg, c.tp_list)) {
+        const list_len = c.py_list_len(arg);
+        if (list_len < 0) return c.py_exception(c.tp_RuntimeError, "invalid list");
+        const len: usize = @intCast(list_len);
+        if (len > 0) {
+            const mem = std.heap.page_allocator.alloc(u8, len) catch return c.py_exception(c.tp_RuntimeError, "out of memory");
+            var i: c_int = 0;
+            while (i < list_len) : (i += 1) {
+                const item = c.py_list_getitem(arg, i);
+                if (!c.py_isint(item)) {
+                    std.heap.page_allocator.free(mem);
+                    return c.py_exception(c.tp_TypeError, "an integer is required");
+                }
+                const val = c.py_toint(item);
+                if (val < 0 or val > 255) {
+                    std.heap.page_allocator.free(mem);
+                    return c.py_exception(c.tp_ValueError, "byte must be in range(0, 256)");
+                }
+                mem[@intCast(i)] = @intCast(val);
+            }
+            state.ptr = mem.ptr;
+            state.len = len;
+        }
+        return true;
+    }
+
+    return c.py_exception(c.tp_TypeError, "cannot convert object to bytearray");
 }
 
 fn bytearrayLen(argc: c_int, argv: c.py_StackRef) callconv(.c) bool {
@@ -141,6 +216,78 @@ fn bytearraySetItem(argc: c_int, argv: c.py_StackRef) callconv(.c) bool {
     if (v < 0 or v > 255) return c.py_exception(c.tp_ValueError, "byte must be in range(0, 256)");
     state.ptr.?[@intCast(idx)] = @intCast(v);
     c.py_newnone(c.py_retval());
+    return true;
+}
+
+fn bytearrayEq(argc: c_int, argv: c.py_StackRef) callconv(.c) bool {
+    if (argc != 2) return c.py_exception(c.tp_TypeError, "__eq__ takes 1 argument");
+    const self = pk.argRef(argv, 0);
+    const other = pk.argRef(argv, 1);
+    const self_state: *ByteArrayState = @ptrCast(@alignCast(c.py_touserdata(self)));
+
+    // Compare with another bytearray
+    if (c.py_istype(other, tp_bytearray)) {
+        const other_state: *ByteArrayState = @ptrCast(@alignCast(c.py_touserdata(other)));
+        if (self_state.len != other_state.len) {
+            c.py_newbool(c.py_retval(), false);
+            return true;
+        }
+        if (self_state.len == 0) {
+            c.py_newbool(c.py_retval(), true);
+            return true;
+        }
+        const self_data = self_state.ptr.?[0..self_state.len];
+        const other_data = other_state.ptr.?[0..other_state.len];
+        c.py_newbool(c.py_retval(), std.mem.eql(u8, self_data, other_data));
+        return true;
+    }
+
+    // Compare with bytes
+    if (c.py_istype(other, c.tp_bytes)) {
+        var other_len: c_int = 0;
+        const other_ptr = c.py_tobytes(other, &other_len);
+        if (self_state.len != @as(usize, @intCast(other_len))) {
+            c.py_newbool(c.py_retval(), false);
+            return true;
+        }
+        if (self_state.len == 0) {
+            c.py_newbool(c.py_retval(), true);
+            return true;
+        }
+        const self_data = self_state.ptr.?[0..self_state.len];
+        const other_data = other_ptr[0..@intCast(other_len)];
+        c.py_newbool(c.py_retval(), std.mem.eql(u8, self_data, other_data));
+        return true;
+    }
+
+    // Not comparable - return NotImplemented
+    c.py_newnotimplemented(c.py_retval());
+    return true;
+}
+
+fn bytearrayRepr(argc: c_int, argv: c.py_StackRef) callconv(.c) bool {
+    if (argc != 1) return c.py_exception(c.tp_TypeError, "__repr__ takes no arguments");
+    const self = pk.argRef(argv, 0);
+    const state: *ByteArrayState = @ptrCast(@alignCast(c.py_touserdata(self)));
+
+    // Build repr like: bytearray(b'hello')
+    var buf: [4096]u8 = undefined;
+    var fbs = std.io.fixedBufferStream(&buf);
+    const writer = fbs.writer();
+    writer.writeAll("bytearray(b'") catch return c.py_exception(c.tp_RuntimeError, "repr too long");
+    if (state.len > 0 and state.ptr != null) {
+        for (state.ptr.?[0..state.len]) |byte| {
+            if (byte >= 32 and byte < 127 and byte != '\'' and byte != '\\') {
+                writer.writeByte(byte) catch return c.py_exception(c.tp_RuntimeError, "repr too long");
+            } else {
+                writer.print("\\x{x:0>2}", .{byte}) catch return c.py_exception(c.tp_RuntimeError, "repr too long");
+            }
+        }
+    }
+    writer.writeAll("')") catch return c.py_exception(c.tp_RuntimeError, "repr too long");
+    const written = fbs.getWritten();
+    const out = c.py_newstrn(c.py_retval(), @intCast(written.len));
+    @memcpy(out[0..written.len], written);
     return true;
 }
 
@@ -823,10 +970,12 @@ pub fn register() void {
     if (tp_bytearray == 0) {
         const builtins = c.py_getmodule("builtins") orelse c.py_newmodule("builtins");
         tp_bytearray = c.py_newtype("bytearray", c.tp_object, builtins, bytearrayDtor);
-        c.py_bind(c.py_tpobject(tp_bytearray), "__new__(cls, size=0)", bytearrayNew);
+        c.py_bind(c.py_tpobject(tp_bytearray), "__new__(cls, source=None)", bytearrayNew);
         c.py_bind(c.py_tpobject(tp_bytearray), "__len__(self)", bytearrayLen);
         c.py_bind(c.py_tpobject(tp_bytearray), "__getitem__(self, key)", bytearrayGetItem);
         c.py_bind(c.py_tpobject(tp_bytearray), "__setitem__(self, key, value)", bytearraySetItem);
+        c.py_bind(c.py_tpobject(tp_bytearray), "__eq__(self, other)", bytearrayEq);
+        c.py_bind(c.py_tpobject(tp_bytearray), "__repr__(self)", bytearrayRepr);
         c.py_setdict(builtins, c.py_name("bytearray"), c.py_tpobject(tp_bytearray));
     }
 
