@@ -494,7 +494,7 @@ pub fn register() void {
         .funcWrapped("error", 1, 1, errorMsgFn)
         .funcWrapped("warning", 1, 1, warningFn)
         .funcWrapped("info", 1, 1, infoFn)
-        .funcSigWrapped("progress(current, total, width=40, color=None, show_percent=True)", 2, 5, progressFn)
+        .funcSigWrapped("progress(current, total, label=None, width=40, color=None)", 2, 5, progressFn)
         .funcWrapped("spinner_frame", 1, 1, spinnerFrameFn)
         .constInt("BORDER_ROUNDED", charm_core.BORDER_ROUNDED)
         .constInt("BORDER_SQUARE", charm_core.BORDER_SQUARE)
