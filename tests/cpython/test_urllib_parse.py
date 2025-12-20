@@ -69,10 +69,8 @@ if HAS_URLLIB_PARSE:
     print("\n=== urlunparse() tests ===")
 
     parts = ("http", "www.example.com", "/path", "", "query=value", "fragment")
-    test(
-        "urlunparse basic",
-        urlunparse(parts) == "http://www.example.com/path?query=value#fragment",
-    )
+    expected = "http://www.example.com/path?query=value#fragment"
+    test("urlunparse basic", urlunparse(parts) == expected)
 
     # Roundtrip
     original = "http://www.example.com:8080/path?query=value#section"
@@ -85,20 +83,14 @@ if HAS_URLLIB_PARSE:
 
     print("\n=== urljoin() tests ===")
 
-    test(
-        "urljoin relative",
-        urljoin("http://example.com/path/", "file.html")
-        == "http://example.com/path/file.html",
-    )
-    test(
-        "urljoin absolute",
-        urljoin("http://example.com/path/", "/other.html")
-        == "http://example.com/other.html",
-    )
-    test(
-        "urljoin full url",
-        urljoin("http://example.com/", "http://other.com/") == "http://other.com/",
-    )
+    result = urljoin("http://example.com/path/", "file.html")
+    test("urljoin relative", result == "http://example.com/path/file.html")
+
+    result = urljoin("http://example.com/path/", "/other.html")
+    test("urljoin absolute", result == "http://example.com/other.html")
+
+    result = urljoin("http://example.com/", "http://other.com/")
+    test("urljoin full url", result == "http://other.com/")
 
     # ============================================================================
     # quote() and unquote() tests

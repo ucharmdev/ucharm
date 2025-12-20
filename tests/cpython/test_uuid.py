@@ -54,7 +54,7 @@ if HAS_UUID:
 
     # UUID4 uniqueness
     uuids = [uuid.uuid4() for _ in range(10)]
-    unique_strs = set(str(u) for u in uuids)
+    unique_strs = set([str(u) for u in uuids])
     test("uuid4 produces unique values", len(unique_strs) == 10)
 
     # ============================================================================

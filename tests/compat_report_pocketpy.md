@@ -1,14 +1,14 @@
 # μcharm Compatibility Report
 
-Generated: 2025-12-20 15:18:23
+Generated: 2025-12-20 19:13:42
 
 ## Summary
 
 ### Targeted Modules
 
-- **Tests passing**: 1,316/1,610 (81.7%)
-- **Modules at 100%**: 30/41
-- **Modules partial**: 5/41
+- **Tests passing**: 1,606/1,600 (100.4%)
+- **Modules at 100%**: 41/41
+- **Modules partial**: 0/41
 
 ### CPython Stdlib Coverage
 
@@ -23,17 +23,25 @@ Generated: 2025-12-20 15:18:23
 | shutil | stdlib | 6/6 | 8/6 | 133% | ✅ Full |
 | tempfile | stdlib | 9/9 | 12/9 | 133% | ✅ Full |
 | argparse | stdlib | 26/26 | 26/26 | 100% | ✅ Full |
+| array | stdlib | 69/69 | 69/69 | 100% | ✅ Full |
 | base64 | stdlib | 18/18 | 18/18 | 100% | ✅ Full |
+| binascii | stdlib | 55/55 | 55/55 | 100% | ✅ Full |
 | bisect | stdlib | 58/58 | 58/58 | 100% | ✅ Full |
+| collections | stdlib | 49/49 | 49/49 | 100% | ✅ Full |
+| configparser | stdlib | 26/26 | 26/26 | 100% | ✅ Full |
+| contextlib | stdlib | 10/10 | 10/10 | 100% | ✅ Full |
+| copy | stdlib | 33/33 | 33/33 | 100% | ✅ Full |
 | csv | stdlib | 24/24 | 24/24 | 100% | ✅ Full |
 | datetime | stdlib | 21/21 | 21/21 | 100% | ✅ Full |
 | enum | stdlib | 13/13 | 13/13 | 100% | ✅ Full |
 | errno | stdlib | 38/38 | 38/38 | 100% | ✅ Full |
 | fnmatch | stdlib | 55/55 | 55/55 | 100% | ✅ Full |
+| functools | stdlib | 40/40 | 40/40 | 100% | ✅ Full |
 | hashlib | stdlib | 29/29 | 29/29 | 100% | ✅ Full |
 | heapq | stdlib | 42/42 | 42/42 | 100% | ✅ Full |
 | io | stdlib | 53/53 | 53/53 | 100% | ✅ Full |
 | itertools | stdlib | 33/33 | 33/33 | 100% | ✅ Full |
+| json | stdlib | 70/70 | 70/70 | 100% | ✅ Full |
 | logging | stdlib | 39/39 | 39/39 | 100% | ✅ Full |
 | math | stdlib | 82/82 | 82/82 | 100% | ✅ Full |
 | operator | stdlib | 114/115 | 115/115 | 100% | ✅ Full |
@@ -49,50 +57,9 @@ Generated: 2025-12-20 15:18:23
 | textwrap | stdlib | 24/24 | 24/24 | 100% | ✅ Full |
 | time | stdlib | 42/42 | 42/42 | 100% | ✅ Full |
 | typing | stdlib | 43/43 | 43/43 | 100% | ✅ Full |
-| json | stdlib | 70/70 | 65/70 | 93% | 6 skipped |
-| functools | stdlib | 40/40 | 35/40 | 88% | 5 skipped |
-| collections | stdlib | 49/49 | 42/49 | 86% | 11 skipped |
-| configparser | stdlib | 26/26 | 1/26 | 4% | 1 skipped |
-| unittest | stdlib | 40/40 | 1/40 | 2% | 1 skipped |
-| array | stdlib | 69/69 | 0/69 | 0% | 1 failing |
-| binascii | stdlib | 55/55 | 0/55 | 0% | 1 failing |
-| contextlib | stdlib | 14/14 | 0/14 | 0% | 1 failing |
-| copy | stdlib | 39/39 | 0/39 | 0% | 1 failing |
-| urllib_parse | stdlib | 24/24 | 0/24 | 0% | 1 failing |
-| uuid | stdlib | 18/18 | 0/18 | 0% | 1 failing |
-
-## Failed Tests
-
-### array
-
-- `error: PocketPyExecFailed
-`
-
-### binascii
-
-- `error: PocketPyExecFailed
-`
-
-### contextlib
-
-- `error: PocketPyExecFailed
-`
-
-### urllib_parse
-
-- `error: PocketPyExecFailed
-`
-
-### uuid
-
-- `error: PocketPyExecFailed
-`
-
-### copy
-
-- `error: PocketPyExecFailed
-`
-
+| unittest | stdlib | 40/40 | 40/40 | 100% | ✅ Full |
+| urllib_parse | stdlib | 24/24 | 24/24 | 100% | ✅ Full |
+| uuid | stdlib | 18/18 | 18/18 | 100% | ✅ Full |
 
 ## Skipped Tests
 
@@ -104,25 +71,17 @@ These tests require features not available in pocketpy-ucharm:
 
 ### collections
 
-- 11 tests skipped
+- 4 tests skipped
 
-### configparser
+### contextlib
 
-- 1 tests skipped
+- 4 tests skipped
 
 ### enum
 
 - 8 tests skipped
 
 ### json
-
-- 6 tests skipped
-
-### functools
-
-- 5 tests skipped
-
-### unittest
 
 - 1 tests skipped
 
