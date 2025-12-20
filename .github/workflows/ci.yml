@@ -27,6 +27,9 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Verify PocketPy vendor patchset
+        run: python3 scripts/verify-pocketpy-patches.py --check-upstream
+
       - name: Build PocketPy runtime
         working-directory: pocketpy
         run: zig build -Doptimize=ReleaseSmall

@@ -47,9 +47,66 @@ jobs:
           name: ${{ matrix.artifact }}
           path: ${{ matrix.artifact }}
 
+  build-runtimes:
+    name: Build PocketPy runtime (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest
+            target: aarch64-macos
+            artifact: pocketpy-ucharm-macos-aarch64
+          - os: macos-latest
+            target: x86_64-macos
+            artifact: pocketpy-ucharm-macos-x86_64
+          - os: ubuntu-latest
+            target: x86_64-linux-musl
+            artifact: pocketpy-ucharm-linux-x86_64
+          - os: ubuntu-latest
+            target: aarch64-linux-musl
+            artifact: pocketpy-ucharm-linux-aarch64
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Zig
+        uses: goto-bus-stop/setup-zig@v2
+        with:
+          version: 0.15.2
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build PocketPy runtime
+        run: |
+          cd pocketpy && zig build -Doptimize=ReleaseSmall -Dtarget=${{ matrix.target }}
+          mv zig-out/bin/pocketpy-ucharm ../${{ matrix.artifact }}
+
+          python3 - <<'PY'
+          import hashlib
+          from pathlib import Path
+
+          p = Path("${{ matrix.artifact }}")
+          h = hashlib.sha256(p.read_bytes()).hexdigest()
+          Path(str(p) + ".sha256").write_text(f"{h}  {p.name}\n")
+          print("sha256:", h)
+          PY
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: |
+            ${{ matrix.artifact }}
+            ${{ matrix.artifact }}.sha256
+
   release:
     name: Create Release
-    needs: [build-cli]
+    needs: [build-cli, build-runtimes]
     runs-on: ubuntu-latest
 
     steps:
@@ -66,7 +123,7 @@ jobs:
         run: |
           mkdir -p release
           find artifacts -type f -exec mv {} release/ \;
-          chmod +x release/*
+          chmod +x release/ucharm-* release/pocketpy-ucharm-* || true
           cd release && ls -la
 
       - name: Set up Python
