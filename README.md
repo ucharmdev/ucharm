@@ -257,6 +257,55 @@ Built something with μcharm? Open a PR to add it here.
 
 ---
 
+## FAQ
+
+### Why is it so fast?
+
+**~3ms startup vs CPython's ~15ms** comes from:
+
+1. **No interpreter overhead** - PocketPy compiles to a single native binary, no bytecode loading or JIT warmup
+2. **No import machinery** - All modules are compiled into the binary, no filesystem scanning
+3. **Minimal runtime** - PocketPy is ~50K lines of C vs CPython's ~500K+
+4. **Native Zig modules** - TUI components are Zig, not Python, so no interpretation overhead
+
+### Why is the binary so small?
+
+**~965KB universal binaries** because:
+
+1. **PocketPy core** - The VM is ~400KB compiled, vs CPython's multi-MB runtime
+2. **Zig modules** - Native code compiles small; our entire TUI stack is ~100KB
+3. **No stdlib bloat** - We only include modules you actually need for CLIs
+4. **LTO & size optimization** - Zig's `-Doptimize=ReleaseSmall` strips everything unused
+
+### Why PocketPy over MicroPython?
+
+We evaluated both and chose PocketPy for CLI tooling:
+
+| Aspect | PocketPy | MicroPython |
+|--------|----------|-------------|
+| **Target** | General Python 3.x | Embedded/IoT |
+| **C API** | Clean, designed for embedding | Complex, hardware-focused |
+| **Syntax** | Full Python 3.x (f-strings, walrus, etc.) | Subset of Python 3.4 |
+| **Zig integration** | Excellent via C API | Requires more glue code |
+| **Binary size** | ~400KB | ~300KB |
+| **Startup** | ~3ms | ~5ms |
+
+MicroPython excels at microcontrollers. PocketPy excels at embedding Python in applications - exactly what ucharm needs.
+
+### What Python features are supported?
+
+Most Python 3.x syntax works: classes, decorators, generators, comprehensions, f-strings, `*args`/`**kwargs`, context managers, and more.
+
+**Not supported:**
+- `async`/`await` (limited support)
+- Implicit string concatenation (`"a" "b"`)
+- Some metaclass features
+- C extension packages (numpy, etc.)
+
+See `tests/compat_report_pocketpy.md` for detailed module compatibility.
+
+---
+
 ## Docs
 
 - `vision.md` for product direction
