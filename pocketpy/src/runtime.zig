@@ -1,0 +1,43 @@
+pub fn registerAll() void {
+    // Extend built-in types first
+    @import("mod_str_ext").register();
+
+    @import("mod_strings").register();
+    @import("mod_subprocess").register();
+    @import("mod_argparse").register();
+    @import("mod_base64").register();
+    @import("mod_fnmatch").register();
+    @import("mod_glob").register();
+    @import("mod_pathlib").register();
+    @import("mod_re").register();
+    @import("mod_csv").register();
+    @import("mod_textwrap").register();
+    @import("mod_tempfile").register();
+    @import("mod_shutil").register();
+    @import("mod_os").register();
+    @import("mod_ospath").register();
+    @import("mod_io").register();
+    @import("mod_errno").register();
+    @import("mod_heapq").register();
+    @import("mod_itertools").register();
+    @import("mod_functools").register();
+    @import("mod_statistics").register();
+    @import("mod_struct").register();
+    @import("mod_datetime").register();
+    @import("mod_signal").register();
+    @import("mod_typing").register();
+    @import("mod_logging").register();
+    @import("mod_math").register();
+    @import("mod_hashlib").register();
+    @import("mod_operator").register();
+    @import("mod_random").register();
+    @import("mod_json").register();
+    @import("mod_time").register();
+    @import("mod_collections").register();
+    @import("mod_ansi").register();
+    @import("mod_term").register();
+    @import("mod_args").register();
+    @import("mod_charm").register();
+    @import("mod_input").register();
+    @import("mod_sys").register();
+}
