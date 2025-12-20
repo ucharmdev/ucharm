@@ -1,6 +1,6 @@
 """
 Simplified shutil module tests for ucharm compatibility testing.
-Works on both CPython and micropython-ucharm.
+Works on both CPython and pocketpy-ucharm.
 
 Based on CPython's Lib/test/test_shutil.py
 """
@@ -20,7 +20,7 @@ _test_dir = f"/tmp/test_shutil_{int(time.time() * 1000)}"
 
 
 def path_exists(path):
-    """Check if path exists - works on both CPython and MicroPython."""
+    """Check if path exists - works on both CPython and PocketPy."""
     try:
         os.stat(path)
         return True
@@ -57,8 +57,7 @@ def setup_test_dir():
 
 def cleanup_test_dir():
     try:
-        if hasattr(shutil, "rmtree"):
-            shutil.rmtree(_test_dir)
+        shutil.rmtree(_test_dir)
     except Exception:
         pass
 
@@ -82,15 +81,12 @@ setup_test_dir()
 
 print("\n=== shutil.copy() tests ===")
 
-if hasattr(shutil, "copy"):
-    src_file = f"{_test_dir}/src_copy.txt"
-    dst_file = f"{_test_dir}/dst_copy.txt"
-    write_file(src_file, "Hello, World!")
-    shutil.copy(src_file, dst_file)
-    test("copy basic", path_exists(dst_file))
-    test("copy content preserved", read_file(dst_file) == "Hello, World!")
-else:
-    skip("copy", "not implemented")
+src_file = f"{_test_dir}/src_copy.txt"
+dst_file = f"{_test_dir}/dst_copy.txt"
+write_file(src_file, "Hello, World!")
+shutil.copy(src_file, dst_file)
+test("copy basic", path_exists(dst_file))
+test("copy content preserved", read_file(dst_file) == "Hello, World!")
 
 
 # ============================================================================
@@ -99,15 +95,12 @@ else:
 
 print("\n=== shutil.move() tests ===")
 
-if hasattr(shutil, "move"):
-    src_file = f"{_test_dir}/src_move.txt"
-    dst_file = f"{_test_dir}/dst_move.txt"
-    write_file(src_file, "Move test content")
-    shutil.move(src_file, dst_file)
-    test("move file exists at dst", path_exists(dst_file))
-    test("move file gone from src", not path_exists(src_file))
-else:
-    skip("move", "not implemented")
+src_file = f"{_test_dir}/src_move.txt"
+dst_file = f"{_test_dir}/dst_move.txt"
+write_file(src_file, "Move test content")
+shutil.move(src_file, dst_file)
+test("move file exists at dst", path_exists(dst_file))
+test("move file gone from src", not path_exists(src_file))
 
 
 # ============================================================================
@@ -116,20 +109,17 @@ else:
 
 print("\n=== shutil.rmtree() tests ===")
 
-if hasattr(shutil, "rmtree"):
-    rm_dir = f"{_test_dir}/rm_tree"
-    # Create nested directory structure
-    try:
-        os.mkdir(rm_dir)
-        os.mkdir(f"{rm_dir}/subdir")
-    except:
-        pass
-    write_file(f"{rm_dir}/file.txt", "Content")
-    test("rmtree setup", path_exists(rm_dir))
-    shutil.rmtree(rm_dir)
-    test("rmtree removes dir", not path_exists(rm_dir))
-else:
-    skip("rmtree", "not implemented")
+rm_dir = f"{_test_dir}/rm_tree"
+# Create nested directory structure
+try:
+    os.mkdir(rm_dir)
+    os.mkdir(f"{rm_dir}/subdir")
+except:
+    pass
+write_file(f"{rm_dir}/file.txt", "Content")
+test("rmtree setup", path_exists(rm_dir))
+shutil.rmtree(rm_dir)
+test("rmtree removes dir", not path_exists(rm_dir))
 
 
 # ============================================================================
@@ -138,13 +128,10 @@ else:
 
 print("\n=== shutil.exists() tests ===")
 
-if hasattr(shutil, "exists"):
-    exist_file = f"{_test_dir}/exists_test.txt"
-    write_file(exist_file, "Exists")
-    test("exists file true", shutil.exists(exist_file))
-    test("exists false", not shutil.exists(f"{_test_dir}/no_such_file.txt"))
-else:
-    skip("exists", "not implemented")
+exist_file = f"{_test_dir}/exists_test.txt"
+write_file(exist_file, "Exists")
+test("exists file true", shutil.exists(exist_file))
+test("exists false", not shutil.exists(f"{_test_dir}/no_such_file.txt"))
 
 
 cleanup_test_dir()

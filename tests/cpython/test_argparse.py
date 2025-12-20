@@ -1,6 +1,6 @@
 """
 Simplified argparse module tests for ucharm compatibility testing.
-Works on both CPython and micropython-ucharm.
+Works on both CPython and PocketPy.
 
 Based on CPython's Lib/test/test_argparse.py
 """
@@ -200,24 +200,25 @@ except SystemExit:
 
 print("\n=== Mutually exclusive groups ===")
 
+parser = argparse.ArgumentParser()
+group = parser.add_mutually_exclusive_group()
+group.add_argument("--verbose", action="store_true")
+group.add_argument("--quiet", action="store_true")
+
+# Only one should be allowed
+args = parser.parse_args(["--verbose"])
+test("mutually exclusive one", args.verbose and not args.quiet)
+
+# Both should fail
+parser = argparse.ArgumentParser()
+group = parser.add_mutually_exclusive_group()
+group.add_argument("--verbose", action="store_true")
+group.add_argument("--quiet", action="store_true")
 try:
-    parser = argparse.ArgumentParser()
-    group = parser.add_mutually_exclusive_group()
-    group.add_argument("--verbose", action="store_true")
-    group.add_argument("--quiet", action="store_true")
-
-    # Only one should be allowed
-    args = parser.parse_args(["--verbose"])
-    test("mutually exclusive one", args.verbose and not args.quiet)
-
-    # Both should fail
-    try:
-        args = parser.parse_args(["--verbose", "--quiet"])
-        test("mutually exclusive both fails", False)
-    except SystemExit:
-        test("mutually exclusive both fails", True)
-except (AttributeError, NotImplementedError):
-    skip("mutually exclusive", "not implemented")
+    args = parser.parse_args(["--verbose", "--quiet"])
+    test("mutually exclusive both fails", False)
+except SystemExit:
+    test("mutually exclusive both fails", True)
 
 
 # ============================================================================
@@ -226,24 +227,21 @@ except (AttributeError, NotImplementedError):
 
 print("\n=== Subparsers ===")
 
-try:
-    parser = argparse.ArgumentParser()
-    subparsers = parser.add_subparsers(dest="command")
+parser = argparse.ArgumentParser()
+subparsers = parser.add_subparsers(dest="command")
 
-    # Add subparser
-    parser_add = subparsers.add_parser("add")
-    parser_add.add_argument("name")
+# Add subparser
+parser_add = subparsers.add_parser("add")
+parser_add.add_argument("name")
 
-    parser_remove = subparsers.add_parser("remove")
-    parser_remove.add_argument("--force", action="store_true")
+parser_remove = subparsers.add_parser("remove")
+parser_remove.add_argument("--force", action="store_true")
 
-    args = parser.parse_args(["add", "item"])
-    test("subparser add", args.command == "add" and args.name == "item")
+args = parser.parse_args(["add", "item"])
+test("subparser add", args.command == "add" and args.name == "item")
 
-    args = parser.parse_args(["remove", "--force"])
-    test("subparser remove", args.command == "remove" and args.force)
-except (AttributeError, NotImplementedError):
-    skip("subparsers", "not implemented")
+args = parser.parse_args(["remove", "--force"])
+test("subparser remove", args.command == "remove" and args.force)
 
 
 # ============================================================================
@@ -254,12 +252,7 @@ print("\n=== Help text ===")
 
 parser = argparse.ArgumentParser(description="Test program")
 parser.add_argument("--name", help="Your name")
-try:
-    # Get help text - this should not exit for this test
-    # Just check that help attribute exists
-    test("description set", parser.description == "Test program")
-except AttributeError:
-    skip("description", "not available")
+test("description set", parser.description == "Test program")
 
 
 # ============================================================================
@@ -280,15 +273,11 @@ test("custom dest", args.filename == "test.txt")
 
 print("\n=== Combined short options ===")
 
-# Note: MicroPython's argparse may not support this
 parser = argparse.ArgumentParser()
 parser.add_argument("-v", action="store_true")
 parser.add_argument("-x", action="store_true")
-try:
-    args = parser.parse_args(["-v", "-x"])
-    test("separate short opts", args.v and args.x)
-except:
-    skip("combined short opts", "not supported")
+args = parser.parse_args(["-v", "-x"])
+test("separate short opts", args.v and args.x)
 
 
 # ============================================================================

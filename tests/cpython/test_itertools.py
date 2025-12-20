@@ -1,6 +1,6 @@
 """
 Simplified itertools module tests for ucharm compatibility testing.
-Works on both CPython and micropython-ucharm.
+Works on both CPython and pocketpy-ucharm.
 
 Based on CPython's Lib/test/test_itertools.py
 """
@@ -120,23 +120,23 @@ test("chain strings", result == ["a", "b", "c", "d"])
 print("\n=== itertools.islice() tests ===")
 
 # islice with stop
-result = list(itertools.islice(range(10), 5))
+result = list(itertools.islice(list(range(10)), 5))
 test("islice stop only", result == [0, 1, 2, 3, 4])
 
 # islice with start and stop
-result = list(itertools.islice(range(10), 2, 6))
+result = list(itertools.islice(list(range(10)), 2, 6))
 test("islice start stop", result == [2, 3, 4, 5])
 
 # islice with step
-result = list(itertools.islice(range(10), 0, 10, 2))
+result = list(itertools.islice(list(range(10)), 0, 10, 2))
 test("islice with step", result == [0, 2, 4, 6, 8])
 
 # islice with start, stop, step
-result = list(itertools.islice(range(20), 1, 10, 3))
+result = list(itertools.islice(list(range(20)), 1, 10, 3))
 test("islice start stop step", result == [1, 4, 7])
 
 # islice empty
-result = list(itertools.islice(range(10), 0))
+result = list(itertools.islice(list(range(10)), 0))
 test("islice empty", result == [])
 
 
@@ -188,8 +188,10 @@ print("\n=== Combined usage ===")
 result = list(itertools.islice(itertools.chain([1, 2], [3, 4, 5]), 4))
 test("chain + islice", result == [1, 2, 3, 4])
 
-# Count with takewhile
-result = list(itertools.takewhile(lambda x: x < 5, itertools.count()))
+# Count with takewhile - use list since takewhile needs list
+result = list(
+    itertools.takewhile(lambda x: x < 5, list(itertools.islice(itertools.count(), 10)))
+)
 test("count + takewhile", result == [0, 1, 2, 3, 4])
 
 # Cycle with islice

@@ -2,14 +2,14 @@
 """
 ucharm CPython Compatibility Test Runner
 
-This script runs the full CPython test suite against micropython-ucharm
+This script runs the full CPython test suite against pocketpy-ucharm
 and generates a detailed compatibility report.
 
 Usage:
     python tests/compat_runner.py [--module MODULE] [--verbose] [--report]
 
 Like Bun does with Node.js tests, we:
-1. Run the same tests on both CPython and micropython-ucharm
+1. Run the same tests on both CPython and pocketpy-ucharm
 2. Track what passes/fails/skips on each
 3. Calculate compatibility percentages
 4. Generate a detailed report with specific failure information
@@ -89,18 +89,21 @@ class ModuleResult:
         return (self.ucharm_passed / self.cpython_total) * 100
 
 
-# All modules available in micropython-ucharm
+# All modules available in pocketpy-ucharm
 # Organized by category for testing
 
 # CPython standard library modules we are ACTIVELY TARGETING for compatibility
 # These are modules where we have tests and are tracking CPython compatibility
 STDLIB_MODULES = [
-    # Core MicroPython modules (built-in)
+    # CPython stdlib modules (core coverage)
     "argparse",
     "array",
     "binascii",
     "bisect",
     "collections",
+    "configparser",
+    "contextlib",
+    "enum",
     "errno",
     "hashlib",
     "heapq",
@@ -114,7 +117,9 @@ STDLIB_MODULES = [
     "struct",
     "sys",
     "time",
-    # Modules with native ucharm Zig implementations
+    "urllib_parse",
+    "uuid",
+    # Modules with runtime ucharm Zig implementations
     "base64",
     "copy",
     "csv",
@@ -321,7 +326,7 @@ CPYTHON_STDLIB_ALL = {
     "importlib.metadata": "Package metadata",
 }
 
-# ucharm-specific native modules - these are OUR libraries, not CPython stdlib
+# ucharm-specific runtime modules - these are OUR libraries, not CPython stdlib
 # No compatibility comparison needed - they're accepted as-is
 UCHARM_MODULES = [
     "ansi",  # ANSI color codes
@@ -333,16 +338,11 @@ UCHARM_MODULES = [
 ]
 
 # Modules we explicitly skip from testing:
-# - MicroPython-specific: btree, framebuf, gc, micropython, uctypes, ffi
 # - Network modules: select, socket, ssl (platform-specific)
 # - Asyncio: asyncio (complex, separate testing)
+# - GC: gc (not available in PocketPy)
 SKIP_MODULES = [
-    "btree",
-    "framebuf",
     "gc",
-    "micropython",
-    "uctypes",
-    "ffi",
     "select",
     "socket",
     "ssl",
@@ -350,22 +350,22 @@ SKIP_MODULES = [
 ]
 
 
-def get_micropython_path() -> str:
-    """Find micropython-ucharm binary."""
+def get_runtime_path() -> str:
+    """Find pocketpy-ucharm binary."""
     script_dir = Path(__file__).parent.parent
 
-    # Try development path
-    dev_path = script_dir / "native" / "dist" / "micropython-ucharm"
+    # Try pocketpy development path (primary)
+    dev_path = script_dir / "pocketpy" / "zig-out" / "bin" / "pocketpy-ucharm"
     if dev_path.exists():
         return str(dev_path)
 
     # Try CLI output path
-    cli_path = script_dir / "cli" / "zig-out" / "bin" / "micropython-ucharm"
+    cli_path = script_dir / "cli" / "zig-out" / "bin" / "pocketpy-ucharm"
     if cli_path.exists():
         return str(cli_path)
 
     # Fallback to PATH
-    return "micropython-ucharm"
+    return "pocketpy-ucharm"
 
 
 def print_header():
@@ -414,47 +414,12 @@ def format_duration(ms: float) -> str:
         return f"{ms / 60000:.1f}m"
 
 
-def get_micropython_lib_paths() -> str:
-    """Get paths to Python modules that need to be available to micropython.
-
-    IMPORTANT: When MICROPYPATH is set, it completely replaces MicroPython's
-    default sys.path (which includes '.frozen' for frozen modules). We must
-    include '.frozen' in the path to preserve access to frozen modules like
-    argparse.
-    """
-    script_dir = Path(__file__).parent.parent
-
-    # Start with empty string (cwd) and .frozen (for frozen modules like argparse)
-    paths = ["", ".frozen"]
-
-    # Add pathlib module path
-    pathlib_path = script_dir / "native" / "pathlib"
-    if pathlib_path.exists():
-        paths.append(str(pathlib_path))
-
-    # Add unittest module path
-    unittest_path = script_dir / "native" / "unittest"
-    if unittest_path.exists():
-        paths.append(str(unittest_path))
-
-    return ":".join(paths)
-
-
 def run_test_file(
     interpreter: str, test_file: str, timeout: int = 60
 ) -> tuple[str, str, int, float]:
     """Run a test file and capture output."""
     start = time.time()
-
-    # Set up environment for micropython
     env = os.environ.copy()
-    if "micropython" in interpreter:
-        micropypath = get_micropython_lib_paths()
-        if micropypath:
-            existing = env.get("MICROPYPATH", "")
-            env["MICROPYPATH"] = (
-                f"{micropypath}:{existing}" if existing else micropypath
-            )
 
     try:
         test_path = Path(test_file)
@@ -552,7 +517,7 @@ def parse_test_output(
 def test_module(
     module: str, category: str, test_dir: Path, mpy_path: str, verbose: bool = False
 ) -> ModuleResult:
-    """Test a single module against both CPython and micropython-ucharm."""
+    """Test a single module against both CPython and pocketpy-ucharm."""
     result = ModuleResult(name=module, category=category)
 
     # Find test file
@@ -573,7 +538,7 @@ def test_module(
     result.cpython_failed = failed
     result.cpython_skipped = skipped
 
-    # Run with micropython-ucharm
+    # Run with pocketpy-ucharm
     stdout, stderr, code, duration = run_test_file(mpy_path, str(test_file))
     passed, failed, skipped, failures = parse_test_output(stdout, stderr, code)
     result.ucharm_passed = passed
@@ -623,9 +588,11 @@ def print_category_header(title: str):
     print(f"{DIM}{'─' * 75}{RESET}")
 
 
-def run_all_tests(test_dir: Path, verbose: bool = False) -> list[ModuleResult]:
+def run_all_tests(
+    test_dir: Path, runtime_path: str, verbose: bool = False
+) -> list[ModuleResult]:
     """Run all compatibility tests."""
-    mpy_path = get_micropython_path()
+    mpy_path = runtime_path
     results = []
 
     # Test stdlib modules - these need CPython compatibility comparison
@@ -804,7 +771,7 @@ def generate_report(results: list[ModuleResult], output_path: Path):
                 "",
                 "## Skipped Tests",
                 "",
-                "These tests require features not available in micropython-ucharm:",
+                "These tests require features not available in pocketpy-ucharm:",
                 "",
             ]
         )
@@ -999,7 +966,7 @@ def generate_report(results: list[ModuleResult], output_path: Path):
             "## Notes",
             "",
             "- Tests are adapted from CPython's test suite",
-            "- Some tests require features not available in MicroPython (threading, gc introspection)",
+            "- Some tests require features not available in PocketPy (threading, gc introspection)",
             "- μcharm-specific modules (ansi, charm, input, term, args) have custom tests",
             "- Report generated by `ucharm test --compat`",
         ]
@@ -1023,7 +990,19 @@ def main():
         "--report", "-r", action="store_true", help="Generate markdown report"
     )
     parser.add_argument(
-        "--output", "-o", default="compat_report.md", help="Report output path"
+        "--output",
+        "-o",
+        default="tests/compat_report_pocketpy.md",
+        help="Report output path",
+    )
+    parser.add_argument(
+        "--runtime",
+        help="Path to runtime binary (defaults to pocketpy-ucharm)",
+    )
+    parser.add_argument(
+        "--ci",
+        action="store_true",
+        help="CI mode: always exit 0, just report results",
     )
     args = parser.parse_args()
 
@@ -1032,13 +1011,13 @@ def main():
 
     print_header()
 
-    # Check micropython-ucharm exists
-    mpy_path = get_micropython_path()
+    # Check pocketpy-ucharm exists
+    mpy_path = args.runtime or get_runtime_path()
     try:
         subprocess.run([mpy_path, "-c", "print('ok')"], capture_output=True, timeout=5)
     except Exception as e:
-        print(f"{RED}Error: micropython-ucharm not found at {mpy_path}{RESET}")
-        print(f"{DIM}Build it with: cd native && ./build.sh{RESET}")
+        print(f"{RED}Error: pocketpy-ucharm not found at {mpy_path}{RESET}")
+        print(f"{DIM}Build it with: cd pocketpy && zig build{RESET}")
         sys.exit(1)
 
     # Run tests
@@ -1055,7 +1034,7 @@ def main():
             category = "stdlib"  # Default to stdlib for unknown modules
         results = [test_module(args.module, category, test_dir, mpy_path, args.verbose)]
     else:
-        results = run_all_tests(test_dir, args.verbose)
+        results = run_all_tests(test_dir, mpy_path, args.verbose)
 
     # Print summary
     print_summary(results)
@@ -1066,8 +1045,12 @@ def main():
         generate_report(results, output_path)
 
     # Exit code
-    total_failed = sum(r.ucharm_failed for r in results)
-    sys.exit(1 if total_failed > 0 else 0)
+    if args.ci:
+        # In CI mode, always exit 0 - we're tracking progress, not gating on 100%
+        sys.exit(0)
+    else:
+        total_failed = sum(r.ucharm_failed for r in results)
+        sys.exit(1 if total_failed > 0 else 0)
 
 
 if __name__ == "__main__":

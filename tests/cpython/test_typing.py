@@ -1,15 +1,14 @@
 """
 Simplified typing module tests for ucharm compatibility testing.
-Works on both CPython and micropython-ucharm.
+Works on both CPython and PocketPy.
 
 The typing module provides type hints for Python code.
-In ucharm, typing is implemented as no-ops for MicroPython compatibility.
 
 Based on CPython's Lib/test/test_typing.py
 """
 
-import typing
 import sys
+import typing
 
 # Test tracking
 _passed = 0
@@ -82,17 +81,12 @@ test("Never exists", hasattr(typing, "Never"))
 
 print("\n=== TypeVar usage ===")
 
-if hasattr(typing, "TypeVar"):
-    # Creating TypeVars should work (even if they return None as no-ops)
-    try:
-        T = typing.TypeVar("T")
-        # In ucharm, TypeVar returns None (no-op), in CPython it returns a TypeVar object
-        # Both are acceptable behaviors
-        test("TypeVar callable", callable(typing.TypeVar))
-    except Exception as e:
-        test("TypeVar callable", False)
-else:
-    skip("TypeVar callable", "TypeVar not available")
+# Creating TypeVars should work
+try:
+    T = typing.TypeVar("T")
+    test("TypeVar callable", callable(typing.TypeVar))
+except Exception as e:
+    test("TypeVar callable", False)
 
 # ============================================================================
 # Optional and Union
@@ -100,9 +94,6 @@ else:
 
 print("\n=== Optional and Union ===")
 
-# In ucharm, typing types are None (no-ops for MicroPython compatibility)
-# In CPython, they are actual type objects
-# Both are acceptable - we just test they exist (which we already did above)
 test("Optional in typing", "Optional" in dir(typing))
 test("Union in typing", "Union" in dir(typing))
 
@@ -149,14 +140,11 @@ test("final exists", hasattr(typing, "final"))
 test("no_type_check exists", hasattr(typing, "no_type_check"))
 
 # Test cast (should work as identity in runtime)
-if hasattr(typing, "cast"):
-    try:
-        result = typing.cast(int, "hello")
-        test("cast returns value", result == "hello")  # cast is no-op at runtime
-    except Exception:
-        test("cast returns value", False)
-else:
-    skip("cast returns value", "cast not available")
+try:
+    result = typing.cast(int, "hello")
+    test("cast returns value", result == "hello")  # cast is no-op at runtime
+except Exception:
+    test("cast returns value", False)
 
 # ============================================================================
 # TYPE_CHECKING constant
@@ -165,10 +153,7 @@ else:
 print("\n=== TYPE_CHECKING ===")
 
 test("TYPE_CHECKING exists", hasattr(typing, "TYPE_CHECKING"))
-if hasattr(typing, "TYPE_CHECKING"):
-    test("TYPE_CHECKING is False at runtime", typing.TYPE_CHECKING == False)
-else:
-    skip("TYPE_CHECKING is False at runtime", "TYPE_CHECKING not available")
+test("TYPE_CHECKING is False at runtime", typing.TYPE_CHECKING == False)
 
 # ============================================================================
 # get_args and get_origin

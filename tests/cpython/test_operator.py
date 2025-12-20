@@ -1,6 +1,6 @@
 """
 Simplified operator module tests for ucharm compatibility testing.
-Works on both CPython and micropython-ucharm.
+Works on both CPython and pocketpy-ucharm.
 
 Based on CPython's Lib/test/test_operator.py
 """
@@ -73,15 +73,28 @@ test("neg", operator.neg(5) == -5)
 test("neg negative", operator.neg(-5) == 5)
 test("neg float", abs(operator.neg(3.14) + 3.14) < 0.001)
 
-test("pos", operator.pos(5) == 5)
-test("pos negative", operator.pos(-5) == -5)
+if hasattr(operator, "pos"):
+    test("pos", operator.pos(5) == 5)
+    test("pos negative", operator.pos(-5) == -5)
+else:
+    skip("pos", "not available")
+    skip("pos negative", "not available")
 
-test("abs positive", operator.abs(5) == 5)
-test("abs negative", operator.abs(-5) == 5)
-test("abs float", abs(operator.abs(-3.14) - 3.14) < 0.001)
+if hasattr(operator, "abs"):
+    test("abs positive", operator.abs(5) == 5)
+    test("abs negative", operator.abs(-5) == 5)
+    test("abs float", abs(operator.abs(-3.14) - 3.14) < 0.001)
+else:
+    skip("abs positive", "not available")
+    skip("abs negative", "not available")
+    skip("abs float", "not available")
 
-test("index", operator.index(5) == 5)
-test("index negative", operator.index(-5) == -5)
+if hasattr(operator, "index"):
+    test("index", operator.index(5) == 5)
+    test("index negative", operator.index(-5) == -5)
+else:
+    skip("index", "not available")
+    skip("index negative", "not available")
 
 
 # ============================================================================
@@ -137,7 +150,11 @@ test("or_ int", operator.or_(0b1100, 0b1010) == 0b1110)
 test("xor int", operator.xor(0b1100, 0b1010) == 0b0110)
 
 test("invert", operator.invert(0) == -1)
-test("inv", operator.inv(0) == -1)  # alias
+
+if hasattr(operator, "inv"):
+    test("inv", operator.inv(0) == -1)  # alias
+else:
+    skip("inv", "not available")
 
 test("lshift", operator.lshift(1, 4) == 16)
 test("rshift", operator.rshift(16, 2) == 4)
@@ -158,13 +175,19 @@ test("is_ different", operator.is_(a, c) is False)
 test("is_not same", operator.is_not(a, b) is False)
 test("is_not different", operator.is_not(a, c) is True)
 
-try:
+if hasattr(operator, "is_none"):
     test("is_none true", operator.is_none(None) is True)
     test("is_none false", operator.is_none(1) is False)
+else:
+    skip("is_none true", "not available")
+    skip("is_none false", "not available")
+
+if hasattr(operator, "is_not_none"):
     test("is_not_none true", operator.is_not_none(1) is True)
     test("is_not_none false", operator.is_not_none(None) is False)
-except AttributeError:
-    skip("is_none/is_not_none", "Python 3.11+ feature")
+else:
+    skip("is_not_none true", "not available")
+    skip("is_not_none false", "not available")
 
 
 # ============================================================================
@@ -173,25 +196,38 @@ except AttributeError:
 
 print("\n=== Sequence operators ===")
 
-test("concat list", operator.concat([1, 2], [3, 4]) == [1, 2, 3, 4])
-test("concat str", operator.concat("hello", " world") == "hello world")
+if hasattr(operator, "concat"):
+    test("concat list", operator.concat([1, 2], [3, 4]) == [1, 2, 3, 4])
+    test("concat str", operator.concat("hello", " world") == "hello world")
+else:
+    skip("concat list", "not available")
+    skip("concat str", "not available")
 
 test("contains true", operator.contains([1, 2, 3], 2) is True)
 test("contains false", operator.contains([1, 2, 3], 4) is False)
 test("contains str", operator.contains("hello", "ll") is True)
 
-test("countOf", operator.countOf([1, 2, 2, 3, 2], 2) == 3)
-test("countOf zero", operator.countOf([1, 2, 3], 5) == 0)
+if hasattr(operator, "countOf"):
+    test("countOf", operator.countOf([1, 2, 2, 3, 2], 2) == 3)
+    test("countOf zero", operator.countOf([1, 2, 3], 5) == 0)
+else:
+    skip("countOf", "not available")
+    skip("countOf zero", "not available")
 
-test("indexOf", operator.indexOf([1, 2, 3, 4], 3) == 2)
-test("indexOf first", operator.indexOf([1, 2, 3, 2], 2) == 1)
+if hasattr(operator, "indexOf"):
+    test("indexOf", operator.indexOf([1, 2, 3, 4], 3) == 2)
+    test("indexOf first", operator.indexOf([1, 2, 3, 2], 2) == 1)
 
-# indexOf should raise ValueError if not found
-try:
-    operator.indexOf([1, 2, 3], 5)
-    test("indexOf not found raises", False)
-except ValueError:
-    test("indexOf not found raises", True)
+    # indexOf should raise ValueError if not found
+    try:
+        operator.indexOf([1, 2, 3], 5)
+        test("indexOf not found raises", False)
+    except ValueError:
+        test("indexOf not found raises", True)
+else:
+    skip("indexOf", "not available")
+    skip("indexOf first", "not available")
+    skip("indexOf not found raises", "not available")
 
 test("getitem list", operator.getitem([1, 2, 3], 1) == 2)
 test("getitem dict", operator.getitem({"a": 1}, "a") == 1)
@@ -231,8 +267,11 @@ test("ifloordiv", operator.ifloordiv(x, 2) == 3)
 x = 7
 test("imod", operator.imod(x, 3) == 1)
 
-x = 2
-test("ipow", operator.ipow(x, 3) == 8)
+if hasattr(operator, "ipow"):
+    x = 2
+    test("ipow", operator.ipow(x, 3) == 8)
+else:
+    skip("ipow", "not available")
 
 x = 0b1100
 test("iand", operator.iand(x, 0b1010) == 0b1000)
@@ -250,9 +289,12 @@ x = 16
 test("irshift", operator.irshift(x, 2) == 4)
 
 # For mutable types, in-place ops modify in place
-lst = [1, 2]
-result = operator.iconcat(lst, [3, 4])
-test("iconcat", result == [1, 2, 3, 4])
+if hasattr(operator, "iconcat"):
+    lst = [1, 2]
+    result = operator.iconcat(lst, [3, 4])
+    test("iconcat", result == [1, 2, 3, 4])
+else:
+    skip("iconcat", "not available")
 
 
 # ============================================================================
@@ -261,20 +303,27 @@ test("iconcat", result == [1, 2, 3, 4])
 
 print("\n=== itemgetter ===")
 
-getter = operator.itemgetter(1)
-test("itemgetter single", getter([1, 2, 3]) == 2)
-test("itemgetter dict", getter({"a": 1, "b": 2, 1: 100}) == 100)
+if hasattr(operator, "itemgetter"):
+    getter = operator.itemgetter(1)
+    test("itemgetter single", getter([1, 2, 3]) == 2)
+    test("itemgetter dict", getter({"a": 1, "b": 2, 1: 100}) == 100)
 
-getter = operator.itemgetter(0, 2)
-test("itemgetter multiple", getter([1, 2, 3, 4]) == (1, 3))
+    getter = operator.itemgetter(0, 2)
+    test("itemgetter multiple", getter([1, 2, 3, 4]) == (1, 3))
 
-getter = operator.itemgetter("a", "c")
-test("itemgetter dict multiple", getter({"a": 1, "b": 2, "c": 3}) == (1, 3))
+    getter = operator.itemgetter("a", "c")
+    test("itemgetter dict multiple", getter({"a": 1, "b": 2, "c": 3}) == (1, 3))
 
-# Use itemgetter for sorting
-data = [{"name": "Bob", "age": 30}, {"name": "Alice", "age": 25}]
-sorted_data = sorted(data, key=operator.itemgetter("age"))
-test("itemgetter sort", sorted_data[0]["name"] == "Alice")
+    # Use itemgetter for sorting
+    data = [{"name": "Bob", "age": 30}, {"name": "Alice", "age": 25}]
+    sorted_data = sorted(data, key=operator.itemgetter("age"))
+    test("itemgetter sort", sorted_data[0]["name"] == "Alice")
+else:
+    skip("itemgetter single", "not available")
+    skip("itemgetter dict", "not available")
+    skip("itemgetter multiple", "not available")
+    skip("itemgetter dict multiple", "not available")
+    skip("itemgetter sort", "not available")
 
 
 # ============================================================================
@@ -283,31 +332,33 @@ test("itemgetter sort", sorted_data[0]["name"] == "Alice")
 
 print("\n=== attrgetter ===")
 
+if hasattr(operator, "attrgetter"):
 
-class Point:
-    def __init__(self, x, y):
-        self.x = x
-        self.y = y
+    class Point:
+        def __init__(self, x, y):
+            self.x = x
+            self.y = y
 
+    p = Point(3, 4)
 
-p = Point(3, 4)
+    getter = operator.attrgetter("x")
+    test("attrgetter single", getter(p) == 3)
 
-getter = operator.attrgetter("x")
-test("attrgetter single", getter(p) == 3)
+    getter = operator.attrgetter("x", "y")
+    test("attrgetter multiple", getter(p) == (3, 4))
 
-getter = operator.attrgetter("x", "y")
-test("attrgetter multiple", getter(p) == (3, 4))
+    # Nested attribute access
+    class Container:
+        def __init__(self, point):
+            self.point = point
 
-
-# Nested attribute access
-class Container:
-    def __init__(self, point):
-        self.point = point
-
-
-c = Container(Point(1, 2))
-getter = operator.attrgetter("point.x")
-test("attrgetter nested", getter(c) == 1)
+    c = Container(Point(1, 2))
+    getter = operator.attrgetter("point.x")
+    test("attrgetter nested", getter(c) == 1)
+else:
+    skip("attrgetter single", "not available")
+    skip("attrgetter multiple", "not available")
+    skip("attrgetter nested", "not available")
 
 
 # ============================================================================
@@ -316,18 +367,24 @@ test("attrgetter nested", getter(c) == 1)
 
 print("\n=== methodcaller ===")
 
-caller = operator.methodcaller("upper")
-test("methodcaller no args", caller("hello") == "HELLO")
+if hasattr(operator, "methodcaller"):
+    caller = operator.methodcaller("upper")
+    test("methodcaller no args", caller("hello") == "HELLO")
 
-caller = operator.methodcaller("split", " ")
-test("methodcaller with args", caller("a b c") == ["a", "b", "c"])
+    caller = operator.methodcaller("split", " ")
+    test("methodcaller with args", caller("a b c") == ["a", "b", "c"])
 
-caller = operator.methodcaller("replace", "o", "0")
-test("methodcaller two args", caller("hello") == "hell0")
+    caller = operator.methodcaller("replace", "o", "0")
+    test("methodcaller two args", caller("hello") == "hell0")
 
-# With keyword args - note: not all MicroPython methods support kwargs
-caller = operator.methodcaller("split")
-test("methodcaller default", caller("a b c") == ["a", "b", "c"])
+    # With keyword args - note: not all MicroPython methods support kwargs
+    caller = operator.methodcaller("split")
+    test("methodcaller default", caller("a b c") == ["a", "b", "c"])
+else:
+    skip("methodcaller no args", "not available")
+    skip("methodcaller with args", "not available")
+    skip("methodcaller two args", "not available")
+    skip("methodcaller default", "not available")
 
 
 # ============================================================================
@@ -336,12 +393,14 @@ test("methodcaller default", caller("a b c") == ["a", "b", "c"])
 
 print("\n=== length_hint ===")
 
-try:
+if hasattr(operator, "length_hint"):
     test("length_hint list", operator.length_hint([1, 2, 3]) == 3)
     test("length_hint str", operator.length_hint("hello") == 5)
     test("length_hint default", operator.length_hint(iter([]), 10) == 10)
-except AttributeError:
-    skip("length_hint", "not implemented")
+else:
+    skip("length_hint list", "not available")
+    skip("length_hint str", "not available")
+    skip("length_hint default", "not available")
 
 
 # ============================================================================
@@ -350,15 +409,16 @@ except AttributeError:
 
 print("\n=== call ===")
 
-try:
+if hasattr(operator, "call"):
 
     def add(a, b):
         return a + b
 
     test("call function", operator.call(add, 1, 2) == 3)
     test("call builtin", operator.call(len, [1, 2, 3]) == 3)
-except AttributeError:
-    skip("call", "Python 3.11+ feature")
+else:
+    skip("call function", "not available")
+    skip("call builtin", "not available")
 
 
 # ============================================================================

@@ -1,6 +1,6 @@
 """
 Simplified binascii module tests for ucharm compatibility testing.
-Works on both CPython and micropython-ucharm.
+Works on both CPython and pocketpy-ucharm.
 
 Based on CPython's Lib/test/test_binascii.py
 """
@@ -167,20 +167,14 @@ test("hexlify boundary 0x10", binascii.hexlify(b"\x10") == b"10")
 test("hexlify boundary 0x7f", binascii.hexlify(b"\x7f") == b"7f")
 test("hexlify boundary 0x80", binascii.hexlify(b"\x80") == b"80")
 
-# b2a_hex alias (if available)
-if hasattr(binascii, "b2a_hex"):
-    test("b2a_hex alias", binascii.b2a_hex(b"hello") == binascii.hexlify(b"hello"))
-else:
-    skip("b2a_hex", "alias not available")
+# b2a_hex alias
+test("b2a_hex alias", binascii.b2a_hex(b"hello") == binascii.hexlify(b"hello"))
 
-# a2b_hex alias (if available)
-if hasattr(binascii, "a2b_hex"):
-    test(
-        "a2b_hex alias",
-        binascii.a2b_hex(b"68656c6c6f") == binascii.unhexlify(b"68656c6c6f"),
-    )
-else:
-    skip("a2b_hex", "alias not available")
+# a2b_hex alias
+test(
+    "a2b_hex alias",
+    binascii.a2b_hex(b"68656c6c6f") == binascii.unhexlify(b"68656c6c6f"),
+)
 
 
 # ============================================================================

@@ -1,6 +1,6 @@
 """
 Simplified errno module tests for ucharm compatibility testing.
-Works on both CPython and micropython-ucharm.
+Works on both CPython and pocketpy-ucharm.
 
 Based on CPython's Lib/test/test_errno.py
 """
@@ -39,55 +39,31 @@ def skip(name, reason):
 print("\n=== Common POSIX errno constants ===")
 
 # Core file/directory errors
-if hasattr(errno, "ENOENT"):
-    test("ENOENT is integer", isinstance(errno.ENOENT, int))
-    test("ENOENT value", errno.ENOENT == 2)
-else:
-    skip("ENOENT", "not available")
+test("ENOENT is integer", isinstance(errno.ENOENT, int))
+test("ENOENT value", errno.ENOENT == 2)
 
-if hasattr(errno, "EEXIST"):
-    test("EEXIST is integer", isinstance(errno.EEXIST, int))
-    test("EEXIST value", errno.EEXIST == 17)
-else:
-    skip("EEXIST", "not available")
+test("EEXIST is integer", isinstance(errno.EEXIST, int))
+test("EEXIST value", errno.EEXIST == 17)
 
-if hasattr(errno, "ENOTDIR"):
-    test("ENOTDIR is integer", isinstance(errno.ENOTDIR, int))
-    test("ENOTDIR value", errno.ENOTDIR == 20)
-else:
-    skip("ENOTDIR", "not available")
+test("ENOTDIR is integer", isinstance(errno.ENOTDIR, int))
+test("ENOTDIR value", errno.ENOTDIR == 20)
 
-if hasattr(errno, "EISDIR"):
-    test("EISDIR is integer", isinstance(errno.EISDIR, int))
-    test("EISDIR value", errno.EISDIR == 21)
-else:
-    skip("EISDIR", "not available")
+test("EISDIR is integer", isinstance(errno.EISDIR, int))
+test("EISDIR value", errno.EISDIR == 21)
 
 # Permission errors
-if hasattr(errno, "EACCES"):
-    test("EACCES is integer", isinstance(errno.EACCES, int))
-    test("EACCES value", errno.EACCES == 13)
-else:
-    skip("EACCES", "not available")
+test("EACCES is integer", isinstance(errno.EACCES, int))
+test("EACCES value", errno.EACCES == 13)
 
-if hasattr(errno, "EPERM"):
-    test("EPERM is integer", isinstance(errno.EPERM, int))
-    test("EPERM value", errno.EPERM == 1)
-else:
-    skip("EPERM", "not available")
+test("EPERM is integer", isinstance(errno.EPERM, int))
+test("EPERM value", errno.EPERM == 1)
 
 # Argument errors
-if hasattr(errno, "EINVAL"):
-    test("EINVAL is integer", isinstance(errno.EINVAL, int))
-    test("EINVAL value", errno.EINVAL == 22)
-else:
-    skip("EINVAL", "not available")
+test("EINVAL is integer", isinstance(errno.EINVAL, int))
+test("EINVAL value", errno.EINVAL == 22)
 
-if hasattr(errno, "EBADF"):
-    test("EBADF is integer", isinstance(errno.EBADF, int))
-    test("EBADF value", errno.EBADF == 9)
-else:
-    skip("EBADF", "not available")
+test("EBADF is integer", isinstance(errno.EBADF, int))
+test("EBADF value", errno.EBADF == 9)
 
 
 # ============================================================================
@@ -96,23 +72,14 @@ else:
 
 print("\n=== I/O and system resource errors ===")
 
-if hasattr(errno, "EIO"):
-    test("EIO is integer", isinstance(errno.EIO, int))
-    test("EIO value", errno.EIO == 5)
-else:
-    skip("EIO", "not available")
+test("EIO is integer", isinstance(errno.EIO, int))
+test("EIO value", errno.EIO == 5)
 
-if hasattr(errno, "ENOMEM"):
-    test("ENOMEM is integer", isinstance(errno.ENOMEM, int))
-    test("ENOMEM value", errno.ENOMEM == 12)
-else:
-    skip("ENOMEM", "not available")
+test("ENOMEM is integer", isinstance(errno.ENOMEM, int))
+test("ENOMEM value", errno.ENOMEM == 12)
 
-if hasattr(errno, "ENOSPC"):
-    test("ENOSPC is integer", isinstance(errno.ENOSPC, int))
-    test("ENOSPC value", errno.ENOSPC == 28)
-else:
-    skip("ENOSPC", "not available")
+test("ENOSPC is integer", isinstance(errno.ENOSPC, int))
+test("ENOSPC value", errno.ENOSPC == 28)
 
 
 # ============================================================================
@@ -121,30 +88,18 @@ else:
 
 print("\n=== Process and system errors ===")
 
-if hasattr(errno, "ESRCH"):
-    test("ESRCH is integer", isinstance(errno.ESRCH, int))
-    test("ESRCH value", errno.ESRCH == 3)
-else:
-    skip("ESRCH", "not available")
+test("ESRCH is integer", isinstance(errno.ESRCH, int))
+test("ESRCH value", errno.ESRCH == 3)
 
-if hasattr(errno, "ECHILD"):
-    test("ECHILD is integer", isinstance(errno.ECHILD, int))
-    test("ECHILD value", errno.ECHILD == 10)
-else:
-    skip("ECHILD", "not available")
+test("ECHILD is integer", isinstance(errno.ECHILD, int))
+test("ECHILD value", errno.ECHILD == 10)
 
-if hasattr(errno, "EAGAIN"):
-    test("EAGAIN is integer", isinstance(errno.EAGAIN, int))
-    # EAGAIN is 35 on macOS, 11 on Linux
-    test("EAGAIN value", errno.EAGAIN == 35 or errno.EAGAIN == 11)
-else:
-    skip("EAGAIN", "not available")
+test("EAGAIN is integer", isinstance(errno.EAGAIN, int))
+# EAGAIN is 35 on macOS, 11 on Linux
+test("EAGAIN value", errno.EAGAIN == 35 or errno.EAGAIN == 11)
 
-if hasattr(errno, "EINTR"):
-    test("EINTR is integer", isinstance(errno.EINTR, int))
-    test("EINTR value", errno.EINTR == 4)
-else:
-    skip("EINTR", "not available")
+test("EINTR is integer", isinstance(errno.EINTR, int))
+test("EINTR value", errno.EINTR == 4)
 
 
 # ============================================================================
@@ -153,11 +108,8 @@ else:
 
 print("\n=== Pipe errors ===")
 
-if hasattr(errno, "EPIPE"):
-    test("EPIPE is integer", isinstance(errno.EPIPE, int))
-    test("EPIPE value", errno.EPIPE == 32)
-else:
-    skip("EPIPE", "not available")
+test("EPIPE is integer", isinstance(errno.EPIPE, int))
+test("EPIPE value", errno.EPIPE == 32)
 
 
 # ============================================================================
@@ -166,18 +118,11 @@ else:
 
 print("\n=== errorcode dict tests ===")
 
-if hasattr(errno, "errorcode"):
-    test("errorcode is dict", isinstance(errno.errorcode, dict))
-    test("errorcode not empty", len(errno.errorcode) > 0)
+test("errorcode is dict", isinstance(errno.errorcode, dict))
+test("errorcode not empty", len(errno.errorcode) > 0)
 
-    # Check that errorcode maps integers to strings
-    if hasattr(errno, "ENOENT"):
-        if errno.ENOENT in errno.errorcode:
-            test("errorcode ENOENT mapping", errno.errorcode[errno.ENOENT] == "ENOENT")
-        else:
-            skip("errorcode ENOENT mapping", "ENOENT not in errorcode")
-else:
-    skip("errorcode", "not available")
+# Check that errorcode maps integers to strings
+test("errorcode ENOENT mapping", errno.errorcode[errno.ENOENT] == "ENOENT")
 
 
 # ============================================================================
@@ -204,12 +149,8 @@ test("has multiple errno constants", len(errno_constants) >= 10)
 
 print("\n=== Integration with OSError tests ===")
 
-if hasattr(errno, "ENOENT"):
-    try:
-        err = OSError(errno.ENOENT, "No such file or directory")
-        test("OSError with ENOENT", err.args[0] == errno.ENOENT)
-    except Exception:
-        skip("OSError with ENOENT", "OSError creation failed")
+err = OSError(errno.ENOENT, "No such file or directory")
+test("OSError with ENOENT", err.args[0] == errno.ENOENT)
 
 
 # ============================================================================

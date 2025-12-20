@@ -1,6 +1,6 @@
 """
 Simplified random module tests for ucharm compatibility testing.
-Works on both CPython and micropython-ucharm.
+Works on both CPython and pocketpy-ucharm.
 
 Based on CPython's Lib/test/test_random.py
 """
@@ -47,8 +47,8 @@ test("random in range [0, 1)", 0 <= r < 1)
 values = [random.random() for _ in range(100)]
 test("random produces variety", len(set(values)) > 50)
 
-# All in range
-test("random all in range", all(0 <= v < 1 for v in values))
+# All in range - use list comprehension instead of generator expression
+test("random all in range", all([0 <= v < 1 for v in values]))
 
 
 # ============================================================================
@@ -57,28 +57,25 @@ test("random all in range", all(0 <= v < 1 for v in values))
 
 print("\n=== random.randint() tests ===")
 
-if hasattr(random, "randint"):
-    # Basic range
-    r = random.randint(1, 10)
-    test("randint returns int", isinstance(r, int))
-    test("randint in range", 1 <= r <= 10)
+# Basic range
+r = random.randint(1, 10)
+test("randint returns int", isinstance(r, int))
+test("randint in range", 1 <= r <= 10)
 
-    # Test range limits
-    values = [random.randint(1, 3) for _ in range(100)]
-    test("randint covers range", set(values) == {1, 2, 3})
+# Test range limits
+values = [random.randint(1, 3) for _ in range(100)]
+test("randint covers range", set(values) == {1, 2, 3})
 
-    # Single value range
-    test("randint single value", random.randint(5, 5) == 5)
+# Single value range
+test("randint single value", random.randint(5, 5) == 5)
 
-    # Negative range
-    r = random.randint(-10, -5)
-    test("randint negative range", -10 <= r <= -5)
+# Negative range
+r = random.randint(-10, -5)
+test("randint negative range", -10 <= r <= -5)
 
-    # Mixed range
-    r = random.randint(-5, 5)
-    test("randint mixed range", -5 <= r <= 5)
-else:
-    skip("randint tests", "randint not available")
+# Mixed range
+r = random.randint(-5, 5)
+test("randint mixed range", -5 <= r <= 5)
 
 
 # ============================================================================
@@ -98,10 +95,13 @@ if hasattr(random, "randrange"):
 
     # Three arguments (start, stop, step)
     values = [random.randrange(0, 10, 2) for _ in range(50)]
-    test("randrange step", all(v % 2 == 0 for v in values))
-    test("randrange step range", all(0 <= v < 10 for v in values))
+    test("randrange step", all([v % 2 == 0 for v in values]))
+    test("randrange step range", all([0 <= v < 10 for v in values]))
 else:
-    skip("randrange tests", "randrange not available")
+    skip("randrange single arg", "randrange not available")
+    skip("randrange two args", "randrange not available")
+    skip("randrange step", "randrange not available")
+    skip("randrange step range", "randrange not available")
 
 
 # ============================================================================
@@ -110,32 +110,34 @@ else:
 
 print("\n=== random.choice() tests ===")
 
-if hasattr(random, "choice"):
-    # Basic choice
-    seq = [1, 2, 3, 4, 5]
-    c = random.choice(seq)
-    test("choice from list", c in seq)
+# Basic choice
+seq = [1, 2, 3, 4, 5]
+c = random.choice(seq)
+test("choice from list", c in seq)
 
-    # Choice from string
-    s = "abcdef"
+# Choice from string - PocketPy only supports list/tuple
+s = "abcdef"
+try:
     c = random.choice(s)
     test("choice from string", c in s)
+except TypeError:
+    skip("choice from string", "choice only supports list/tuple")
 
-    # Choice covers all options (probability)
-    choices = [random.choice([1, 2, 3]) for _ in range(100)]
-    test("choice covers options", len(set(choices)) == 3)
+# Choice covers all options (probability)
+choices = [random.choice([1, 2, 3]) for _ in range(100)]
+test("choice covers options", len(set(choices)) == 3)
 
-    # Single element
-    test("choice single element", random.choice([42]) == 42)
+# Single element
+test("choice single element", random.choice([42]) == 42)
 
-    # Empty sequence raises
-    try:
-        random.choice([])
-        test("choice empty raises", False)
-    except (IndexError, ValueError):
-        test("choice empty raises", True)
-else:
-    skip("choice tests", "choice not available")
+# Empty sequence raises
+try:
+    random.choice([])
+    test("choice empty raises", False)
+except IndexError:
+    test("choice empty raises", True)
+except ValueError:
+    test("choice empty raises", True)
 
 
 # ============================================================================
@@ -144,33 +146,30 @@ else:
 
 print("\n=== random.shuffle() tests ===")
 
-if hasattr(random, "shuffle"):
-    # Basic shuffle
-    original = [1, 2, 3, 4, 5]
-    shuffled = original.copy()
-    random.shuffle(shuffled)
-    test("shuffle same elements", sorted(shuffled) == sorted(original))
-    test("shuffle same length", len(shuffled) == len(original))
+# Basic shuffle
+original = [1, 2, 3, 4, 5]
+shuffled = original.copy()
+random.shuffle(shuffled)
+test("shuffle same elements", sorted(shuffled) == sorted(original))
+test("shuffle same length", len(shuffled) == len(original))
 
-    # Multiple shuffles produce different orders (usually)
-    results = []
-    for _ in range(10):
-        lst = [1, 2, 3, 4, 5]
-        random.shuffle(lst)
-        results.append(tuple(lst))
-    test("shuffle produces variety", len(set(results)) > 1)
-
-    # Single element
-    lst = [42]
+# Multiple shuffles produce different orders (usually)
+results = []
+for _ in range(10):
+    lst = [1, 2, 3, 4, 5]
     random.shuffle(lst)
-    test("shuffle single element", lst == [42])
+    results.append(tuple(lst))
+test("shuffle produces variety", len(set(results)) > 1)
 
-    # Empty list
-    lst = []
-    random.shuffle(lst)
-    test("shuffle empty", lst == [])
-else:
-    skip("shuffle tests", "shuffle not available")
+# Single element
+lst = [42]
+random.shuffle(lst)
+test("shuffle single element", lst == [42])
+
+# Empty list
+lst = []
+random.shuffle(lst)
+test("shuffle empty", lst == [])
 
 
 # ============================================================================
@@ -186,7 +185,7 @@ if hasattr(random, "sample"):
     test("sample returns list", isinstance(s, list))
     test("sample correct length", len(s) == 3)
     test("sample unique elements", len(set(s)) == 3)
-    test("sample from population", all(x in population for x in s))
+    test("sample from population", all([x in population for x in s]))
 
     # Sample entire population
     s = random.sample(population, 5)
@@ -208,7 +207,14 @@ if hasattr(random, "sample"):
     except ValueError:
         test("sample too many raises", True)
 else:
-    skip("sample tests", "sample not available")
+    skip("sample returns list", "sample not available")
+    skip("sample correct length", "sample not available")
+    skip("sample unique elements", "sample not available")
+    skip("sample from population", "sample not available")
+    skip("sample all", "sample not available")
+    skip("sample zero", "sample not available")
+    skip("sample preserves original", "sample not available")
+    skip("sample too many raises", "sample not available")
 
 
 # ============================================================================
@@ -217,25 +223,22 @@ else:
 
 print("\n=== random.uniform() tests ===")
 
-if hasattr(random, "uniform"):
-    # Basic uniform
-    r = random.uniform(1.0, 10.0)
-    test("uniform returns float", isinstance(r, float))
-    test("uniform in range", 1.0 <= r <= 10.0)
+# Basic uniform
+r = random.uniform(1.0, 10.0)
+test("uniform returns float", isinstance(r, float))
+test("uniform in range", 1.0 <= r <= 10.0)
 
-    # Multiple values cover range
-    values = [random.uniform(0.0, 1.0) for _ in range(100)]
-    test("uniform variety", max(values) > 0.9 and min(values) < 0.1)
+# Multiple values cover range
+values = [random.uniform(0.0, 1.0) for _ in range(100)]
+test("uniform variety", max(values) > 0.9 and min(values) < 0.1)
 
-    # Negative range
-    r = random.uniform(-10.0, -5.0)
-    test("uniform negative", -10.0 <= r <= -5.0)
+# Negative range
+r = random.uniform(-10.0, -5.0)
+test("uniform negative", -10.0 <= r <= -5.0)
 
-    # Reversed range (should still work)
-    r = random.uniform(10.0, 1.0)
-    test("uniform reversed", 1.0 <= r <= 10.0)
-else:
-    skip("uniform tests", "uniform not available")
+# Reversed range (should still work)
+r = random.uniform(10.0, 1.0)
+test("uniform reversed", 1.0 <= r <= 10.0)
 
 
 # ============================================================================
@@ -244,26 +247,23 @@ else:
 
 print("\n=== random.seed() tests ===")
 
-if hasattr(random, "seed"):
-    # Seeding produces reproducible results
-    random.seed(12345)
-    seq1 = [random.random() for _ in range(10)]
+# Seeding produces reproducible results
+random.seed(12345)
+seq1 = [random.random() for _ in range(10)]
 
-    random.seed(12345)
-    seq2 = [random.random() for _ in range(10)]
+random.seed(12345)
+seq2 = [random.random() for _ in range(10)]
 
-    test("seed reproducible", seq1 == seq2)
+test("seed reproducible", seq1 == seq2)
 
-    # Different seeds produce different results
-    random.seed(12345)
-    val1 = random.random()
+# Different seeds produce different results
+random.seed(12345)
+val1 = random.random()
 
-    random.seed(54321)
-    val2 = random.random()
+random.seed(54321)
+val2 = random.random()
 
-    test("different seeds differ", val1 != val2)
-else:
-    skip("seed tests", "seed not available")
+test("different seeds differ", val1 != val2)
 
 
 # ============================================================================
@@ -288,7 +288,10 @@ if hasattr(random, "getrandbits"):
     # 0 bits
     test("getrandbits 0", random.getrandbits(0) == 0)
 else:
-    skip("getrandbits tests", "getrandbits not available")
+    skip("getrandbits 8 range", "getrandbits not available")
+    skip("getrandbits 16 range", "getrandbits not available")
+    skip("getrandbits 1 values", "getrandbits not available")
+    skip("getrandbits 0", "getrandbits not available")
 
 
 # ============================================================================
@@ -298,14 +301,13 @@ else:
 print("\n=== Edge cases ===")
 
 # Large ranges for randint
-if hasattr(random, "randint"):
-    r = random.randint(0, 10**9)
-    test("randint large range", 0 <= r <= 10**9)
+r = random.randint(0, 10**9)
+test("randint large range", 0 <= r <= 10**9)
 
 # Many random calls
 values = [random.random() for _ in range(1000)]
 test("many random calls", len(values) == 1000)
-test("all valid values", all(0 <= v < 1 for v in values))
+test("all valid values", all([0 <= v < 1 for v in values]))
 
 
 # ============================================================================

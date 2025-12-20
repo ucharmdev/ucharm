@@ -1,6 +1,6 @@
 """
 Simplified time module tests for ucharm compatibility testing.
-Works on both CPython and micropython-ucharm.
+Works on both CPython and pocketpy-ucharm.
 
 Based on CPython's Lib/test/test_time.py
 """
@@ -30,6 +30,14 @@ def skip(name, reason):
     global _skipped
     _skipped += 1
     print(f"  SKIP: {name} ({reason})")
+
+
+# Helper to get struct_time field (works with both tuple and named attributes)
+def get_tm_field(st, index, attr):
+    """Get a field from struct_time by index or attribute name."""
+    if hasattr(st, attr):
+        return getattr(st, attr)
+    return st[index]
 
 
 # ============================================================================
@@ -77,25 +85,37 @@ print("\n=== time.localtime() tests ===")
 if hasattr(time, "localtime"):
     lt = time.localtime()
     test(
-        "localtime returns tuple", isinstance(lt, (tuple, type(lt)))
-    )  # struct_time or tuple
-    test("localtime has 9 elements", len(lt) >= 9)
+        "localtime returns struct_time",
+        isinstance(lt, (tuple, type(lt))),
+    )
 
-    # Check reasonable values
-    test("localtime year", lt[0] >= 2020)  # tm_year
-    test("localtime month", 1 <= lt[1] <= 12)  # tm_mon
-    test("localtime day", 1 <= lt[2] <= 31)  # tm_mday
-    test("localtime hour", 0 <= lt[3] <= 23)  # tm_hour
-    test("localtime minute", 0 <= lt[4] <= 59)  # tm_min
-    test("localtime second", 0 <= lt[5] <= 61)  # tm_sec (61 for leap seconds)
-    test("localtime weekday", 0 <= lt[6] <= 6)  # tm_wday
-    test("localtime yearday", 1 <= lt[7] <= 366)  # tm_yday
+    # Check reasonable values using attribute access
+    tm_year = get_tm_field(lt, 0, "tm_year")
+    tm_mon = get_tm_field(lt, 1, "tm_mon")
+    tm_mday = get_tm_field(lt, 2, "tm_mday")
+    tm_hour = get_tm_field(lt, 3, "tm_hour")
+    tm_min = get_tm_field(lt, 4, "tm_min")
+    tm_sec = get_tm_field(lt, 5, "tm_sec")
+    tm_wday = get_tm_field(lt, 6, "tm_wday")
+    tm_yday = get_tm_field(lt, 7, "tm_yday")
 
-    # With argument
-    lt2 = time.localtime(0)
-    test("localtime(0) works", lt2 is not None)
+    test("localtime year", tm_year >= 2020)
+    test("localtime month", 1 <= tm_mon <= 12)
+    test("localtime day", 1 <= tm_mday <= 31)
+    test("localtime hour", 0 <= tm_hour <= 23)
+    test("localtime minute", 0 <= tm_min <= 59)
+    test("localtime second", 0 <= tm_sec <= 61)  # 61 for leap seconds
+    test("localtime weekday", 0 <= tm_wday <= 6)
+    test("localtime yearday", 1 <= tm_yday <= 366)
+
+    # With argument - check if localtime accepts arguments
+    try:
+        lt2 = time.localtime(0)
+        test("localtime(0) works", lt2 is not None)
+    except TypeError:
+        skip("localtime(0)", "localtime does not accept arguments")
 else:
-    skip("localtime tests", "localtime not available")
+    skip("localtime tests", "time.localtime not available")
 
 
 # ============================================================================
@@ -106,20 +126,26 @@ print("\n=== time.gmtime() tests ===")
 
 if hasattr(time, "gmtime"):
     gt = time.gmtime()
-    test("gmtime returns tuple", isinstance(gt, (tuple, type(gt))))
-    test("gmtime has 9 elements", len(gt) >= 9)
+    test("gmtime returns struct_time", isinstance(gt, (tuple, type(gt))))
 
-    # Check reasonable values
-    test("gmtime year", gt[0] >= 2020)
-    test("gmtime month", 1 <= gt[1] <= 12)
+    # Check reasonable values using attribute access
+    tm_year = get_tm_field(gt, 0, "tm_year")
+    tm_mon = get_tm_field(gt, 1, "tm_mon")
+
+    test("gmtime year", tm_year >= 2020)
+    test("gmtime month", 1 <= tm_mon <= 12)
 
     # gmtime(0) should be Unix epoch
     epoch = time.gmtime(0)
-    test("gmtime(0) year", epoch[0] == 1970)
-    test("gmtime(0) month", epoch[1] == 1)
-    test("gmtime(0) day", epoch[2] == 1)
+    epoch_year = get_tm_field(epoch, 0, "tm_year")
+    epoch_mon = get_tm_field(epoch, 1, "tm_mon")
+    epoch_mday = get_tm_field(epoch, 2, "tm_mday")
+
+    test("gmtime(0) year", epoch_year == 1970)
+    test("gmtime(0) month", epoch_mon == 1)
+    test("gmtime(0) day", epoch_mday == 1)
 else:
-    skip("gmtime tests", "gmtime not available")
+    skip("gmtime tests", "time.gmtime not available")
 
 
 # ============================================================================
@@ -128,7 +154,7 @@ else:
 
 print("\n=== time.mktime() tests ===")
 
-if hasattr(time, "mktime") and hasattr(time, "localtime"):
+if hasattr(time, "mktime"):
     # Round-trip test
     now = time.time()
     lt = time.localtime(now)
@@ -146,7 +172,7 @@ if hasattr(time, "mktime") and hasattr(time, "localtime"):
     except (OverflowError, OSError):
         skip("mktime known date", "date out of range")
 else:
-    skip("mktime tests", "mktime or localtime not available")
+    skip("mktime tests", "time.mktime not available")
 
 
 # ============================================================================
@@ -178,7 +204,7 @@ if hasattr(time, "strftime") and hasattr(time, "localtime"):
     result = time.strftime("Year: %Y", lt)
     test("strftime literal", result.startswith("Year: "))
 else:
-    skip("strftime tests", "strftime or localtime not available")
+    skip("strftime tests", "time.strftime not available")
 
 
 # ============================================================================
@@ -189,24 +215,24 @@ print("\n=== time.strptime() tests ===")
 
 if hasattr(time, "strptime"):
     # Parse date
-    try:
-        result = time.strptime("2020-01-15", "%Y-%m-%d")
-        test("strptime date", result[0] == 2020 and result[1] == 1 and result[2] == 15)
-    except ValueError:
-        skip("strptime date", "parsing failed")
+    result = time.strptime("2020-01-15", "%Y-%m-%d")
+    r_year = get_tm_field(result, 0, "tm_year")
+    r_mon = get_tm_field(result, 1, "tm_mon")
+    r_mday = get_tm_field(result, 2, "tm_mday")
+    test("strptime date", r_year == 2020 and r_mon == 1 and r_mday == 15)
 
     # Parse time
-    try:
-        result = time.strptime("14:30:00", "%H:%M:%S")
-        test("strptime time", result[3] == 14 and result[4] == 30 and result[5] == 0)
-    except ValueError:
-        skip("strptime time", "parsing failed")
+    result = time.strptime("14:30:00", "%H:%M:%S")
+    r_hour = get_tm_field(result, 3, "tm_hour")
+    r_min = get_tm_field(result, 4, "tm_min")
+    r_sec = get_tm_field(result, 5, "tm_sec")
+    test("strptime time", r_hour == 14 and r_min == 30 and r_sec == 0)
 else:
-    skip("strptime tests", "strptime not available")
+    skip("strptime tests", "time.strptime not available")
 
 
 # ============================================================================
-# time.monotonic() tests (if available)
+# time.monotonic() tests
 # ============================================================================
 
 print("\n=== time.monotonic() tests ===")
@@ -222,11 +248,11 @@ if hasattr(time, "monotonic"):
     m2 = time.monotonic()
     test("monotonic increases", m2 > m1)
 else:
-    skip("monotonic tests", "monotonic not available")
+    skip("monotonic tests", "time.monotonic not available")
 
 
 # ============================================================================
-# time.perf_counter() tests (if available)
+# time.perf_counter() tests
 # ============================================================================
 
 print("\n=== time.perf_counter() tests ===")
@@ -241,11 +267,11 @@ if hasattr(time, "perf_counter"):
     p2 = time.perf_counter()
     test("perf_counter increases", p2 > p1)
 else:
-    skip("perf_counter tests", "perf_counter not available")
+    skip("perf_counter tests", "time.perf_counter not available")
 
 
 # ============================================================================
-# time.time_ns() tests (if available)
+# time.time_ns() tests
 # ============================================================================
 
 print("\n=== time.time_ns() tests ===")
@@ -256,37 +282,7 @@ if hasattr(time, "time_ns"):
     test("time_ns is positive", t > 0)
     test("time_ns is nanoseconds", t > 1000000000000000000)  # After 2001
 else:
-    skip("time_ns tests", "time_ns not available")
-
-
-# ============================================================================
-# time.ticks_ms/ticks_us/ticks_diff (MicroPython specific)
-# ============================================================================
-
-print("\n=== MicroPython ticks functions ===")
-
-if hasattr(time, "ticks_ms"):
-    t = time.ticks_ms()
-    test("ticks_ms returns int", isinstance(t, int))
-    test("ticks_ms is non-negative", t >= 0)
-else:
-    skip("ticks_ms", "not available (MicroPython specific)")
-
-if hasattr(time, "ticks_us"):
-    t = time.ticks_us()
-    test("ticks_us returns int", isinstance(t, int))
-    test("ticks_us is non-negative", t >= 0)
-else:
-    skip("ticks_us", "not available (MicroPython specific)")
-
-if hasattr(time, "ticks_diff"):
-    t1 = time.ticks_ms() if hasattr(time, "ticks_ms") else 100
-    t2 = t1 + 50
-    if hasattr(time, "ticks_ms"):
-        diff = time.ticks_diff(t2, t1)
-        test("ticks_diff", diff == 50)
-else:
-    skip("ticks_diff", "not available (MicroPython specific)")
+    skip("time_ns tests", "time.time_ns not available")
 
 
 # ============================================================================
@@ -303,7 +299,13 @@ test("sleep 1ms", elapsed >= 0.0005)
 
 # Multiple time() calls
 times = [time.time() for _ in range(10)]
-test("multiple time calls", all(times[i] <= times[i + 1] for i in range(9)))
+# Check that times are monotonically non-decreasing
+times_increasing = True
+for i in range(9):
+    if times[i] > times[i + 1]:
+        times_increasing = False
+        break
+test("multiple time calls", times_increasing)
 
 
 # ============================================================================

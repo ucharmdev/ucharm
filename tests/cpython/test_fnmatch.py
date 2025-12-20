@@ -1,6 +1,6 @@
 """
 Simplified fnmatch module tests for ucharm compatibility testing.
-Works on both CPython and micropython-ucharm.
+Works on both CPython and pocketpy-ucharm.
 
 Based on CPython's Lib/test/test_fnmatch.py
 """

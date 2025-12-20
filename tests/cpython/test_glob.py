@@ -1,6 +1,6 @@
 """
 Simplified glob module tests for ucharm compatibility testing.
-Works on both CPython and micropython-ucharm.
+Works on both CPython and pocketpy-ucharm.
 
 Based on CPython's Lib/test/test_glob.py
 """
@@ -34,17 +34,16 @@ def skip(name, reason):
 
 
 # Cross-platform path utilities
-# MicroPython doesn't have os.path, so we need fallbacks
-_sep = getattr(os, "sep", "/")
+_sep = os.sep
 
 
 def path_join(*parts):
-    """Join path parts - works on both CPython and MicroPython."""
+    """Join path parts."""
     return _sep.join(parts)
 
 
 def path_basename(p):
-    """Get basename - works on both CPython and MicroPython."""
+    """Get basename."""
     return p.rsplit(_sep, 1)[-1] if _sep in p else p
 
 
@@ -131,30 +130,15 @@ test("glob file?.py", "file1.py" in basenames and "file2.py" in basenames)
 
 
 # ============================================================================
-# glob.glob() tests - recursive (if supported)
+# glob.glob() tests - recursive
 # ============================================================================
 
 print("\n=== glob.glob() recursive tests ===")
 
-# Test recursive glob with **
-# Use positional args for MicroPython compatibility: glob(pattern, root_dir, dir_fd, recursive)
-try:
-    # Try keyword argument first (CPython style)
-    results = glob.glob(path_join(tempdir, "**", "*.py"), recursive=True)
-    basenames = get_basenames(results)
-    has_recursive = True
-    test("glob **/*.py recursive", "nested1.py" in basenames)
-except TypeError:
-    # Try positional argument (MicroPython style)
-    try:
-        results = glob.glob(path_join(tempdir, "**", "*.py"), None, None, True)
-        basenames = get_basenames(results)
-        has_recursive = True
-        test("glob **/*.py recursive", "nested1.py" in basenames)
-    except (TypeError, AttributeError):
-        # recursive parameter not supported at all
-        skip("glob recursive", "recursive parameter not supported")
-        has_recursive = False
+# Use positional args for PocketPy compatibility: glob(pattern, root_dir, dir_fd, recursive)
+results = glob.glob(path_join(tempdir, "**", "*.py"), None, None, True)
+basenames = get_basenames(results)
+test("glob **/*.py recursive", "nested1.py" in basenames)
 
 
 # ============================================================================

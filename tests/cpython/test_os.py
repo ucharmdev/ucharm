@@ -1,6 +1,6 @@
 """
 Simplified os module tests for ucharm compatibility testing.
-Works on both CPython and micropython-ucharm.
+Works on both CPython and pocketpy-ucharm.
 
 Based on CPython's Lib/test/test_os.py
 """
@@ -38,13 +38,10 @@ def skip(name, reason):
 
 print("\n=== os.getcwd() tests ===")
 
-if hasattr(os, "getcwd"):
-    cwd = os.getcwd()
-    test("getcwd returns string", isinstance(cwd, str))
-    test("getcwd not empty", len(cwd) > 0)
-    test("getcwd is absolute", cwd.startswith("/") or (len(cwd) > 1 and cwd[1] == ":"))
-else:
-    skip("getcwd tests", "getcwd not available")
+cwd = os.getcwd()
+test("getcwd returns string", isinstance(cwd, str))
+test("getcwd not empty", len(cwd) > 0)
+test("getcwd is absolute", cwd.startswith("/") or (len(cwd) > 1 and cwd[1] == ":"))
 
 
 # ============================================================================
@@ -53,17 +50,17 @@ else:
 
 print("\n=== os.listdir() tests ===")
 
-if hasattr(os, "listdir"):
-    entries = os.listdir(".")
-    test("listdir returns list", isinstance(entries, list))
+entries = os.listdir(".")
+test("listdir returns list", isinstance(entries, list))
+test("listdir has entries", len(entries) >= 0)
 
-    # listdir of root or current should have entries
-    test("listdir has entries", len(entries) >= 0)
-
-    # All entries are strings
-    test("listdir all strings", all(isinstance(e, str) for e in entries))
-else:
-    skip("listdir tests", "listdir not available")
+# All entries are strings
+all_strings = True
+for e in entries:
+    if not isinstance(e, str):
+        all_strings = False
+        break
+test("listdir all strings", all_strings)
 
 
 # ============================================================================
@@ -72,98 +69,57 @@ else:
 
 print("\n=== os.path tests ===")
 
-if hasattr(os, "path"):
-    # exists
-    if hasattr(os.path, "exists"):
-        test("path.exists cwd", os.path.exists("."))
-        test("path.exists nonexistent", not os.path.exists("/nonexistent_path_12345"))
-    else:
-        skip("path.exists", "not available")
+# exists
+test("path.exists cwd", os.path.exists("."))
+test("path.exists nonexistent", not os.path.exists("/nonexistent_path_12345"))
 
-    # isdir
-    if hasattr(os.path, "isdir"):
-        test("path.isdir cwd", os.path.isdir("."))
-    else:
-        skip("path.isdir", "not available")
+# isdir
+test("path.isdir cwd", os.path.isdir("."))
 
-    # isfile
-    if hasattr(os.path, "isfile"):
-        test("path.isfile cwd", not os.path.isfile("."))
-    else:
-        skip("path.isfile", "not available")
+# isfile
+test("path.isfile cwd", not os.path.isfile("."))
 
-    # join
-    if hasattr(os.path, "join"):
-        test("path.join two", os.path.join("a", "b") in ["a/b", "a\\b"])
-        test("path.join three", os.path.join("a", "b", "c") in ["a/b/c", "a\\b\\c"])
-        test(
-            "path.join absolute",
-            os.path.join("a", "/b") == "/b" or os.path.join("a", "/b") == "\\b",
-        )
-    else:
-        skip("path.join", "not available")
+# join
+test("path.join two", os.path.join("a", "b") in ["a/b", "a\\b"])
+test("path.join three", os.path.join("a", "b", "c") in ["a/b/c", "a\\b\\c"])
+test(
+    "path.join absolute",
+    os.path.join("a", "/b") == "/b" or os.path.join("a", "/b") == "\\b",
+)
 
-    # basename
-    if hasattr(os.path, "basename"):
-        test("path.basename", os.path.basename("/foo/bar") == "bar")
-        test("path.basename no dir", os.path.basename("bar") == "bar")
-        test("path.basename trailing slash", os.path.basename("/foo/bar/") == "")
-    else:
-        skip("path.basename", "not available")
+# basename
+test("path.basename", os.path.basename("/foo/bar") == "bar")
+test("path.basename no dir", os.path.basename("bar") == "bar")
+test("path.basename trailing slash", os.path.basename("/foo/bar/") == "")
 
-    # dirname
-    if hasattr(os.path, "dirname"):
-        test("path.dirname", os.path.dirname("/foo/bar") == "/foo")
-        test("path.dirname no dir", os.path.dirname("bar") == "")
-    else:
-        skip("path.dirname", "not available")
+# dirname
+test("path.dirname", os.path.dirname("/foo/bar") == "/foo")
+test("path.dirname no dir", os.path.dirname("bar") == "")
 
-    # split
-    if hasattr(os.path, "split"):
-        head, tail = os.path.split("/foo/bar")
-        test("path.split head", head == "/foo")
-        test("path.split tail", tail == "bar")
-    else:
-        skip("path.split", "not available")
+# split
+head, tail = os.path.split("/foo/bar")
+test("path.split head", head == "/foo")
+test("path.split tail", tail == "bar")
 
-    # splitext
-    if hasattr(os.path, "splitext"):
-        root, ext = os.path.splitext("/foo/bar.txt")
-        test("path.splitext root", root == "/foo/bar")
-        test("path.splitext ext", ext == ".txt")
+# splitext
+root, ext = os.path.splitext("/foo/bar.txt")
+test("path.splitext root", root == "/foo/bar")
+test("path.splitext ext", ext == ".txt")
 
-        root, ext = os.path.splitext("/foo/bar")
-        test("path.splitext no ext", ext == "")
-    else:
-        skip("path.splitext", "not available")
+root, ext = os.path.splitext("/foo/bar")
+test("path.splitext no ext", ext == "")
 
-    # isabs
-    if hasattr(os.path, "isabs"):
-        test("path.isabs absolute", os.path.isabs("/foo"))
-        test("path.isabs relative", not os.path.isabs("foo"))
-    else:
-        skip("path.isabs", "not available")
+# isabs
+test("path.isabs absolute", os.path.isabs("/foo"))
+test("path.isabs relative", not os.path.isabs("foo"))
 
-    # abspath
-    if hasattr(os.path, "abspath"):
-        abs_path = os.path.abspath(".")
-        test(
-            "path.abspath is absolute",
-            os.path.isabs(abs_path)
-            if hasattr(os.path, "isabs")
-            else abs_path.startswith("/"),
-        )
-    else:
-        skip("path.abspath", "not available")
+# abspath
+abs_path = os.path.abspath(".")
+test("path.abspath is absolute", os.path.isabs(abs_path))
 
-    # normpath
-    if hasattr(os.path, "normpath"):
-        test("path.normpath dots", os.path.normpath("a/./b") in ["a/b", "a\\b"])
-        test("path.normpath dotdot", os.path.normpath("a/b/../c") in ["a/c", "a\\c"])
-    else:
-        skip("path.normpath", "not available")
-else:
-    skip("os.path tests", "os.path not available")
+# normpath
+test("path.normpath dots", os.path.normpath("a/./b") in ["a/b", "a\\b"])
+test("path.normpath dotdot", os.path.normpath("a/b/../c") in ["a/c", "a\\c"])
 
 
 # ============================================================================
@@ -172,31 +128,22 @@ else:
 
 print("\n=== os.environ tests ===")
 
-if hasattr(os, "environ"):
-    test("environ is dict-like", hasattr(os.environ, "__getitem__"))
+test("environ is dict-like", hasattr(os.environ, "__getitem__"))
 
-    # PATH or HOME should exist on most systems
-    has_path = "PATH" in os.environ or "HOME" in os.environ or "USER" in os.environ
-    test("environ has common vars", has_path)
-else:
-    skip("environ tests", "environ not available")
+# PATH or HOME should exist on most systems
+has_path = "PATH" in os.environ or "HOME" in os.environ or "USER" in os.environ
+test("environ has common vars", has_path)
 
 # getenv
-if hasattr(os, "getenv"):
-    # Get a known environment variable
-    result = os.getenv("PATH", "default")
-    test("getenv PATH", result != "default" or os.getenv("HOME", "x") != "x")
+result = os.getenv("PATH", "default")
+test("getenv PATH", result != "default" or os.getenv("HOME", "x") != "x")
 
-    # Get nonexistent with default
-    test(
-        "getenv nonexistent default",
-        os.getenv("NONEXISTENT_VAR_12345", "default") == "default",
-    )
+test(
+    "getenv nonexistent default",
+    os.getenv("NONEXISTENT_VAR_12345", "default") == "default",
+)
 
-    # Get nonexistent without default
-    test("getenv nonexistent none", os.getenv("NONEXISTENT_VAR_12345") is None)
-else:
-    skip("getenv tests", "getenv not available")
+test("getenv nonexistent none", os.getenv("NONEXISTENT_VAR_12345") is None)
 
 
 # ============================================================================
@@ -205,70 +152,45 @@ else:
 
 print("\n=== os.sep and os.name tests ===")
 
-if hasattr(os, "sep"):
-    test("sep is string", isinstance(os.sep, str))
-    test("sep is / or \\", os.sep in ["/", "\\"])
-else:
-    skip("sep", "not available")
+test("sep is string", isinstance(os.sep, str))
+test("sep is / or \\", os.sep in ["/", "\\"])
 
-if hasattr(os, "name"):
-    test("name is string", isinstance(os.name, str))
-    test("name is known", os.name in ["posix", "nt", "java"])
-else:
-    skip("name", "not available")
+test("name is string", isinstance(os.name, str))
+test("name is known", os.name in ["posix", "nt", "java"])
 
-if hasattr(os, "linesep"):
-    test("linesep is string", isinstance(os.linesep, str))
-    test("linesep is newline", os.linesep in ["\n", "\r\n", "\r"])
-else:
-    skip("linesep", "not available")
+test("linesep is string", isinstance(os.linesep, str))
+test("linesep is newline", os.linesep in ["\n", "\r\n", "\r"])
 
 
 # ============================================================================
-# File descriptor operations (if available)
+# File descriptor operations
 # ============================================================================
 
 print("\n=== File operations ===")
 
 # mkdir/rmdir
-if hasattr(os, "mkdir") and hasattr(os, "rmdir"):
-    test_dir = "/tmp/ucharm_test_dir_12345"
-    try:
-        if os.path.exists(test_dir) if hasattr(os.path, "exists") else False:
-            os.rmdir(test_dir)
-        os.mkdir(test_dir)
-        exists = os.path.exists(test_dir) if hasattr(os.path, "exists") else True
-        test("mkdir creates dir", exists)
+test_dir = "/tmp/ucharm_test_dir_12345"
+try:
+    if os.path.exists(test_dir):
         os.rmdir(test_dir)
-        not_exists = (
-            not os.path.exists(test_dir) if hasattr(os.path, "exists") else True
-        )
-        test("rmdir removes dir", not_exists)
-    except (OSError, PermissionError) as e:
-        skip("mkdir/rmdir", str(e))
-else:
-    skip("mkdir/rmdir", "not available")
+    os.mkdir(test_dir)
+    test("mkdir creates dir", os.path.exists(test_dir))
+    os.rmdir(test_dir)
+    test("rmdir removes dir", not os.path.exists(test_dir))
+except (OSError, PermissionError) as e:
+    skip("mkdir/rmdir", str(e))
 
 # remove/unlink
-if hasattr(os, "remove") or hasattr(os, "unlink"):
-    remove_func = getattr(os, "remove", None) or getattr(os, "unlink", None)
-    test_file = "/tmp/ucharm_test_file_12345.txt"
-    try:
-        # Create a test file
-        with open(test_file, "w") as f:
-            f.write("test")
-        exists_before = (
-            os.path.exists(test_file) if hasattr(os.path, "exists") else True
-        )
-        remove_func(test_file)
-        exists_after = (
-            os.path.exists(test_file) if hasattr(os.path, "exists") else False
-        )
-        test("remove deletes file", exists_before and not exists_after)
-    except (OSError, PermissionError) as e:
-        skip("remove/unlink", str(e))
-else:
-    skip("remove/unlink", "not available")
+test_file = "/tmp/ucharm_test_file_12345.txt"
+try:
+    with open(test_file, "w") as f:
+        f.write("test")
+    exists_before = os.path.exists(test_file)
+    os.remove(test_file)
+    exists_after = os.path.exists(test_file)
+    test("remove deletes file", exists_before and not exists_after)
+except (OSError, PermissionError) as e:
+    skip("remove/unlink", str(e))
 
 
 # ============================================================================
@@ -277,26 +199,22 @@ else:
 
 print("\n=== os.stat tests ===")
 
-if hasattr(os, "stat"):
-    try:
-        st = os.stat(".")
-        test("stat returns object", st is not None)
+try:
+    st = os.stat(".")
+    test("stat returns object", st is not None)
 
-        # Check common stat attributes (works with both CPython's stat_result and MicroPython's tuple)
-        if hasattr(st, "st_mode"):
-            test("stat has st_mode", isinstance(st.st_mode, int))
-        elif isinstance(st, tuple) and len(st) >= 1:
-            # MicroPython returns tuple: (st_mode, st_ino, st_dev, st_nlink, st_uid, st_gid, st_size, ...)
-            test("stat has st_mode", isinstance(st[0], int))
+    # Check common stat attributes
+    if hasattr(st, "st_mode"):
+        test("stat has st_mode", isinstance(st.st_mode, int))
+    elif isinstance(st, tuple) and len(st) >= 1:
+        test("stat has st_mode", isinstance(st[0], int))
 
-        if hasattr(st, "st_size"):
-            test("stat has st_size", isinstance(st.st_size, int))
-        elif isinstance(st, tuple) and len(st) >= 7:
-            test("stat has st_size", isinstance(st[6], int))
-    except OSError as e:
-        skip("stat tests", str(e))
-else:
-    skip("stat tests", "stat not available")
+    if hasattr(st, "st_size"):
+        test("stat has st_size", isinstance(st.st_size, int))
+    elif isinstance(st, tuple) and len(st) >= 7:
+        test("stat has st_size", isinstance(st[6], int))
+except OSError as e:
+    skip("stat tests", str(e))
 
 
 # ============================================================================

@@ -1,6 +1,6 @@
 """
 Simplified struct module tests for ucharm compatibility testing.
-Works on both CPython and micropython-ucharm.
+Works on both CPython and pocketpy-ucharm.
 
 Based on CPython's Lib/test/test_struct.py
 """
@@ -212,50 +212,41 @@ test("calcsize bxb", struct.calcsize("bxb") == 3)
 
 
 # ============================================================================
-# Struct object (if available)
+# Struct object
 # ============================================================================
 
 print("\n=== Struct object ===")
 
-if hasattr(struct, "Struct"):
-    # Create Struct object
-    s = struct.Struct("bhd")
-    test("Struct object", s is not None)
-    test("Struct size", s.size >= 11)
+# Create Struct object
+s = struct.Struct("bhd")
+test("Struct object", s is not None)
+test("Struct size", s.size >= 11)
 
-    # Pack with Struct
-    packed = s.pack(1, 1000, 3.14)
-    test("Struct pack", len(packed) == s.size)
+# Pack with Struct
+packed = s.pack(1, 1000, 3.14)
+test("Struct pack", len(packed) == s.size)
 
-    # Unpack with Struct
-    unpacked = s.unpack(packed)
-    test("Struct unpack", unpacked[0] == 1 and unpacked[1] == 1000)
-else:
-    skip("Struct object", "Struct class not available")
+# Unpack with Struct
+unpacked = s.unpack(packed)
+test("Struct unpack", unpacked[0] == 1 and unpacked[1] == 1000)
 
 
 # ============================================================================
-# pack_into() and unpack_from() (if available)
+# pack_into() and unpack_from()
 # ============================================================================
 
 print("\n=== pack_into/unpack_from ===")
 
-if hasattr(struct, "pack_into"):
-    buffer = bytearray(10)
-    struct.pack_into("bb", buffer, 0, 1, 2)
-    test("pack_into", buffer[0:2] == b"\x01\x02")
+buffer = bytearray(10)
+struct.pack_into("bb", buffer, 0, 1, 2)
+test("pack_into", buffer[0:2] == b"\x01\x02")
 
-    struct.pack_into("bb", buffer, 5, 3, 4)
-    test("pack_into offset", buffer[5:7] == b"\x03\x04")
-else:
-    skip("pack_into", "not available")
+struct.pack_into("bb", buffer, 5, 3, 4)
+test("pack_into offset", buffer[5:7] == b"\x03\x04")
 
-if hasattr(struct, "unpack_from"):
-    data = b"\x00\x00\x01\x02\x03"
-    unpacked = struct.unpack_from("bb", data, 2)
-    test("unpack_from", unpacked == (1, 2))
-else:
-    skip("unpack_from", "not available")
+data = b"\x00\x00\x01\x02\x03"
+unpacked = struct.unpack_from("bb", data, 2)
+test("unpack_from", unpacked == (1, 2))
 
 
 # ============================================================================

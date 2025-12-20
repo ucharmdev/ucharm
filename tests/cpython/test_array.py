@@ -1,6 +1,6 @@
 """
 Simplified array module tests for ucharm compatibility testing.
-Works on both CPython and micropython-ucharm.
+Works on both CPython and pocketpy-ucharm.
 
 Based on CPython's Lib/test/test_array.py
 """
@@ -56,11 +56,8 @@ print("\n=== array creation tests ===")
 
 # Create empty arrays with different type codes
 for typecode in ["b", "B", "h", "H", "i", "I", "l", "L", "f", "d"]:
-    try:
-        a = array(typecode)
-        test(f"create empty array({typecode!r})", len(a) == 0)
-    except (ValueError, TypeError) as e:
-        skip(f"create empty array({typecode!r})", f"not supported: {e}")
+    a = array(typecode)
+    test(f"create empty array({typecode!r})", len(a) == 0)
 
 # Create arrays from list
 a = array("i", [1, 2, 3, 4, 5])
@@ -279,23 +276,17 @@ test("in operator false", 99 not in a)
 
 print("\n=== buffer protocol tests ===")
 
-# tobytes/frombytes
+# tobytes
 a = array("i", [1, 2, 3])
-if hasattr(a, "tobytes"):
-    b = a.tobytes()
-    test("tobytes returns bytes", isinstance(b, bytes))
-    test("tobytes length", len(b) == len(a) * a.itemsize)
-else:
-    skip("tobytes", "not supported")
+b = a.tobytes()
+test("tobytes returns bytes", isinstance(b, bytes))
+test("tobytes length", len(b) == len(a) * a.itemsize)
 
 # tolist
 a = array("i", [1, 2, 3])
-if hasattr(a, "tolist"):
-    result = a.tolist()
-    test("tolist", result == [1, 2, 3])
-    test("tolist returns list", isinstance(result, list))
-else:
-    skip("tolist", "not supported")
+result = a.tolist()
+test("tolist", result == [1, 2, 3])
+test("tolist returns list", isinstance(result, list))
 
 
 # ============================================================================

@@ -1,6 +1,6 @@
 """
 Simplified re module tests for ucharm compatibility testing.
-Works on both CPython and micropython-ucharm.
+Works on both CPython and pocketpy-ucharm.
 
 Based on CPython's Lib/test/test_re.py
 """
@@ -32,12 +32,6 @@ def skip(name, reason):
     print(f"  SKIP: {name} ({reason})")
 
 
-# Helper: MicroPython's group() requires an argument
-def get_group(match, n=0):
-    """Get match group, compatible with both CPython and MicroPython"""
-    return match.group(n)
-
-
 # ============================================================================
 # re.match() tests
 # ============================================================================
@@ -47,7 +41,7 @@ print("\n=== re.match() tests ===")
 # Basic match
 m = re.match(r"hello", "hello world")
 test("match basic", m is not None)
-test("match group", get_group(m) == "hello")
+test("match group", m.group(0) == "hello")
 
 # Match at start only
 m = re.match(r"world", "hello world")
@@ -56,9 +50,9 @@ test("match start only", m is None)
 # Match with groups
 m = re.match(r"(\w+) (\w+)", "hello world")
 test("match groups", m is not None)
-test("match group 0", get_group(m, 0) == "hello world")
-test("match group 1", get_group(m, 1) == "hello")
-test("match group 2", get_group(m, 2) == "world")
+test("match group 0", m.group(0) == "hello world")
+test("match group 1", m.group(1) == "hello")
+test("match group 2", m.group(2) == "world")
 
 # No match
 m = re.match(r"xyz", "hello")
@@ -74,21 +68,17 @@ print("\n=== re.search() tests ===")
 # Basic search
 m = re.search(r"world", "hello world")
 test("search basic", m is not None)
-test("search group", get_group(m) == "world")
+test("search group", m.group(0) == "world")
 
 # Search anywhere in string
 m = re.search(r"o", "hello")
 test("search middle", m is not None)
-# start() - test with argument for MicroPython compatibility
-if hasattr(m, "start"):
-    test("search start", m.start(0) == 4)
-else:
-    skip("search start", "start() not available")
+test("search start", m.start(0) == 4)
 
 # Search with groups
 m = re.search(r"(\d+)", "abc 123 def")
 test("search groups", m is not None)
-test("search group 1", get_group(m, 1) == "123")
+test("search group 1", m.group(1) == "123")
 
 # No match
 m = re.search(r"xyz", "hello")
@@ -101,24 +91,21 @@ test("search no match", m is None)
 
 print("\n=== re.findall() tests ===")
 
-if hasattr(re, "findall"):
-    # Find all occurrences
-    result = re.findall(r"\d+", "a1b2c3d4")
-    test("findall basic", result == ["1", "2", "3", "4"])
+# Find all occurrences
+result = re.findall(r"\d+", "a1b2c3d4")
+test("findall basic", result == ["1", "2", "3", "4"])
 
-    # No matches
-    result = re.findall(r"\d+", "no numbers here")
-    test("findall no match", result == [])
+# No matches
+result = re.findall(r"\d+", "no numbers here")
+test("findall no match", result == [])
 
-    # With groups (returns groups)
-    result = re.findall(r"(\w)(\d)", "a1b2c3")
-    test("findall groups", result == [("a", "1"), ("b", "2"), ("c", "3")])
+# With groups (returns groups)
+result = re.findall(r"(\w)(\d)", "a1b2c3")
+test("findall groups", result == [("a", "1"), ("b", "2"), ("c", "3")])
 
-    # Single group (returns list of strings)
-    result = re.findall(r"(\d+)", "a1b22c333")
-    test("findall single group", result == ["1", "22", "333"])
-else:
-    skip("findall tests", "findall not available")
+# Single group (returns list of strings)
+result = re.findall(r"(\d+)", "a1b22c333")
+test("findall single group", result == ["1", "22", "333"])
 
 
 # ============================================================================
@@ -127,39 +114,25 @@ else:
 
 print("\n=== re.sub() tests ===")
 
-if hasattr(re, "sub"):
-    # Basic substitution
-    result = re.sub(r"\d+", "X", "a1b2c3")
-    test("sub basic", result == "aXbXcX")
+# Basic substitution
+result = re.sub(r"\d+", "X", "a1b2c3")
+test("sub basic", result == "aXbXcX")
 
-    # No match - unchanged
-    result = re.sub(r"\d+", "X", "abc")
-    test("sub no match", result == "abc")
+# No match - unchanged
+result = re.sub(r"\d+", "X", "abc")
+test("sub no match", result == "abc")
 
-    # Count argument (may not support kwargs in MicroPython)
-    try:
-        result = re.sub(r"\d+", "X", "a1b2c3", count=2)
-        test("sub count", result == "aXbXc3")
-    except TypeError:
-        # Try positional argument
-        try:
-            result = re.sub(r"\d+", "X", "a1b2c3", 2)
-            test("sub count", result == "aXbXc3")
-        except:
-            skip("sub count", "count parameter not supported")
+# Count argument (use positional arg for pocketpy compatibility)
+result = re.sub(r"\d+", "X", "a1b2c3", 2)
+test("sub count", result == "aXbXc3")
 
-    # Empty replacement
-    result = re.sub(r"\d+", "", "a1b2c3")
-    test("sub empty replacement", result == "abc")
+# Empty replacement
+result = re.sub(r"\d+", "", "a1b2c3")
+test("sub empty replacement", result == "abc")
 
-    # Replace with backreference
-    try:
-        result = re.sub(r"(\w+)", r"[\1]", "hello world")
-        test("sub backreference", result == "[hello] [world]")
-    except:
-        skip("sub backreference", "backreferences not supported")
-else:
-    skip("sub tests", "sub not available")
+# Replace with backreference
+result = re.sub(r"(\w+)", r"[\1]", "hello world")
+test("sub backreference", result == "[hello] [world]")
 
 
 # ============================================================================
@@ -168,31 +141,25 @@ else:
 
 print("\n=== re.split() tests ===")
 
-if hasattr(re, "split"):
-    # Basic split
-    result = re.split(r"\s+", "hello world foo")
-    test("split basic", result == ["hello", "world", "foo"])
+# Basic split
+result = re.split(r"\s+", "hello world foo")
+test("split basic", result == ["hello", "world", "foo"])
 
-    # Split on digits
-    result = re.split(r"\d+", "a1b2c3d")
-    test("split digits", result == ["a", "b", "c", "d"])
+# Split on digits
+result = re.split(r"\d+", "a1b2c3d")
+test("split digits", result == ["a", "b", "c", "d"])
 
-    # No match - single element
-    result = re.split(r"x", "hello")
-    test("split no match", result == ["hello"])
+# No match - single element
+result = re.split(r"x", "hello")
+test("split no match", result == ["hello"])
 
-    # Split with maxsplit (positional arg for MicroPython compatibility)
-    try:
-        result = re.split(r"\s+", "a b c d", maxsplit=2)
-    except TypeError:
-        result = re.split(r"\s+", "a b c d", 2)
-    test("split maxsplit", result == ["a", "b", "c d"])
+# Split with maxsplit (use positional arg for pocketpy compatibility)
+result = re.split(r"\s+", "a b c d", 2)
+test("split maxsplit", result == ["a", "b", "c d"])
 
-    # Empty string
-    result = re.split(r"\s+", "")
-    test("split empty", result == [""])
-else:
-    skip("split tests", "split not available")
+# Empty string
+result = re.split(r"\s+", "")
+test("split empty", result == [""])
 
 
 # ============================================================================
@@ -205,35 +172,28 @@ print("\n=== re.compile() tests ===")
 pattern = re.compile(r"\d+")
 test("compile returns pattern", pattern is not None)
 
-# Use compiled pattern - MicroPython's compiled pattern behaves differently
-# Check if pattern has match method or if we use re.match with pattern
-if hasattr(pattern, "match"):
-    try:
-        m = pattern.match("123abc")
-        test("compile match", m is not None and get_group(m, 0) == "123")
-    except TypeError:
-        # MicroPython pattern.match might require different args
-        skip("compile match", "compiled pattern match not compatible")
-else:
-    skip("compile match", "compiled pattern has no match method")
+# Use compiled pattern
+m = pattern.match("123abc")
+test("compile match", m is not None and m.group(0) == "123")
 
-if hasattr(pattern, "search"):
-    try:
-        m = pattern.search("abc123def")
-        test("compile search", m is not None and get_group(m, 0) == "123")
-    except TypeError:
-        skip("compile search", "compiled pattern search not compatible")
-else:
-    skip("compile search", "compiled pattern has no search method")
+m = pattern.search("abc123def")
+test("compile search", m is not None and m.group(0) == "123")
 
-if hasattr(pattern, "findall"):
-    try:
-        result = pattern.findall("a1b2c3")
-        test("compile findall", result == ["1", "2", "3"])
-    except:
-        skip("compile findall", "compiled pattern findall not compatible")
+result = pattern.findall("a1b2c3")
+test("compile findall", result == ["1", "2", "3"])
+
+# Pattern.sub and Pattern.split - check if available
+if hasattr(pattern, "sub"):
+    result = pattern.sub("X", "a1b2c3")
+    test("compile sub", result == "aXbXcX")
 else:
-    skip("compile findall", "not available")
+    skip("compile sub", "Pattern.sub not available in pocketpy")
+
+if hasattr(pattern, "split"):
+    result = pattern.split("a1b2c3d")
+    test("compile split", result == ["a", "b", "c", "d"])
+else:
+    skip("compile split", "Pattern.split not available in pocketpy")
 
 
 # ============================================================================
@@ -244,39 +204,26 @@ print("\n=== Match object tests ===")
 
 m = re.match(r"(\w+) (\w+)", "hello world extra")
 
-# group() - MicroPython requires argument
-test("match.group(0)", get_group(m, 0) == "hello world")
-test("match.group(1)", get_group(m, 1) == "hello")
-test("match.group(2)", get_group(m, 2) == "world")
+# group()
+test("match.group(0)", m.group(0) == "hello world")
+test("match.group(1)", m.group(1) == "hello")
+test("match.group(2)", m.group(2) == "world")
 
-# group() without argument (CPython only)
-try:
-    result = m.group()
-    test("match.group()", result == "hello world")
-except TypeError:
-    skip("match.group()", "requires argument in MicroPython")
+# group() without argument
+test("match.group()", m.group() == "hello world")
 
 # groups()
-if hasattr(m, "groups"):
-    test("match.groups()", m.groups() == ("hello", "world"))
-else:
-    skip("match.groups()", "not available")
+test("match.groups()", m.groups() == ("hello", "world"))
 
-# start() and end() - MicroPython requires argument
-if hasattr(m, "start") and hasattr(m, "end"):
-    test("match.start()", m.start(0) == 0)
-    test("match.end()", m.end(0) == 11)
-    test("match.start(1)", m.start(1) == 0)
-    test("match.end(1)", m.end(1) == 5)
-else:
-    skip("match.start/end", "not available")
+# start() and end()
+test("match.start()", m.start(0) == 0)
+test("match.end()", m.end(0) == 11)
+test("match.start(1)", m.start(1) == 0)
+test("match.end(1)", m.end(1) == 5)
 
-# span() - MicroPython requires argument
-if hasattr(m, "span"):
-    test("match.span()", m.span(0) == (0, 11))
-    test("match.span(1)", m.span(1) == (0, 5))
-else:
-    skip("match.span", "not available")
+# span()
+test("match.span()", m.span(0) == (0, 11))
+test("match.span(1)", m.span(1) == (0, 5))
 
 
 # ============================================================================
@@ -334,13 +281,9 @@ test("? matches zero", re.match(r"ab?c", "ac") is not None)
 test("? matches one", re.match(r"ab?c", "abc") is not None)
 test("? no match many", re.match(r"ab?c$", "abbc") is None)
 
-# {n} - exactly n (not supported in MicroPython)
-m = re.match(r"ab{2}c", "abbc")
-if m is not None:
-    test("{2} matches", True)
-    test("{2} no match", re.match(r"ab{2}c", "abc") is None)
-else:
-    skip("{n} quantifier", "not supported in MicroPython")
+# {n} - exactly n
+test("{2} matches", re.match(r"ab{2}c", "abbc") is not None)
+test("{2} no match", re.match(r"ab{2}c", "abc") is None)
 
 
 # ============================================================================

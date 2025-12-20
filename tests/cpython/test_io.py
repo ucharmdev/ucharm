@@ -1,6 +1,6 @@
 """
 Simplified io module tests for ucharm compatibility testing.
-Works on both CPython and micropython-ucharm.
+Works on both CPython and pocketpy-ucharm.
 
 Based on CPython's Lib/test/test_io.py
 """
@@ -104,64 +104,61 @@ test("BytesIO closed", b.closed)
 
 print("\n=== io.StringIO tests ===")
 
-if hasattr(io, "StringIO"):
-    # Create empty StringIO
-    s = io.StringIO()
-    test("StringIO empty", s.getvalue() == "")
+# Create empty StringIO
+s = io.StringIO()
+test("StringIO empty", s.getvalue() == "")
 
-    # Create with initial data
-    s = io.StringIO("hello")
-    test("StringIO initial data", s.getvalue() == "hello")
+# Create with initial data
+s = io.StringIO("hello")
+test("StringIO initial data", s.getvalue() == "hello")
 
-    # Write to StringIO
-    s = io.StringIO()
-    s.write("hello")
-    test("StringIO write", s.getvalue() == "hello")
+# Write to StringIO
+s = io.StringIO()
+s.write("hello")
+test("StringIO write", s.getvalue() == "hello")
 
-    # Multiple writes
-    s = io.StringIO()
-    s.write("hel")
-    s.write("lo")
-    test("StringIO multiple writes", s.getvalue() == "hello")
+# Multiple writes
+s = io.StringIO()
+s.write("hel")
+s.write("lo")
+test("StringIO multiple writes", s.getvalue() == "hello")
 
-    # Read from StringIO
-    s = io.StringIO("hello")
-    test("StringIO read all", s.read() == "hello")
+# Read from StringIO
+s = io.StringIO("hello")
+test("StringIO read all", s.read() == "hello")
 
-    s = io.StringIO("hello")
-    test("StringIO read partial", s.read(3) == "hel")
-    test("StringIO read rest", s.read() == "lo")
+s = io.StringIO("hello")
+test("StringIO read partial", s.read(3) == "hel")
+test("StringIO read rest", s.read() == "lo")
 
-    # Seek and tell
-    s = io.StringIO("hello")
-    test("StringIO tell start", s.tell() == 0)
-    s.read(2)
-    test("StringIO tell after read", s.tell() == 2)
-    s.seek(0)
-    test("StringIO seek start", s.tell() == 0)
+# Seek and tell
+s = io.StringIO("hello")
+test("StringIO tell start", s.tell() == 0)
+s.read(2)
+test("StringIO tell after read", s.tell() == 2)
+s.seek(0)
+test("StringIO seek start", s.tell() == 0)
 
-    # readline
-    s = io.StringIO("line1\nline2\nline3")
-    test("StringIO readline 1", s.readline() == "line1\n")
-    test("StringIO readline 2", s.readline() == "line2\n")
-    test("StringIO readline 3", s.readline() == "line3")
+# readline
+s = io.StringIO("line1\nline2\nline3")
+test("StringIO readline 1", s.readline() == "line1\n")
+test("StringIO readline 2", s.readline() == "line2\n")
+test("StringIO readline 3", s.readline() == "line3")
 
-    # readlines
-    s = io.StringIO("line1\nline2\nline3")
-    lines = s.readlines()
-    test("StringIO readlines", lines == ["line1\n", "line2\n", "line3"])
+# readlines
+s = io.StringIO("line1\nline2\nline3")
+lines = s.readlines()
+test("StringIO readlines", lines == ["line1\n", "line2\n", "line3"])
 
-    # writelines
-    s = io.StringIO()
-    s.writelines(["line1\n", "line2\n", "line3"])
-    test("StringIO writelines", s.getvalue() == "line1\nline2\nline3")
+# writelines
+s = io.StringIO()
+s.writelines(["line1\n", "line2\n", "line3"])
+test("StringIO writelines", s.getvalue() == "line1\nline2\nline3")
 
-    # Close
-    s = io.StringIO("hello")
-    s.close()
-    test("StringIO closed", s.closed)
-else:
-    skip("StringIO tests", "StringIO not available")
+# Close
+s = io.StringIO("hello")
+s.close()
+test("StringIO closed", s.closed)
 
 
 # ============================================================================
@@ -213,12 +210,11 @@ with io.BytesIO(b"hello") as b:
 test("BytesIO context manager read", data == b"hello")
 test("BytesIO context manager closed", b.closed)
 
-if hasattr(io, "StringIO"):
-    # StringIO as context manager
-    with io.StringIO("hello") as s:
-        data = s.read()
-    test("StringIO context manager read", data == "hello")
-    test("StringIO context manager closed", s.closed)
+# StringIO as context manager
+with io.StringIO("hello") as s:
+    data = s.read()
+test("StringIO context manager read", data == "hello")
+test("StringIO context manager closed", s.closed)
 
 
 # ============================================================================

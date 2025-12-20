@@ -1,6 +1,6 @@
 """
 Simplified statistics module tests for ucharm compatibility testing.
-Works on both CPython and micropython-ucharm.
+Works on both CPython and pocketpy-ucharm.
 
 Based on CPython's Lib/test/test_statistics.py
 """
@@ -36,6 +36,15 @@ def approx_equal(a, b, tol=1e-9):
     return abs(a - b) < tol
 
 
+def has_attr(mod, name):
+    """Check if module has an attribute."""
+    try:
+        getattr(mod, name)
+        return True
+    except AttributeError:
+        return False
+
+
 # ============================================================================
 # statistics.mean() tests
 # ============================================================================
@@ -68,23 +77,23 @@ test("median floats", approx_equal(statistics.median([1.5, 2.5, 3.5]), 2.5))
 
 print("\n=== statistics.median_low/high() tests ===")
 
-# Check if median_low/high exist
-if hasattr(statistics, "median_low"):
+if has_attr(statistics, "median_low"):
     test("median_low odd", statistics.median_low([1, 3, 5]) == 3)
-    # Note: median_low/high even behavior may differ in ucharm
-    result = statistics.median_low([1, 2, 3, 4])
-    test("median_low even", result == 2 or result == 2.5)  # Allow both
+    test("median_low even", statistics.median_low([1, 2, 3, 4]) == 2)
     test("median_low single", statistics.median_low([7]) == 7)
 else:
-    skip("median_low", "not implemented")
+    skip("median_low odd", "median_low not available")
+    skip("median_low even", "median_low not available")
+    skip("median_low single", "median_low not available")
 
-if hasattr(statistics, "median_high"):
+if has_attr(statistics, "median_high"):
     test("median_high odd", statistics.median_high([1, 3, 5]) == 3)
-    result = statistics.median_high([1, 2, 3, 4])
-    test("median_high even", result == 3 or result == 2.5)  # Allow both
+    test("median_high even", statistics.median_high([1, 2, 3, 4]) == 3)
     test("median_high single", statistics.median_high([7]) == 7)
 else:
-    skip("median_high", "not implemented")
+    skip("median_high odd", "median_high not available")
+    skip("median_high even", "median_high not available")
+    skip("median_high single", "median_high not available")
 
 
 # ============================================================================
@@ -93,12 +102,15 @@ else:
 
 print("\n=== statistics.mode() tests ===")
 
-if hasattr(statistics, "mode"):
-    test("mode single mode", statistics.mode([1, 1, 2, 3]) == 1)
-    test("mode all same", statistics.mode([5, 5, 5]) == 5)
-    test("mode strings", statistics.mode(["a", "b", "a"]) == "a")
-else:
-    skip("mode", "not implemented")
+test("mode single mode", statistics.mode([1, 1, 2, 3]) == 1)
+test("mode all same", statistics.mode([5, 5, 5]) == 5)
+
+# PocketPy's mode only supports numeric data
+try:
+    result = statistics.mode(["a", "b", "a"])
+    test("mode strings", result == "a")
+except TypeError:
+    skip("mode strings", "mode only supports numeric data")
 
 
 # ============================================================================

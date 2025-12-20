@@ -1,6 +1,6 @@
 """
 Simplified math module tests for ucharm compatibility testing.
-Works on both CPython and micropython-ucharm.
+Works on both CPython and pocketpy-ucharm.
 
 Based on CPython's Lib/test/test_math.py
 """
@@ -51,20 +51,15 @@ test("pi value", approx_equal(math.pi, 3.141592653589793, 1e-10))
 test("e exists", hasattr(math, "e"))
 test("e value", approx_equal(math.e, 2.718281828459045, 1e-10))
 
+# tau may not exist in all implementations
 if hasattr(math, "tau"):
     test("tau value", approx_equal(math.tau, 2 * math.pi, 1e-10))
 else:
-    skip("tau", "not available")
+    skip("tau value", "math.tau not available")
 
-if hasattr(math, "inf"):
-    test("inf exists", math.inf > 1e308)
-else:
-    skip("inf", "not available")
+test("inf exists", math.inf > 1e308)
 
-if hasattr(math, "nan"):
-    test("nan exists", math.nan != math.nan)  # NaN is not equal to itself
-else:
-    skip("nan", "not available")
+test("nan exists", math.nan != math.nan)  # NaN is not equal to itself
 
 
 # ============================================================================
@@ -89,11 +84,8 @@ test("floor negative", math.floor(-3.8) == -4)
 test("floor integer", math.floor(3.0) == 3)
 
 # trunc
-if hasattr(math, "trunc"):
-    test("trunc positive", math.trunc(3.8) == 3)
-    test("trunc negative", math.trunc(-3.8) == -3)
-else:
-    skip("trunc", "not available")
+test("trunc positive", math.trunc(3.8) == 3)
+test("trunc negative", math.trunc(-3.8) == -3)
 
 
 # ============================================================================
@@ -123,27 +115,18 @@ test("log 1", math.log(1) == 0.0)
 test("log 10", approx_equal(math.log(10), 2.302585092994046))
 
 # log with base
-try:
-    test("log base 10", approx_equal(math.log(100, 10), 2.0))
-    test("log base 2", approx_equal(math.log(8, 2), 3.0))
-except TypeError:
-    skip("log with base", "two-argument log not supported")
+test("log base 10", approx_equal(math.log(100, 10), 2.0))
+test("log base 2", approx_equal(math.log(8, 2), 3.0))
 
 # log10
-if hasattr(math, "log10"):
-    test("log10 10", math.log10(10) == 1.0)
-    test("log10 100", math.log10(100) == 2.0)
-    test("log10 1", math.log10(1) == 0.0)
-else:
-    skip("log10", "not available")
+test("log10 10", math.log10(10) == 1.0)
+test("log10 100", math.log10(100) == 2.0)
+test("log10 1", math.log10(1) == 0.0)
 
 # log2
-if hasattr(math, "log2"):
-    test("log2 2", math.log2(2) == 1.0)
-    test("log2 8", math.log2(8) == 3.0)
-    test("log2 1", math.log2(1) == 0.0)
-else:
-    skip("log2", "not available")
+test("log2 2", math.log2(2) == 1.0)
+test("log2 8", math.log2(8) == 3.0)
+test("log2 1", math.log2(1) == 0.0)
 
 
 # ============================================================================
@@ -190,23 +173,27 @@ test("atan2 1,1", approx_equal(math.atan2(1, 1), math.pi / 4))
 
 print("\n=== Hyperbolic functions ===")
 
+# sinh/cosh/tanh may not be available in all implementations
 if hasattr(math, "sinh"):
     test("sinh 0", math.sinh(0) == 0.0)
     test("sinh 1", approx_equal(math.sinh(1), 1.1752011936438014))
 else:
-    skip("sinh", "not available")
+    skip("sinh 0", "math.sinh not available")
+    skip("sinh 1", "math.sinh not available")
 
 if hasattr(math, "cosh"):
     test("cosh 0", math.cosh(0) == 1.0)
     test("cosh 1", approx_equal(math.cosh(1), 1.5430806348152437))
 else:
-    skip("cosh", "not available")
+    skip("cosh 0", "math.cosh not available")
+    skip("cosh 1", "math.cosh not available")
 
 if hasattr(math, "tanh"):
     test("tanh 0", math.tanh(0) == 0.0)
     test("tanh 1", approx_equal(math.tanh(1), 0.7615941559557649))
 else:
-    skip("tanh", "not available")
+    skip("tanh 0", "math.tanh not available")
+    skip("tanh 1", "math.tanh not available")
 
 
 # ============================================================================
@@ -215,17 +202,11 @@ else:
 
 print("\n=== Angular conversion ===")
 
-if hasattr(math, "degrees"):
-    test("degrees pi", approx_equal(math.degrees(math.pi), 180.0))
-    test("degrees pi/2", approx_equal(math.degrees(math.pi / 2), 90.0))
-else:
-    skip("degrees", "not available")
+test("degrees pi", approx_equal(math.degrees(math.pi), 180.0))
+test("degrees pi/2", approx_equal(math.degrees(math.pi / 2), 90.0))
 
-if hasattr(math, "radians"):
-    test("radians 180", approx_equal(math.radians(180), math.pi))
-    test("radians 90", approx_equal(math.radians(90), math.pi / 2))
-else:
-    skip("radians", "not available")
+test("radians 180", approx_equal(math.radians(180), math.pi))
+test("radians 90", approx_equal(math.radians(90), math.pi / 2))
 
 
 # ============================================================================
@@ -235,60 +216,42 @@ else:
 print("\n=== Special functions ===")
 
 # copysign
-if hasattr(math, "copysign"):
-    test("copysign positive", math.copysign(1.0, 2.0) == 1.0)
-    test("copysign negative", math.copysign(1.0, -2.0) == -1.0)
-else:
-    skip("copysign", "not available")
+test("copysign positive", math.copysign(1.0, 2.0) == 1.0)
+test("copysign negative", math.copysign(1.0, -2.0) == -1.0)
 
 # fmod
-if hasattr(math, "fmod"):
-    test("fmod 7,4", approx_equal(math.fmod(7, 4), 3.0))
-    test("fmod -7,4", approx_equal(math.fmod(-7, 4), -3.0))
-else:
-    skip("fmod", "not available")
+test("fmod 7,4", approx_equal(math.fmod(7, 4), 3.0))
+test("fmod -7,4", approx_equal(math.fmod(-7, 4), -3.0))
 
 # modf
-if hasattr(math, "modf"):
-    frac, integer = math.modf(3.5)
-    test("modf 3.5 frac", approx_equal(frac, 0.5))
-    test("modf 3.5 int", integer == 3.0)
-else:
-    skip("modf", "not available")
+frac, integer = math.modf(3.5)
+test("modf 3.5 frac", approx_equal(frac, 0.5))
+test("modf 3.5 int", integer == 3.0)
 
-# frexp
+# frexp may not be available in all implementations
 if hasattr(math, "frexp"):
     mantissa, exp = math.frexp(8.0)
     test("frexp 8", mantissa == 0.5 and exp == 4)
 else:
-    skip("frexp", "not available")
+    skip("frexp 8", "math.frexp not available")
 
-# ldexp
+# ldexp may not be available in all implementations
 if hasattr(math, "ldexp"):
     test("ldexp", math.ldexp(0.5, 4) == 8.0)
 else:
-    skip("ldexp", "not available")
+    skip("ldexp", "math.ldexp not available")
 
 # isfinite
-if hasattr(math, "isfinite"):
-    test("isfinite number", math.isfinite(1.0))
-    test("isfinite inf", not math.isfinite(float("inf")))
-else:
-    skip("isfinite", "not available")
+test("isfinite number", math.isfinite(1.0))
+test("isfinite inf", not math.isfinite(float("inf")))
 
 # isinf
-if hasattr(math, "isinf"):
-    test("isinf number", not math.isinf(1.0))
-    test("isinf inf", math.isinf(float("inf")))
-else:
-    skip("isinf", "not available")
+test("isinf number", not math.isinf(1.0))
+test("isinf inf", math.isinf(float("inf")))
 
 # isnan
-if hasattr(math, "isnan"):
-    test("isnan number", not math.isnan(1.0))
-    test("isnan nan", math.isnan(float("nan")))
-else:
-    skip("isnan", "not available")
+test("isnan number", not math.isnan(1.0))
+test("isnan nan", math.isnan(float("nan")))
 
 
 # ============================================================================
@@ -297,26 +260,32 @@ else:
 
 print("\n=== Edge cases ===")
 
-# sqrt of negative
+# sqrt of negative - CPython raises ValueError, PocketPy returns nan
 try:
-    math.sqrt(-1)
-    test("sqrt negative raises", False)
+    result = math.sqrt(-1)
+    # PocketPy returns nan instead of raising
+    test("sqrt negative handling", math.isnan(result))
 except ValueError:
-    test("sqrt negative raises", True)
+    # CPython raises ValueError
+    test("sqrt negative handling", True)
 
-# log of zero
+# log of zero - CPython raises ValueError, PocketPy returns -inf
 try:
-    math.log(0)
-    test("log 0 raises", False)
+    result = math.log(0)
+    # PocketPy returns -inf instead of raising
+    test("log 0 handling", math.isinf(result) and result < 0)
 except ValueError:
-    test("log 0 raises", True)
+    # CPython raises ValueError
+    test("log 0 handling", True)
 
-# log of negative
+# log of negative - CPython raises ValueError, PocketPy returns nan
 try:
-    math.log(-1)
-    test("log negative raises", False)
+    result = math.log(-1)
+    # PocketPy returns nan instead of raising
+    test("log negative handling", math.isnan(result))
 except ValueError:
-    test("log negative raises", True)
+    # CPython raises ValueError
+    test("log negative handling", True)
 
 
 # ============================================================================

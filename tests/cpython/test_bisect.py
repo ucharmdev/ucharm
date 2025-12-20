@@ -1,6 +1,6 @@
 """
 Simplified bisect module tests for ucharm compatibility testing.
-Works on both CPython and micropython-ucharm.
+Works on both CPython and pocketpy-ucharm.
 
 Based on CPython's Lib/test/test_bisect.py
 """
@@ -221,33 +221,29 @@ test("insort_right with hi", a == [1, 2, 3, 5, 4, 5, 6, 7, 8, 9, 10])
 
 print("\n=== key function tests ===")
 
-try:
-    # Test with key function - find by second element of tuple
-    a = [(1, "a"), (2, "b"), (3, "c"), (4, "d")]
+# Test with key function - find by second element of tuple
+a = [(1, "a"), (2, "b"), (3, "c"), (4, "d")]
 
-    # Using key to compare by first element
-    idx = bisect.bisect_left(a, (2.5, "x"), key=lambda x: x[0])
-    test("bisect_left with key", idx == 2)
+# Using key to compare by first element
+idx = bisect.bisect_left(a, (2.5, "x"), key=lambda x: x[0])
+test("bisect_left with key", idx == 2)
 
-    idx = bisect.bisect_right(a, (2, "x"), key=lambda x: x[0])
-    test("bisect_right with key", idx == 2)
+idx = bisect.bisect_right(a, (2, "x"), key=lambda x: x[0])
+test("bisect_right with key", idx == 2)
 
-    # Insort with key
-    a = [(1, "a"), (3, "c"), (5, "e")]
-    bisect.insort_left(a, (2, "b"), key=lambda x: x[0])
-    test("insort_left with key", a == [(1, "a"), (2, "b"), (3, "c"), (5, "e")])
+# Insort with key
+a = [(1, "a"), (3, "c"), (5, "e")]
+bisect.insort_left(a, (2, "b"), key=lambda x: x[0])
+test("insort_left with key", a == [(1, "a"), (2, "b"), (3, "c"), (5, "e")])
 
-    a = [(1, "a"), (3, "c"), (5, "e")]
-    bisect.insort_right(a, (4, "d"), key=lambda x: x[0])
-    test("insort_right with key", a == [(1, "a"), (3, "c"), (4, "d"), (5, "e")])
+a = [(1, "a"), (3, "c"), (5, "e")]
+bisect.insort_right(a, (4, "d"), key=lambda x: x[0])
+test("insort_right with key", a == [(1, "a"), (3, "c"), (4, "d"), (5, "e")])
 
-    # Test with negative key
-    a = [5, 4, 3, 2, 1]  # Sorted in reverse when negated
-    idx = bisect.bisect_left(a, 3, key=lambda x: -x)
-    test("bisect_left reverse key", idx == 2)
-
-except (TypeError, AttributeError) as e:
-    skip("key function tests", f"key parameter not supported: {e}")
+# Test with negative key
+a = [5, 4, 3, 2, 1]  # Sorted in reverse when negated
+idx = bisect.bisect_left(a, 3, key=lambda x: -x)
+test("bisect_left reverse key", idx == 2)
 
 
 # ============================================================================
