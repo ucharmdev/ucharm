@@ -1,0 +1,212 @@
+# ucharm Vision
+
+This document captures the product vision, the CLI experience we want, and the
+minimum module surface needed to make ucharm a great choice for shipping CLI
+apps as tiny, fast, standalone binaries.
+
+## Vision
+
+ucharm makes it easy to build great command-line apps with Python syntax and
+ship them as single-file binaries that start instantly and work anywhere.
+
+We will not chase full CPython or pip compatibility. The goal is a focused,
+curated runtime optimized for CLI applications: beautiful output, solid IO,
+predictable packaging, and fast startup.
+
+## What It Should Feel Like
+
+- A Pythonic developer experience with very low friction.
+- Tiny binaries with instant startup and no external runtime dependencies.
+- Clean, beautiful output by default (tables, progress, prompts).
+- Reliable scripting primitives (files, subprocess, paths, env).
+- Clear limitations and a predictable compatibility story.
+
+## Example CLIs (what "nice" looks like)
+
+### Simple status + table
+
+```python
+import charm
+import subprocess
+
+charm.box("Deploying build...", title="Release", border="rounded")
+result = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True)
+commit = result["stdout"].decode().strip()
+charm.success(f"Built commit {commit}")
+
+charm.table(
+    [
+        ["Artifact", "Size", "Time"],
+        ["app-linux", "900KB", "6ms"],
+        ["app-macos", "910KB", "7ms"],
+    ],
+    headers=True,
+)
+```
+
+### Interactive flow
+
+```python
+import input
+import charm
+
+charm.rule("Project Setup")
+name = input.prompt("Project name:")
+features = input.multiselect("Select features:", ["Logging", "HTTP", "Config"])
+if input.confirm("Create project now?", default=True):
+    charm.success(f"Created {name} with {len(features)} features")
+else:
+    charm.warning("Canceled")
+```
+
+### Progress + subprocess
+
+```python
+import charm
+import subprocess
+
+charm.progress(0, 100, label="Uploading")
+result = subprocess.run(["/usr/bin/scp", "dist/app", "prod:/apps/"], capture_output=True)
+if result["returncode"] == 0:
+    charm.success("Upload complete")
+else:
+    charm.error("Upload failed")
+```
+
+## Example Output (what it should look like)
+
+```
+╭─ Release ─────────────────────────────╮
+│ Deploying build...                    │
+╰───────────────────────────────────────╯
+✓ Built commit a1b2c3d
+
+┌───────────┬───────┬──────┐
+│ Artifact  │ Size  │ Time │
+├───────────┼───────┼──────┤
+│ app-linux │ 900KB │ 6ms  │
+│ app-macos │ 910KB │ 7ms  │
+└───────────┴───────┴──────┘
+```
+
+```
+? Project name: fastship
+? Select features:  ◉ Logging  ◉ HTTP  ○ Config
+? Create project now? (Y/n) y
+✓ Created fastship with 2 features
+```
+
+```
+Uploading  [███████████░░░░░░] 68%  3.2s
+```
+
+## Gold Set (must be great for CLI apps)
+
+### Core CLI APIs
+
+- argument parsing and help output
+- subcommands and groups
+- shell completion generation
+- config loading (ini/toml at minimum)
+- logging with levels and formatting
+- robust subprocess API
+- structured output: tables, boxes, progress, spinners
+
+### Runtime Guarantees
+
+- fast startup (< 10 ms)
+- small binaries (< 2MB range)
+- predictable behavior across macOS and Linux
+- clear error messages and exit codes
+
+## Standard Library Support (tiered)
+
+### Essential
+
+These are required for real-world CLI usage and should be high parity.
+
+- argparse
+- os, sys, time
+- pathlib, glob, fnmatch
+- subprocess, signal
+- json, csv
+- logging
+- datetime
+- textwrap
+- tempfile, shutil
+- re
+- hashlib (subset OK, but stable)
+
+### Good to have
+
+These unlock common workflows and popular CLI libraries.
+
+- configparser
+- enum
+- uuid
+- urllib.parse
+- contextlib
+- typing (runtime stubs)
+- statistics, functools, itertools, heapq
+
+### Nice to have
+
+Useful for some apps but not required for most CLIs.
+
+- toml
+- http.client (or a small fetch module)
+- gzip, zipfile, tarfile
+- secrets, hmac
+- dataclasses
+- xml.etree
+
+### Probably will not need
+
+Low value for typical CLI apps or too heavy to justify.
+
+- sqlite3 (large)
+- multiprocessing
+- decimal, fractions
+- tkinter, curses
+- site, venv, distutils
+
+## Positioning
+
+ucharm is for CLI tools that want:
+
+- Python ergonomics
+- small, portable binaries
+- fast startup
+- beautiful terminal UX
+
+It is not a drop-in replacement for CPython or pip.
+
+## Success Metrics
+
+- "hello world" binary < 2MB and starts in <= 10ms on macOS and Linux.
+- 90%+ parity for essential modules listed above.
+- polished UX for prompts, tables, progress, and error output.
+- at least one production-grade sample CLI app in the repo.
+
+## Runtime Decision (PocketPy)
+
+We are choosing PocketPy as the runtime base for ucharm.
+
+Why:
+- Velocity: in ~2 hours we reached 18/18 Vision tests and ~89% pass rate (1,288/1,445) on the CPython compatibility suite for targeted modules; MicroPython took multiple days for less coverage.
+- Extension workflow: PocketPy is easier to extend in Zig without macro-heavy friction, so missing modules are faster to implement and maintain.
+- Product fit: binaries remain small (sub‑1MB in current builds) with startup ~2ms; this fits the <10ms startup target and keeps headroom for curated stdlib.
+
+Decision implications:
+- Continue investing in Zig-native modules on PocketPy.
+- Keep MicroPython as a reference baseline, not the primary runtime.
+
+## Reference TUI Tooling (inspiration)
+
+- Bubble Tea (Go): https://github.com/charmbracelet/bubbletea
+- Bubbles (Go components): https://github.com/charmbracelet/bubbles
+- Lip Gloss (Go styling): https://github.com/charmbracelet/lipgloss
+- Rich (Python formatting): https://github.com/Textualize/rich
+- Typer (Python CLI DX): https://github.com/tiangolo/typer
+- Click (Python CLI): https://github.com/pallets/click
+- Ratatui (Rust TUI): https://github.com/ratatui/ratatui
