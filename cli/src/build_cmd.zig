@@ -16,8 +16,9 @@ const stub_linux_x86_64 = @embedFile("stubs/loader-linux-x86_64");
 const stub_linux_aarch64 = @embedFile("stubs/loader-linux-aarch64");
 
 // Embedded pocketpy-ucharm binaries (contains all native modules)
-// Note: Only the host platform binary is embedded. Cross-compilation requires
-// the target platform's pocketpy binary to be available in ~/.ucharm/runtimes/
+// Note: Only the host platform binary is embedded by default. For other targets,
+// ucharm will use a cached runtime in ~/.ucharm/runtimes/, download it from a
+// release, or (when running from a source checkout) build it locally via `zig`.
 const pocketpy_macos_aarch64 = @embedFile("stubs/pocketpy-ucharm-macos-aarch64");
 
 // Trailer format constants (must match loader/src/trailer.zig)
@@ -502,6 +503,12 @@ fn getRuntimeBinary(allocator: Allocator, target: Target) !RuntimeBinary {
     const version_path = try std.fmt.allocPrint(allocator, "{s}.version", .{runtime_path});
     defer allocator.free(version_path);
 
+    // Development-friendly fallback: if we're in a source checkout with PocketPy,
+    // build the runtime for the target on-demand instead of downloading.
+    if (runtimeExists(runtime_path) == false and pocketpySourceAvailable()) {
+        return buildRuntimeLocally(allocator, target, runtime_dir, runtime_path, version_path);
+    }
+
     // Try to open existing runtime
     const file = fs.cwd().openFile(runtime_path, .{}) catch |err| {
         if (err == error.FileNotFound) {
@@ -513,16 +520,25 @@ fn getRuntimeBinary(allocator: Allocator, target: Target) !RuntimeBinary {
     defer file.close();
 
     // Check version
-    const cached_version = readVersionFile(version_path);
+    const cached_version = readVersionFile(allocator, version_path);
+    defer if (cached_version) |v| allocator.free(v);
     if (cached_version) |ver| {
         if (!std.mem.eql(u8, ver, VERSION)) {
             // Version mismatch - offer to update
             io.print(style.warning ++ "!" ++ style.reset ++ " Cached runtime for " ++ style.bold ++ "{s}" ++ style.reset ++ " is version " ++ style.dim ++ "{s}" ++ style.reset ++ ", CLI is " ++ style.dim ++ "{s}" ++ style.reset ++ "\n", .{ target.name(), ver, VERSION });
+
+            if (pocketpySourceAvailable()) {
+                return buildRuntimeLocally(allocator, target, runtime_dir, runtime_path, version_path);
+            }
+
             return downloadRuntime(allocator, target, runtime_dir, runtime_path, version_path, true);
         }
     } else {
         // No version file - offer to re-download to get proper versioning
         io.print(style.warning ++ "!" ++ style.reset ++ " Cached runtime for " ++ style.bold ++ "{s}" ++ style.reset ++ " has no version info\n", .{target.name()});
+        if (pocketpySourceAvailable()) {
+            return buildRuntimeLocally(allocator, target, runtime_dir, runtime_path, version_path);
+        }
         return downloadRuntime(allocator, target, runtime_dir, runtime_path, version_path, true);
     }
 
@@ -536,26 +552,29 @@ fn getRuntimeBinary(allocator: Allocator, target: Target) !RuntimeBinary {
     return .{ .data = data, .allocated = true };
 }
 
-fn readVersionFile(path: []const u8) ?[]const u8 {
+fn readVersionFile(allocator: Allocator, path: []const u8) ?[]u8 {
     const file = fs.cwd().openFile(path, .{}) catch return null;
     defer file.close();
 
-    var buf: [32]u8 = undefined;
+    var buf: [64]u8 = undefined;
     const n = file.readAll(&buf) catch return null;
     if (n == 0) return null;
 
-    // Trim whitespace
     const content = std.mem.trim(u8, buf[0..n], " \t\n\r");
     if (content.len == 0) return null;
 
-    // Return static slice (safe because buf is on stack but we only use it for comparison)
-    return content;
+    const out = allocator.alloc(u8, content.len) catch return null;
+    @memcpy(out, content);
+    return out;
 }
 
 fn downloadRuntime(allocator: Allocator, target: Target, runtime_dir: []const u8, runtime_path: []const u8, version_path: []const u8, is_update: bool) !RuntimeBinary {
     // Use version-specific URL to ensure we get the matching runtime
     const download_url = try std.fmt.allocPrint(allocator, "https://github.com/ucharmdev/ucharm/releases/download/v{s}/{s}", .{ VERSION, target.runtimeFilename() });
     defer allocator.free(download_url);
+
+    const checksum_url = try std.fmt.allocPrint(allocator, "{s}.sha256", .{download_url});
+    defer allocator.free(checksum_url);
 
     if (is_update) {
         io.print("  Update to version " ++ style.bold ++ "{s}" ++ style.reset ++ "? " ++ style.dim ++ "(~850KB)" ++ style.reset ++ " [Y/n] ", .{VERSION});
@@ -590,6 +609,14 @@ fn downloadRuntime(allocator: Allocator, target: Target, runtime_dir: []const u8
         std.process.exit(1);
     };
 
+    // Fetch expected sha256 for integrity verification.
+    const expected_sha256 = downloadAndParseSha256(allocator, checksum_url) catch |err| {
+        io.eprint(style.err_prefix ++ " Failed to fetch runtime checksum: {}\n", .{err});
+        io.eprint(style.dim ++ "Expected checksum asset: {s}\n" ++ style.reset, .{checksum_url});
+        std.process.exit(1);
+    };
+    defer allocator.free(expected_sha256);
+
     // Download using curl (available on macOS and most Linux)
     io.print(style.dim ++ "  Downloading..." ++ style.reset, .{});
 
@@ -617,12 +644,24 @@ fn downloadRuntime(allocator: Allocator, target: Target, runtime_dir: []const u8
     };
 
     if (result.Exited != 0) {
+        if (pocketpySourceAvailable()) {
+            io.eprint("\n" ++ style.warning ++ "!" ++ style.reset ++ " Download failed; building PocketPy runtime locally instead.\n", .{});
+            return buildRuntimeLocally(allocator, target, runtime_dir, runtime_path, version_path);
+        }
         io.eprint("\n" ++ style.err_prefix ++ "Download failed (curl exit code: {})\n", .{result.Exited});
         io.eprint(style.dim ++ "The runtime may not be available yet. Try again after the next release.\n" ++ style.reset, .{});
         std.process.exit(1);
     }
 
     io.print(" " ++ style.success ++ check ++ style.reset ++ "\n", .{});
+
+    // Verify integrity before using the runtime.
+    if (!verifyFileSha256(runtime_path, expected_sha256)) {
+        fs.cwd().deleteFile(runtime_path) catch {};
+        io.eprint(style.err_prefix ++ " Runtime checksum mismatch for {s}\n", .{target.runtimeFilename()});
+        io.eprint(style.dim ++ "Expected sha256: {s}\n" ++ style.reset, .{expected_sha256});
+        std.process.exit(1);
+    }
 
     // Make it executable
     const file_for_chmod = try fs.cwd().openFile(runtime_path, .{ .mode = .read_write });
@@ -647,6 +686,166 @@ fn downloadRuntime(allocator: Allocator, target: Target, runtime_dir: []const u8
     }
 
     io.print(style.success ++ check ++ style.reset ++ " Downloaded runtime " ++ style.dim ++ "v{s}" ++ style.reset ++ " to " ++ style.dim ++ "{s}" ++ style.reset ++ "\n\n", .{ VERSION, runtime_path });
+
+    return .{ .data = data, .allocated = true };
+}
+
+fn downloadAndParseSha256(allocator: Allocator, url: []const u8) ![]u8 {
+    var child = std.process.Child.init(&[_][]const u8{
+        "curl",
+        "-fsSL",
+        url,
+    }, allocator);
+    child.stderr_behavior = .Inherit;
+    child.stdout_behavior = .Pipe;
+
+    try child.spawn();
+
+    var out: std.ArrayList(u8) = .empty;
+    errdefer out.deinit(allocator);
+
+    if (child.stdout) |stdout_file| {
+        defer stdout_file.close();
+
+        var buf: [4096]u8 = undefined;
+        while (true) {
+            const n = try stdout_file.read(&buf);
+            if (n == 0) break;
+            if (out.items.len + n > 16 * 1024) return error.StreamTooLong;
+            try out.appendSlice(allocator, buf[0..n]);
+        }
+    }
+
+    const result = try child.wait();
+    if (result.Exited != 0) return error.ChecksumDownloadFailed;
+
+    const trimmed = std.mem.trim(u8, out.items, " \t\n\r");
+    if (trimmed.len == 0) return error.InvalidChecksum;
+
+    const end = std.mem.indexOfAny(u8, trimmed, " \t") orelse trimmed.len;
+    const token = trimmed[0..end];
+    if (token.len != 64) return error.InvalidChecksum;
+
+    // Validate hex.
+    for (token) |c| {
+        const ok = (c >= '0' and c <= '9') or (c >= 'a' and c <= 'f') or (c >= 'A' and c <= 'F');
+        if (!ok) return error.InvalidChecksum;
+    }
+
+    const out_hash = try allocator.alloc(u8, token.len);
+    @memcpy(out_hash, token);
+    return out_hash;
+}
+
+fn verifyFileSha256(path: []const u8, expected_hex: []const u8) bool {
+    var file = fs.cwd().openFile(path, .{}) catch return false;
+    defer file.close();
+
+    var hasher = std.crypto.hash.sha2.Sha256.init(.{});
+    var buf: [16 * 1024]u8 = undefined;
+    while (true) {
+        const n = file.read(&buf) catch return false;
+        if (n == 0) break;
+        hasher.update(buf[0..n]);
+    }
+
+    var digest: [32]u8 = undefined;
+    hasher.final(&digest);
+
+    const hex_buf = std.fmt.bytesToHex(digest, .lower);
+    return std.ascii.eqlIgnoreCase(hex_buf[0..], expected_hex);
+}
+
+fn runtimeExists(path: []const u8) bool {
+    fs.cwd().access(path, .{}) catch return false;
+    return true;
+}
+
+fn pocketpySourceAvailable() bool {
+    const override = std.posix.getenv("UCHARM_POCKETPY_DIR");
+    if (override) |dir| {
+        const build_zig = std.fmt.allocPrint(std.heap.page_allocator, "{s}/build.zig", .{dir}) catch return false;
+        defer std.heap.page_allocator.free(build_zig);
+        return runtimeExists(build_zig);
+    }
+    return runtimeExists("pocketpy/build.zig");
+}
+
+fn buildRuntimeLocally(allocator: Allocator, target: Target, runtime_dir: []const u8, runtime_path: []const u8, version_path: []const u8) !RuntimeBinary {
+    const pocketpy_dir = std.posix.getenv("UCHARM_POCKETPY_DIR") orelse "pocketpy";
+
+    io.print(style.dim ++ "  Building PocketPy runtime locally..." ++ style.reset ++ "\n", .{});
+
+    fs.cwd().makePath(runtime_dir) catch |err| {
+        io.eprint(style.err_prefix ++ " Failed to create directory {s}: {}\n", .{ runtime_dir, err });
+        std.process.exit(1);
+    };
+
+    const zig_target = switch (target) {
+        .macos_aarch64 => "aarch64-macos",
+        .macos_x86_64 => "x86_64-macos",
+        .linux_x86_64 => "x86_64-linux-musl",
+        .linux_aarch64 => "aarch64-linux-musl",
+    };
+
+    var child = std.process.Child.init(&[_][]const u8{
+        "zig",
+        "build",
+        "-Doptimize=ReleaseSmall",
+        try std.fmt.allocPrint(allocator, "-Dtarget={s}", .{zig_target}),
+    }, allocator);
+    defer allocator.free(child.argv[3]);
+
+    child.cwd = pocketpy_dir;
+    child.stderr_behavior = .Inherit;
+    child.stdout_behavior = .Inherit;
+
+    _ = child.spawn() catch |err| {
+        io.eprint(style.err_prefix ++ " Failed to run zig to build PocketPy runtime: {}\n", .{err});
+        io.eprint(style.dim ++ "Expected PocketPy source at: {s}\n" ++ style.reset, .{pocketpy_dir});
+        std.process.exit(1);
+    };
+
+    const result = child.wait() catch |err| {
+        io.eprint(style.err_prefix ++ " Local runtime build failed: {}\n", .{err});
+        std.process.exit(1);
+    };
+    if (result.Exited != 0) {
+        io.eprint(style.err_prefix ++ " Local runtime build failed (exit code: {})\n", .{result.Exited});
+        std.process.exit(1);
+    }
+
+    const built_path = try std.fmt.allocPrint(allocator, "{s}/zig-out/bin/pocketpy-ucharm", .{pocketpy_dir});
+    defer allocator.free(built_path);
+
+    fs.cwd().copyFile(built_path, fs.cwd(), runtime_path, .{}) catch |err| {
+        io.eprint(style.err_prefix ++ " Failed to copy built runtime from {s} to {s}: {}\n", .{ built_path, runtime_path, err });
+        std.process.exit(1);
+    };
+
+    // Make it executable
+    const file_for_chmod = try fs.cwd().openFile(runtime_path, .{ .mode = .read_write });
+    defer file_for_chmod.close();
+    try file_for_chmod.chmod(0o755);
+
+    // Write version file (ties cached runtime to the CLI version)
+    const ver_file = try fs.cwd().createFile(version_path, .{});
+    defer ver_file.close();
+    try ver_file.writeAll(VERSION);
+    try ver_file.writeAll("\n");
+
+    // Read and return the runtime data
+    const file = try fs.cwd().openFile(runtime_path, .{});
+    defer file.close();
+
+    const stat = try file.stat();
+    const data = try allocator.alloc(u8, stat.size);
+    const bytes_read = try file.readAll(data);
+    if (bytes_read != stat.size) {
+        return error.IncompleteRead;
+    }
+
+    io.print(style.success ++ check ++ style.reset ++ " Built runtime for " ++ style.dim ++ "{s}" ++ style.reset ++ " to " ++ style.dim ++ "{s}" ++ style.reset ++ "\n", .{ target.name(), runtime_path });
 
     return .{ .data = data, .allocated = true };
 }

@@ -331,6 +331,132 @@ pub fn build(b: *std.Build) void {
     });
     mod_collections.addImport("pk", pk_mod);
 
+    const mod_configparser = b.createModule(.{
+        .root_source_file = b.path("../runtime/compat/configparser.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    mod_configparser.addImport("pk", pk_mod);
+
+    const mod_unittest = b.createModule(.{
+        .root_source_file = b.path("../runtime/compat/unittest.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    mod_unittest.addImport("pk", pk_mod);
+
+    const mod_copy = b.createModule(.{
+        .root_source_file = b.path("../runtime/compat/copy.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    mod_copy.addImport("pk", pk_mod);
+
+    const mod_array = b.createModule(.{
+        .root_source_file = b.path("../runtime/compat/array.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    mod_array.addImport("pk", pk_mod);
+
+    const mod_binascii = b.createModule(.{
+        .root_source_file = b.path("../runtime/compat/binascii.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    mod_binascii.addImport("pk", pk_mod);
+
+    const mod_contextlib = b.createModule(.{
+        .root_source_file = b.path("../runtime/compat/contextlib.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    mod_contextlib.addImport("pk", pk_mod);
+
+    const mod_urllib_parse = b.createModule(.{
+        .root_source_file = b.path("../runtime/compat/urllib_parse.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    mod_urllib_parse.addImport("pk", pk_mod);
+
+    const mod_uuid = b.createModule(.{
+        .root_source_file = b.path("../runtime/compat/uuid.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    mod_uuid.addImport("pk", pk_mod);
+
+    const mod_toml = b.createModule(.{
+        .root_source_file = b.path("../runtime/compat/toml.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    mod_toml.addImport("pk", pk_mod);
+
+    const mod_secrets = b.createModule(.{
+        .root_source_file = b.path("../runtime/compat/secrets.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    mod_secrets.addImport("pk", pk_mod);
+
+    const mod_hmac = b.createModule(.{
+        .root_source_file = b.path("../runtime/compat/hmac.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    mod_hmac.addImport("pk", pk_mod);
+
+    const mod_dataclasses = b.createModule(.{
+        .root_source_file = b.path("../runtime/compat/dataclasses.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    mod_dataclasses.addImport("pk", pk_mod);
+
+    const mod_gzip = b.createModule(.{
+        .root_source_file = b.path("../runtime/compat/gzip.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    mod_gzip.addImport("pk", pk_mod);
+
+    const mod_zipfile = b.createModule(.{
+        .root_source_file = b.path("../runtime/compat/zipfile.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    mod_zipfile.addImport("pk", pk_mod);
+
+    const mod_tarfile = b.createModule(.{
+        .root_source_file = b.path("../runtime/compat/tarfile.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    mod_tarfile.addImport("pk", pk_mod);
+
+    const mod_xml_etree_elementtree = b.createModule(.{
+        .root_source_file = b.path("../runtime/compat/xml_etree_elementtree.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    mod_xml_etree_elementtree.addImport("pk", pk_mod);
+
+    const mod_sqlite3 = b.createModule(.{
+        .root_source_file = b.path("../runtime/compat/sqlite3.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    mod_sqlite3.addImport("pk", pk_mod);
+
+    const mod_http_client = b.createModule(.{
+        .root_source_file = b.path("../runtime/compat/http_client.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    mod_http_client.addImport("pk", pk_mod);
+
     // Register all modules with executable
     exe.root_module.addImport("mod_fnmatch", mod_fnmatch);
     exe.root_module.addImport("mod_glob", mod_glob);
@@ -371,6 +497,24 @@ pub fn build(b: *std.Build) void {
     exe.root_module.addImport("mod_json", mod_json);
     exe.root_module.addImport("mod_time", mod_time);
     exe.root_module.addImport("mod_collections", mod_collections);
+    exe.root_module.addImport("mod_configparser", mod_configparser);
+    exe.root_module.addImport("mod_unittest", mod_unittest);
+    exe.root_module.addImport("mod_copy", mod_copy);
+    exe.root_module.addImport("mod_array", mod_array);
+    exe.root_module.addImport("mod_binascii", mod_binascii);
+    exe.root_module.addImport("mod_contextlib", mod_contextlib);
+    exe.root_module.addImport("mod_urllib_parse", mod_urllib_parse);
+    exe.root_module.addImport("mod_uuid", mod_uuid);
+    exe.root_module.addImport("mod_toml", mod_toml);
+    exe.root_module.addImport("mod_secrets", mod_secrets);
+    exe.root_module.addImport("mod_hmac", mod_hmac);
+    exe.root_module.addImport("mod_dataclasses", mod_dataclasses);
+    exe.root_module.addImport("mod_gzip", mod_gzip);
+    exe.root_module.addImport("mod_zipfile", mod_zipfile);
+    exe.root_module.addImport("mod_tarfile", mod_tarfile);
+    exe.root_module.addImport("mod_xml_etree_elementtree", mod_xml_etree_elementtree);
+    exe.root_module.addImport("mod_sqlite3", mod_sqlite3);
+    exe.root_module.addImport("mod_http_client", mod_http_client);
 
     // PocketPy is C11 and expects libc.
     exe.linkLibC();
