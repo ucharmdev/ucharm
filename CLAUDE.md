@@ -107,7 +107,21 @@ curl -sL https://github.com/pocketpy/pocketpy/releases/download/vX.Y.Z/pocketpy.
 curl -sL https://github.com/pocketpy/pocketpy/releases/download/vX.Y.Z/pocketpy.h -o pocketpy/vendor/pocketpy.h
 ```
 
-### Required Patch: `match` Soft Keyword
+### μcharm Patchset (vendor)
+
+If we *must* patch PocketPy, keep it:
+- Small and surgical
+- Marked with `ucharm patch:` anchors in `pocketpy/vendor/pocketpy.c`
+- Tracked as a re-applicable patch file under `pocketpy/patches/`
+
+After updating PocketPy, re-apply and verify:
+
+```bash
+./scripts/apply-pocketpy-patches.sh
+python3 scripts/verify-pocketpy-patches.py --check-upstream
+```
+
+### Required Patch (part of patchset): `match` Soft Keyword
 
 PocketPy treats `match` as a hard keyword, but Python 3.10+ treats it as a soft keyword (only a keyword in pattern matching contexts). This breaks `re.match()` and similar APIs.
 
@@ -115,7 +129,7 @@ After updating PocketPy, apply this patch to `pocketpy/vendor/pocketpy.c` in the
 
 ```c
 static Error* exprAttrib(Compiler* self) {
-    // Allow 'match' soft keyword as attribute name (for re.match, etc.)
+    // ucharm patch: allow 'match' soft keyword as attribute name (for re.match, etc.)
     if(curr()->type == TK_MATCH) {
         advance();
     } else {
@@ -126,7 +140,8 @@ static Error* exprAttrib(Compiler* self) {
 }
 ```
 
-This is the ONLY patch we maintain. Report any other issues upstream.
+This patch is tracked in `pocketpy/patches/0001-match-soft-keyword.patch` (along with a small patchset required for CPython-compat modules).
+Prefer upstream fixes where possible; keep the local patchset minimal.
 
 ### Known PocketPy Limitations
 

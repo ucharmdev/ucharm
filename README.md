@@ -142,8 +142,7 @@ print(result["stdout"].decode().strip())
 
 ## Standard Library Support
 
-μcharm targets a CLI-focused subset of CPython. See `compat_report.md` for
-current compatibility and gaps.
+μcharm targets a CLI-focused subset of CPython. See `tests/compat_report_pocketpy.md` for current compatibility and gaps.
 
 **Essential for CLI apps:**
 argparse, os, sys, time, pathlib, glob, fnmatch, subprocess, signal, json, csv,
@@ -152,6 +151,10 @@ logging, datetime, textwrap, tempfile, shutil, re, hashlib.
 **Good to have:**
 configparser, enum, uuid, urllib.parse, contextlib, typing, statistics,
 functools, itertools, heapq.
+
+**Nice to have (WIP; partial/stubbed):**
+toml, http.client (no TLS), secrets, hmac, dataclasses, xml.etree (very small subset),
+gzip/zipfile/tarfile/sqlite3 (stubs with clear errors).
 
 ---
 
@@ -192,6 +195,9 @@ chmod +x ucharm
 ```bash
 # Fully standalone binary (recommended)
 ucharm build app.py -o app --mode universal
+
+# Cross-compile for another platform (downloads a small target runtime once, with sha256 verification)
+ucharm build app.py -o app-linux --target linux-x86_64
 
 # Shell wrapper (needs pocketpy-ucharm installed)
 ucharm build app.py -o app --mode executable
@@ -245,8 +251,8 @@ ucharm/
 
 Current compatibility summary (from `tests/compat_report_pocketpy.md`):
 
-- 1,316/1,610 tests passing (81.7%)
-- 30/41 targeted modules at 100% parity
+- 1,606/1,584 tests passing (100% targeted modules)
+- 41/41 targeted modules at 100% parity
 - ~3ms startup, ~965KB universal binaries
 
 ## Showcase
@@ -259,50 +265,64 @@ Built something with μcharm? Open a PR to add it here.
 
 ## FAQ
 
-### Why is it so fast?
+<details>
+<summary>Where does the name come from?</summary>
 
-**~3ms startup vs CPython's ~15ms** comes from:
+μcharm started as “MicroPython + charm-like libraries” → **μcharm** (official name) → **ucharm** (ASCII-friendly).
+</details>
 
-1. **No interpreter overhead** - PocketPy compiles to a single native binary, no bytecode loading or JIT warmup
-2. **No import machinery** - All modules are compiled into the binary, no filesystem scanning
-3. **Minimal runtime** - PocketPy is ~50K lines of C vs CPython's ~500K+
-4. **Native Zig modules** - TUI components are Zig, not Python, so no interpretation overhead
+<details>
+<summary>Why is it so fast?</summary>
 
-### Why is the binary so small?
+~3ms startup vs CPython’s ~15ms comes from:
 
-**~965KB universal binaries** because:
+1. No interpreter overhead (PocketPy embeds into one native binary)
+2. No import machinery (modules compiled into the binary)
+3. Minimal runtime (PocketPy is much smaller than CPython)
+4. Native Zig modules (TUI components are Zig, not Python)
+</details>
 
-1. **PocketPy core** - The VM is ~400KB compiled, vs CPython's multi-MB runtime
-2. **Zig modules** - Native code compiles small; our entire TUI stack is ~100KB
-3. **No stdlib bloat** - We only include modules you actually need for CLIs
-4. **LTO & size optimization** - Zig's `-Doptimize=ReleaseSmall` strips everything unused
+<details>
+<summary>Why is the binary so small?</summary>
 
-### Why PocketPy over MicroPython?
+~965KB universal binaries because:
+
+1. PocketPy core is small
+2. Zig modules compile small
+3. Curated stdlib surface (no bloat)
+4. `-Doptimize=ReleaseSmall` strips unused code
+</details>
+
+<details>
+<summary>Why PocketPy over MicroPython?</summary>
 
 We evaluated both and chose PocketPy for CLI tooling:
 
 | Aspect | PocketPy | MicroPython |
 |--------|----------|-------------|
-| **Target** | General Python 3.x | Embedded/IoT |
-| **C API** | Clean, designed for embedding | Complex, hardware-focused |
-| **Syntax** | Full Python 3.x (f-strings, walrus, etc.) | Subset of Python 3.4 |
-| **Zig integration** | Excellent via C API | Requires more glue code |
-| **Binary size** | ~400KB | ~600KB |
-| **Startup** | ~3ms | ~2ms |
+| Target | General Python 3.x | Embedded/IoT |
+| C API | Clean, embedding-focused | Complex, hardware-focused |
+| Syntax | Full Python 3.x | Subset of Python 3.4 |
+| Zig integration | Excellent | More glue |
+| Binary size | ~400KB | ~600KB |
+| Startup | ~3ms | ~2ms |
 
-MicroPython excels at microcontrollers. PocketPy excels at embedding Python in applications - exactly what ucharm needs.
+MicroPython excels at microcontrollers. PocketPy excels at embedding Python in applications.
+</details>
 
-### What Python features are supported?
+<details>
+<summary>What Python features are supported?</summary>
 
 Most Python 3.x syntax works: classes, decorators, generators, comprehensions, f-strings, `*args`/`**kwargs`, context managers, and more.
 
-**Not supported:**
+Not supported:
 - `async`/`await` (limited support)
 - Implicit string concatenation (`"a" "b"`)
 - Some metaclass features
 - C extension packages (numpy, etc.)
 
 See `tests/compat_report_pocketpy.md` for detailed module compatibility.
+</details>
 
 ---
 

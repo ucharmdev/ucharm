@@ -12,7 +12,7 @@ First, run the project's test suites to catch regressions:
 
 ```bash
 # Build PocketPy runtime
-cd poc/pocketpy && zig build -Doptimize=ReleaseSmall
+cd pocketpy && zig build -Doptimize=ReleaseSmall
 
 # Build the CLI
 cd cli && zig build -Doptimize=ReleaseSmall
@@ -22,6 +22,9 @@ cd cli && ./test_e2e.sh
 
 # Run CPython compatibility tests (PocketPy runtime)
 python3 tests/compat_runner.py --report
+
+# Verify PocketPy vendor patchset (if PocketPy was updated)
+python3 scripts/verify-pocketpy-patches.py --check-upstream
 ```
 
 If tests fail, fix the issues before continuing.

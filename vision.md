@@ -159,12 +159,12 @@ Useful for some apps but not required for most CLIs.
 - secrets, hmac
 - dataclasses
 - xml.etree
+- sqlite3 (large - is there an efficient way?)
 
 ### Probably will not need
 
 Low value for typical CLI apps or too heavy to justify.
 
-- sqlite3 (large)
 - multiprocessing
 - decimal, fractions
 - tkinter, curses

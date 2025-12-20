@@ -66,7 +66,12 @@ Use the version check script:
 ./scripts/check-pocketpy-version.sh --update
 ```
 
-After updating, apply the required `match` soft keyword patch (see CLAUDE.md) and rebuild.
+After updating, re-apply the μcharm PocketPy patchset and rebuild:
+
+```bash
+./scripts/apply-pocketpy-patches.sh
+cd pocketpy && zig build -Doptimize=ReleaseSmall
+```
 
 ## Compatibility Testing
 
@@ -78,4 +83,4 @@ python3 tests/compat_runner.py --report
 python3 tests/compat_runner.py -m json
 ```
 
-Current compatibility: ~77% (1,245/1,604 tests passing across 41 targeted modules).
+Current compatibility: 100% (all tests passing across 41 targeted modules).
