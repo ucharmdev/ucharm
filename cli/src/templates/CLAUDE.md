@@ -1,10 +1,10 @@
 # ucharm Project
 
-This project uses **ucharm** - a CLI toolkit for building beautiful command-line applications with MicroPython.
+This project uses **ucharm** - a CLI toolkit for building beautiful command-line applications with PocketPy.
 
 ## Key Concepts
 
-- **MicroPython, not CPython**: This runs on MicroPython with native Zig modules, not standard Python
+- **PocketPy, not CPython**: This runs on PocketPy with native Zig modules, not standard Python
 - **Native modules**: 24 high-performance modules implemented in Zig (see list below)
 - **No pip packages**: You cannot use pip packages that have C extensions
 - **Single binary output**: Apps compile to standalone executables (~900KB)
@@ -58,5 +58,5 @@ ucharm build myapp.py -o myapp --mode universal
 
 - No `requests`, `httpx`, `aiohttp` (use `subprocess` with `curl`)
 - No `numpy`, `pandas` (pure Python alternatives only)
-- No async/await (MicroPython has limited async support)
+- No async/await (PocketPy has limited async support)
 - No type annotations at runtime (use for IDE only via stubs)

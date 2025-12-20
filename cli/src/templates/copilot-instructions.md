@@ -1,10 +1,10 @@
 # GitHub Copilot Instructions for ucharm
 
-This project uses ucharm (MicroPython + native Zig modules).
+This project uses ucharm (PocketPy + native Zig modules).
 
 ## Key Facts
 
-- MicroPython runtime, not CPython
+- PocketPy runtime, not CPython
 - No pip packages with C extensions
 - Native modules: charm, input, term, ansi, subprocess, etc.
 
