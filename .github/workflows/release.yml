@@ -85,6 +85,7 @@ jobs:
         run: |
           cd pocketpy && zig build -Doptimize=ReleaseSmall -Dtarget=${{ matrix.target }}
           mv zig-out/bin/pocketpy-ucharm ../${{ matrix.artifact }}
+          cd ..
 
           python3 - <<'PY'
           import hashlib
