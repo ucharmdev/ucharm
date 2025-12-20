@@ -8,45 +8,46 @@ Work through each item sequentially. Fix any issues found before proceeding.
 
 ### 1. Run Tests
 
-First, run the project's test suites to catch any regressions:
+First, run the project's test suites to catch regressions:
 
 ```bash
-# Build the CLI first
+# Build PocketPy runtime
+cd poc/pocketpy && zig build -Doptimize=ReleaseSmall
+
+# Build the CLI
 cd cli && zig build -Doptimize=ReleaseSmall
 
 # Run end-to-end tests
 cd cli && ./test_e2e.sh
 
-# Run CPython compatibility tests (check for regressions)
+# Run CPython compatibility tests (PocketPy runtime)
 python3 tests/compat_runner.py --report
 ```
 
 If tests fail, fix the issues before continuing.
 
-### 2. Regenerate Type Stubs
+### 2. Update Type Stubs
 
-If any native modules were added or modified, regenerate the type stubs:
+If any runtime modules were added or modified, update stubs:
 
 ```bash
-# Generate stubs from C source
-python3 scripts/generate_stubs.py
+# Update stubs (manual edits for Zig modules)
+# or update scripts/generate_stubs.py if you add a new generator.
 
 # Copy to CLI for embedding
 cp stubs/*.pyi cli/src/stubs/
 ```
 
-Check if any stubs changed and stage them if so.
-
 ### 3. Update AI Instruction Templates
 
 Review and update the AI instruction templates in `cli/src/templates/` if:
-- New native modules were added (update module lists)
-- TUI functions were added/changed (update Available Functions)
+- New runtime modules were added
+- TUI functions were added/changed
 - Import patterns or APIs changed
 
 Files to check:
 - `cli/src/templates/AGENTS.md` - Universal (Cursor, Windsurf, Zed)
-- `cli/src/templates/CLAUDE.md` - Claude Code
+- `cli/src/templates/CLAUDE.md` - Claude Code instructions
 - `cli/src/templates/copilot-instructions.md` - GitHub Copilot
 
 ### 4. Update Project Documentation
@@ -55,7 +56,7 @@ Review and update if the changes affect:
 
 **CLAUDE.md** (project root):
 - Directory structure if files/folders were added
-- Native module list if modules were added
+- Runtime module list if modules were added
 - Commands or workflows that changed
 - Architecture if significant changes were made
 
@@ -103,10 +104,10 @@ Group related changes into logical commits using conventional commit format:
 - `perf:` - Performance improvement
 
 **Examples:**
-- `feat(input): add password prompt function`
-- `fix(charm): correct box border rendering`
-- `docs: update CLAUDE.md with new module`
-- `chore: regenerate type stubs`
+- `feat(term): add raw mode support`
+- `fix(ansi): correct color parsing`
+- `docs: update CLAUDE.md with PocketPy`
+- `chore: update type stubs`
 
 Stage and commit related changes together:
 
