@@ -150,7 +150,7 @@ pub const logo_ascii =
     cyan ++ "││││  ├─┤├─┤├┬┘│││" ++ reset ++ "\n" ++
     cyan ++ "┴ ┴└─┘┴ ┴┴ ┴┴└─┴ ┴" ++ reset ++ "\n";
 
-pub const tagline = dim ++ "Beautiful CLIs with MicroPython" ++ reset;
+pub const tagline = dim ++ "Beautiful CLIs with PocketPy" ++ reset;
 
 // ────────────────────────────────────────────────────────────────────────────
 // Help text formatting constants

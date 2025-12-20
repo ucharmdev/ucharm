@@ -23,7 +23,7 @@ const help_text =
     "    ucharm init --all\n" ++
     "\n" ++
     style.dim ++ "FILES CREATED:" ++ style.reset ++ "\n" ++
-    "    .ucharm/stubs/                   Type stubs for 24 native modules\n" ++
+    "    .ucharm/stubs/                   Type stubs for runtime modules\n" ++
     "    pyrightconfig.json               Pyright configuration\n" ++
     "    AGENTS.md                        Universal (Cursor, Windsurf, Zed)\n" ++
     "    CLAUDE.md                        Claude Code\n" ++

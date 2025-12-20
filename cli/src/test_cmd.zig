@@ -4,7 +4,7 @@
 //   ucharm test --compat           Run all CPython compatibility tests
 //   ucharm test --compat --report  Generate compatibility report
 //   ucharm test --compat -v        Verbose output with failure details
-//   ucharm test <file.py>          Run a specific test file with micropython-ucharm
+//   ucharm test <file.py>          Run a specific test file with pocketpy-ucharm
 
 const std = @import("std");
 const fs = std.fs;
@@ -141,12 +141,12 @@ fn findCompatRunner(allocator: Allocator) ![]const u8 {
 }
 
 fn runSingleTest(allocator: Allocator, test_file: []const u8) !void {
-    const micropython_path = try getMicropythonPath(allocator);
-    defer allocator.free(micropython_path);
+    const pocketpy_path = try getPocketpyPath(allocator);
+    defer allocator.free(pocketpy_path);
 
-    print("Running {s} with micropython-ucharm...\n\n", .{test_file});
+    print("Running {s} with pocketpy-ucharm...\n\n", .{test_file});
 
-    const argv = [_][]const u8{ micropython_path, test_file };
+    const argv = [_][]const u8{ pocketpy_path, test_file };
 
     var child = std.process.Child.init(&argv, allocator);
     child.stdout_behavior = .Inherit;
@@ -165,7 +165,7 @@ fn runSingleTest(allocator: Allocator, test_file: []const u8) !void {
     }
 }
 
-fn getMicropythonPath(allocator: Allocator) ![]const u8 {
+fn getPocketpyPath(allocator: Allocator) ![]const u8 {
     // Get the directory where ucharm is located
     const self_exe = try std.fs.selfExePathAlloc(allocator);
     defer allocator.free(self_exe);
@@ -173,8 +173,8 @@ fn getMicropythonPath(allocator: Allocator) ![]const u8 {
     const dir = std.fs.path.dirname(self_exe) orelse ".";
 
     // Try relative to ucharm binary first (for development)
-    // From cli/zig-out/bin/ucharm -> cli/zig-out/bin -> cli/zig-out -> cli -> project root -> native/dist
-    const dev_path = try std.fs.path.join(allocator, &.{ dir, "..", "..", "..", "native", "dist", "micropython-ucharm" });
+    // From cli/zig-out/bin/ucharm -> cli/zig-out/bin -> cli/zig-out -> cli -> project root -> pocketpy/zig-out/bin
+    const dev_path = try std.fs.path.join(allocator, &.{ dir, "..", "..", "..", "pocketpy", "zig-out", "bin", "pocketpy-ucharm" });
 
     if (fs.cwd().access(dev_path, .{})) |_| {
         return dev_path;
@@ -183,7 +183,7 @@ fn getMicropythonPath(allocator: Allocator) ![]const u8 {
     }
 
     // Try in same directory as ucharm
-    const local_path = try std.fs.path.join(allocator, &.{ dir, "micropython-ucharm" });
+    const local_path = try std.fs.path.join(allocator, &.{ dir, "pocketpy-ucharm" });
 
     if (fs.cwd().access(local_path, .{})) |_| {
         return local_path;
@@ -192,7 +192,7 @@ fn getMicropythonPath(allocator: Allocator) ![]const u8 {
     }
 
     // Fallback to PATH
-    return try allocator.dupe(u8, "micropython-ucharm");
+    return try allocator.dupe(u8, "pocketpy-ucharm");
 }
 
 fn printUsage() void {
@@ -209,9 +209,9 @@ fn printUsage() void {
     puts("    " ++ style.dim ++ "$" ++ style.reset ++ " ucharm test --compat              " ++ style.dim ++ "# Full compatibility suite" ++ style.reset ++ "\n");
     puts("    " ++ style.dim ++ "$" ++ style.reset ++ " ucharm test --compat --report     " ++ style.dim ++ "# Generate markdown report" ++ style.reset ++ "\n");
     puts("    " ++ style.dim ++ "$" ++ style.reset ++ " ucharm test --compat -m functools " ++ style.dim ++ "# Test single module" ++ style.reset ++ "\n");
-    puts("    " ++ style.dim ++ "$" ++ style.reset ++ " ucharm test mytest.py             " ++ style.dim ++ "# Run with micropython-ucharm" ++ style.reset ++ "\n");
+    puts("    " ++ style.dim ++ "$" ++ style.reset ++ " ucharm test mytest.py             " ++ style.dim ++ "# Run with pocketpy-ucharm" ++ style.reset ++ "\n");
     puts("\n" ++ style.bold ++ "ABOUT" ++ style.reset ++ "\n");
     puts("    Tests μcharm's compatibility with CPython standard library.\n");
-    puts("    Runs each test file with both CPython and micropython-ucharm,\n");
+    puts("    Runs each test file with both CPython and pocketpy-ucharm,\n");
     puts("    comparing results to calculate compatibility percentages.\n\n");
 }

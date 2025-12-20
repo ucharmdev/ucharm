@@ -15,10 +15,10 @@ const stub_macos_x86_64 = @embedFile("stubs/loader-macos-x86_64");
 const stub_linux_x86_64 = @embedFile("stubs/loader-linux-x86_64");
 const stub_linux_aarch64 = @embedFile("stubs/loader-linux-aarch64");
 
-// Embedded micropython-ucharm binaries (contains all native modules)
+// Embedded pocketpy-ucharm binaries (contains all native modules)
 // Note: Only the host platform binary is embedded. Cross-compilation requires
-// the target platform's micropython binary to be available in ~/.ucharm/runtimes/
-const micropython_macos_aarch64 = @embedFile("stubs/micropython-ucharm-macos-aarch64");
+// the target platform's pocketpy binary to be available in ~/.ucharm/runtimes/
+const pocketpy_macos_aarch64 = @embedFile("stubs/pocketpy-ucharm-macos-aarch64");
 
 // Trailer format constants (must match loader/src/trailer.zig)
 const TRAILER_MAGIC: *const [8]u8 = "MCHARM01";
@@ -101,12 +101,12 @@ const Target = enum {
         };
     }
 
-    pub fn micropythonFilename(self: Target) []const u8 {
+    pub fn runtimeFilename(self: Target) []const u8 {
         return switch (self) {
-            .macos_aarch64 => "micropython-ucharm-macos-aarch64",
-            .macos_x86_64 => "micropython-ucharm-macos-x86_64",
-            .linux_x86_64 => "micropython-ucharm-linux-x86_64",
-            .linux_aarch64 => "micropython-ucharm-linux-aarch64",
+            .macos_aarch64 => "pocketpy-ucharm-macos-aarch64",
+            .macos_x86_64 => "pocketpy-ucharm-macos-x86_64",
+            .linux_x86_64 => "pocketpy-ucharm-linux-x86_64",
+            .linux_aarch64 => "pocketpy-ucharm-linux-aarch64",
         };
     }
 };
@@ -245,8 +245,8 @@ fn printHelp() void {
         \\
         \\{s}MODES:{s}
         \\    universal              Standalone binary (~900KB, no dependencies)
-        \\    executable             Shell wrapper (requires micropython-ucharm)
-        \\    single                 Transformed .py file (requires micropython-ucharm)
+        \\    executable             Shell wrapper (requires pocketpy-ucharm)
+        \\    single                 Transformed .py file (requires pocketpy-ucharm)
         \\
         \\{s}EXAMPLES:{s}
         \\    ucharm build app.py -o app
@@ -266,7 +266,7 @@ fn transformScript(allocator: Allocator, script_path: []const u8) ![]u8 {
     errdefer output_buffer.deinit(allocator);
 
     // Header
-    try output_buffer.appendSlice(allocator, "#!/usr/bin/env micropython\n");
+    try output_buffer.appendSlice(allocator, "#!/usr/bin/env pocketpy-ucharm\n");
     try output_buffer.appendSlice(allocator, "# Built with ucharm - native modules edition\n\n");
 
     // Track what needs to be imported from native modules
@@ -365,7 +365,7 @@ fn buildSingle(allocator: Allocator, script: []const u8, output: []const u8) !vo
     try file_for_chmod.chmod(0o755);
 
     io.print(style.success ++ check ++ style.reset ++ " Transformed Python code " ++ style.dim ++ "({d} bytes)" ++ style.reset ++ "\n", .{transformed.len});
-    io.print("\n" ++ style.dim ++ "Note: Requires micropython-ucharm with native modules" ++ style.reset ++ "\n", .{});
+    io.print("\n" ++ style.dim ++ "Note: Requires pocketpy-ucharm with native modules" ++ style.reset ++ "\n", .{});
 }
 
 fn buildExecutable(allocator: Allocator, script: []const u8, output: []const u8) !void {
@@ -380,24 +380,24 @@ fn buildExecutable(allocator: Allocator, script: []const u8, output: []const u8)
     defer allocator.free(encoded);
     _ = encoder.encode(encoded, transformed);
 
-    // Create shell wrapper that extracts embedded micropython
+    // Create shell wrapper that extracts embedded pocketpy
     var wrapper: std.ArrayList(u8) = .empty;
     defer wrapper.deinit(allocator);
 
     try wrapper.appendSlice(allocator, "#!/bin/bash\n");
     try wrapper.appendSlice(allocator, "# Built with μcharm - https://github.com/ucharmdev/ucharm\n");
-    try wrapper.appendSlice(allocator, "# Requires micropython-ucharm with native modules\n\n");
-    try wrapper.appendSlice(allocator, "MICROPYTHON=\"micropython-ucharm\"\n");
-    try wrapper.appendSlice(allocator, "if ! command -v \"$MICROPYTHON\" &> /dev/null; then\n");
-    try wrapper.appendSlice(allocator, "    MICROPYTHON=\"micropython\"\n");
-    try wrapper.appendSlice(allocator, "    if ! command -v \"$MICROPYTHON\" &> /dev/null; then\n");
-    try wrapper.appendSlice(allocator, "        echo \"Error: micropython not found\" >&2\n");
+    try wrapper.appendSlice(allocator, "# Requires pocketpy-ucharm with native modules\n\n");
+    try wrapper.appendSlice(allocator, "POCKETPY=\"pocketpy-ucharm\"\n");
+    try wrapper.appendSlice(allocator, "if ! command -v \"$POCKETPY\" &> /dev/null; then\n");
+    try wrapper.appendSlice(allocator, "    POCKETPY=\"pocketpy\"\n");
+    try wrapper.appendSlice(allocator, "    if ! command -v \"$POCKETPY\" &> /dev/null; then\n");
+    try wrapper.appendSlice(allocator, "        echo \"Error: pocketpy not found\" >&2\n");
     try wrapper.appendSlice(allocator, "        exit 1\n");
     try wrapper.appendSlice(allocator, "    fi\n");
     try wrapper.appendSlice(allocator, "fi\n");
     try wrapper.appendSlice(allocator, "echo \"");
     try wrapper.appendSlice(allocator, encoded);
-    try wrapper.appendSlice(allocator, "\" | base64 -d | \"$MICROPYTHON\" /dev/stdin \"$@\"\n");
+    try wrapper.appendSlice(allocator, "\" | base64 -d | \"$POCKETPY\" /dev/stdin \"$@\"\n");
 
     // Write wrapper
     const output_file = try fs.cwd().createFile(output, .{});
@@ -423,12 +423,12 @@ fn buildUniversal(allocator: Allocator, script: []const u8, output: []const u8, 
     const py_content = try transformScript(allocator, script);
     defer allocator.free(py_content);
 
-    // Get micropython binary for target
-    const mpy_binary = try getMicropythonBinary(allocator, target);
-    const mpy_is_allocated = mpy_binary.allocated;
-    defer if (mpy_is_allocated) allocator.free(mpy_binary.data);
+    // Get pocketpy binary for target
+    const runtime_binary = try getRuntimeBinary(allocator, target);
+    const runtime_is_allocated = runtime_binary.allocated;
+    defer if (runtime_is_allocated) allocator.free(runtime_binary.data);
 
-    io.print(style.success ++ check ++ style.reset ++ " Using " ++ style.bold ++ "micropython-ucharm" ++ style.reset ++ style.dim ++ " for {s} ({d} KB)" ++ style.reset ++ "\n", .{ target.name(), mpy_binary.data.len / 1024 });
+    io.print(style.success ++ check ++ style.reset ++ " Using " ++ style.bold ++ "pocketpy-ucharm" ++ style.reset ++ style.dim ++ " for {s} ({d} KB)" ++ style.reset ++ "\n", .{ target.name(), runtime_binary.data.len / 1024 });
 
     // Select loader stub for target platform
     const stub = target.loaderStub();
@@ -436,26 +436,26 @@ fn buildUniversal(allocator: Allocator, script: []const u8, output: []const u8, 
 
     // Calculate offsets for trailer
     const stub_size: u64 = stub.len;
-    const micropython_offset: u64 = stub_size;
-    const micropython_size: u64 = mpy_binary.data.len;
-    const python_offset: u64 = micropython_offset + micropython_size;
+    const runtime_offset: u64 = stub_size;
+    const runtime_size: u64 = runtime_binary.data.len;
+    const python_offset: u64 = runtime_offset + runtime_size;
     const python_size: u64 = py_content.len;
 
     // Build trailer (48 bytes)
     var trailer: [TRAILER_SIZE]u8 = undefined;
     @memcpy(trailer[0..8], TRAILER_MAGIC);
-    std.mem.writeInt(u64, trailer[8..16], micropython_offset, .little);
-    std.mem.writeInt(u64, trailer[16..24], micropython_size, .little);
+    std.mem.writeInt(u64, trailer[8..16], runtime_offset, .little);
+    std.mem.writeInt(u64, trailer[16..24], runtime_size, .little);
     std.mem.writeInt(u64, trailer[24..32], python_offset, .little);
     std.mem.writeInt(u64, trailer[32..40], python_size, .little);
     @memcpy(trailer[40..48], TRAILER_MAGIC);
 
-    // Write universal binary: [stub][micropython][python][trailer]
+    // Write universal binary: [stub][runtime][python][trailer]
     const output_file = try fs.cwd().createFile(output, .{});
     defer output_file.close();
 
     try output_file.writeAll(stub);
-    try output_file.writeAll(mpy_binary.data);
+    try output_file.writeAll(runtime_binary.data);
     try output_file.writeAll(py_content);
     try output_file.writeAll(&trailer);
 
@@ -463,7 +463,7 @@ fn buildUniversal(allocator: Allocator, script: []const u8, output: []const u8, 
     defer file_for_chmod.close();
     try file_for_chmod.chmod(0o755);
 
-    const total_size = stub.len + mpy_binary.data.len + py_content.len + TRAILER_SIZE;
+    const total_size = stub.len + runtime_binary.data.len + py_content.len + TRAILER_SIZE;
     const total_kb = total_size / 1024;
     io.print(style.success ++ check ++ style.reset ++ " Wrote universal binary " ++ style.dim ++ "({d} KB)" ++ style.reset ++ "\n", .{total_kb});
 
@@ -482,22 +482,22 @@ fn buildUniversal(allocator: Allocator, script: []const u8, output: []const u8, 
     }
 }
 
-const MicropythonBinary = struct {
+const RuntimeBinary = struct {
     data: []const u8,
     allocated: bool,
 };
 
-fn getMicropythonBinary(allocator: Allocator, target: Target) !MicropythonBinary {
+fn getRuntimeBinary(allocator: Allocator, target: Target) !RuntimeBinary {
     // For macOS ARM64, we have the binary embedded
     if (target == .macos_aarch64) {
-        return .{ .data = micropython_macos_aarch64, .allocated = false };
+        return .{ .data = pocketpy_macos_aarch64, .allocated = false };
     }
 
     // For other targets, try to load from ~/.ucharm/runtimes/
     const home = std.posix.getenv("HOME") orelse "/tmp";
     const runtime_dir = try std.fmt.allocPrint(allocator, "{s}/.ucharm/runtimes", .{home});
     defer allocator.free(runtime_dir);
-    const runtime_path = try std.fmt.allocPrint(allocator, "{s}/{s}", .{ runtime_dir, target.micropythonFilename() });
+    const runtime_path = try std.fmt.allocPrint(allocator, "{s}/{s}", .{ runtime_dir, target.runtimeFilename() });
     defer allocator.free(runtime_path);
     const version_path = try std.fmt.allocPrint(allocator, "{s}.version", .{runtime_path});
     defer allocator.free(version_path);
@@ -552,15 +552,15 @@ fn readVersionFile(path: []const u8) ?[]const u8 {
     return content;
 }
 
-fn downloadRuntime(allocator: Allocator, target: Target, runtime_dir: []const u8, runtime_path: []const u8, version_path: []const u8, is_update: bool) !MicropythonBinary {
+fn downloadRuntime(allocator: Allocator, target: Target, runtime_dir: []const u8, runtime_path: []const u8, version_path: []const u8, is_update: bool) !RuntimeBinary {
     // Use version-specific URL to ensure we get the matching runtime
-    const download_url = try std.fmt.allocPrint(allocator, "https://github.com/ucharmdev/ucharm/releases/download/v{s}/{s}", .{ VERSION, target.micropythonFilename() });
+    const download_url = try std.fmt.allocPrint(allocator, "https://github.com/ucharmdev/ucharm/releases/download/v{s}/{s}", .{ VERSION, target.runtimeFilename() });
     defer allocator.free(download_url);
 
     if (is_update) {
         io.print("  Update to version " ++ style.bold ++ "{s}" ++ style.reset ++ "? " ++ style.dim ++ "(~850KB)" ++ style.reset ++ " [Y/n] ", .{VERSION});
     } else {
-        io.print(style.warning ++ "?" ++ style.reset ++ " MicroPython runtime for " ++ style.bold ++ "{s}" ++ style.reset ++ " not found locally.\n", .{target.name()});
+        io.print(style.warning ++ "?" ++ style.reset ++ " PocketPy runtime for " ++ style.bold ++ "{s}" ++ style.reset ++ " not found locally.\n", .{target.name()});
         io.print("  Download version " ++ style.bold ++ "{s}" ++ style.reset ++ " from GitHub? " ++ style.dim ++ "(~850KB)" ++ style.reset ++ " [Y/n] ", .{VERSION});
     }
 

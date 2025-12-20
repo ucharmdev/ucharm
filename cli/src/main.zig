@@ -21,7 +21,7 @@ fn printLogo() void {
     const box = comptime tui.getBoxChars(.rounded);
 
     // Box dimensions
-    const tagline = "Beautiful CLIs with MicroPython";
+    const tagline = "Beautiful CLIs with PocketPy";
     const box_width = tagline.len + 6; // 37
 
     _ = out.write("\n") catch return;
@@ -76,7 +76,7 @@ const usage =
     "\n" ++
     bold ++ "COMMANDS" ++ reset ++ "\n" ++
     "    " ++ cyan ++ "new" ++ reset ++ " " ++ dim ++ "<name>" ++ reset ++ "        Create a new project\n" ++
-    "    " ++ cyan ++ "run" ++ reset ++ " " ++ dim ++ "<file>" ++ reset ++ "        Run a script with micropython\n" ++
+    "    " ++ cyan ++ "run" ++ reset ++ " " ++ dim ++ "<file>" ++ reset ++ "        Run a script with pocketpy\n" ++
     "    " ++ cyan ++ "build" ++ reset ++ " " ++ dim ++ "<file>" ++ reset ++ "      Build a standalone binary\n" ++
     "    " ++ cyan ++ "init" ++ reset ++ "              Initialize ucharm in current directory\n" ++
     "    " ++ cyan ++ "test" ++ reset ++ "              Run compatibility tests\n" ++
@@ -87,7 +87,7 @@ const usage =
     "\n" ++
     bold ++ "EXAMPLES" ++ reset ++ "\n" ++
     "    " ++ dim ++ "$" ++ reset ++ " ucharm new myapp                  " ++ dim ++ "# Create new project" ++ reset ++ "\n" ++
-    "    " ++ dim ++ "$" ++ reset ++ " ucharm run app.py                 " ++ dim ++ "# Run with micropython" ++ reset ++ "\n" ++
+    "    " ++ dim ++ "$" ++ reset ++ " ucharm run app.py                 " ++ dim ++ "# Run with pocketpy" ++ reset ++ "\n" ++
     "    " ++ dim ++ "$" ++ reset ++ " ucharm build app.py -o app        " ++ dim ++ "# Build universal binary" ++ reset ++ "\n" ++
     "    " ++ dim ++ "$" ++ reset ++ " ucharm init --stubs --ai claude   " ++ dim ++ "# Add IDE support" ++ reset ++ "\n" ++
     "\n" ++

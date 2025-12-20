@@ -2,7 +2,7 @@ const std = @import("std");
 const fs = std.fs;
 const io = @import("io.zig");
 
-// Embedded type stubs - generated from native modules
+// Embedded type stubs - generated from runtime modules
 const stub_ansi = @embedFile("stubs/ansi.pyi");
 const stub_args = @embedFile("stubs/args.pyi");
 const stub_base64 = @embedFile("stubs/base64.pyi");

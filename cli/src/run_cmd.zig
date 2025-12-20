@@ -5,11 +5,11 @@ const Allocator = std.mem.Allocator;
 const io = @import("io.zig");
 const style = io.style;
 
-// Embedded micropython binary with native modules
-const micropython_macos_aarch64 = @embedFile("stubs/micropython-ucharm-macos-aarch64");
+// Embedded pocketpy binary with native modules
+const pocketpy_macos_aarch64 = @embedFile("stubs/pocketpy-ucharm-macos-aarch64");
 
 const help_text =
-    style.bold ++ "μcharm run" ++ style.reset ++ " - Run a Python script with micropython-ucharm\n" ++
+    style.bold ++ "μcharm run" ++ style.reset ++ " - Run a Python script with pocketpy-ucharm\n" ++
     "\n" ++
     style.dim ++ "USAGE:" ++ style.reset ++ "\n" ++
     "    ucharm run <script.py> [args...]\n" ++
@@ -19,7 +19,7 @@ const help_text =
     "    [args...]      Arguments passed to the script\n" ++
     "\n" ++
     style.dim ++ "DESCRIPTION:" ++ style.reset ++ "\n" ++
-    "    Runs your Python script using the embedded micropython-ucharm\n" ++
+    "    Runs your Python script using the embedded pocketpy-ucharm\n" ++
     "    interpreter with all native μcharm modules available.\n" ++
     "\n" ++
     "    The script is automatically transformed to use native modules\n" ++
@@ -51,12 +51,12 @@ pub fn run(allocator: Allocator, args: []const [:0]const u8) !void {
         std.process.exit(1);
     };
 
-    // Extract embedded micropython
-    const mpy_path = extractMicropython(allocator) catch {
-        io.eprint(style.err_prefix ++ "Failed to extract micropython\n", .{});
+    // Extract embedded pocketpy
+    const runtime_path = extractPocketpy(allocator) catch {
+        io.eprint(style.err_prefix ++ "Failed to extract pocketpy\n", .{});
         std.process.exit(1);
     };
-    defer allocator.free(mpy_path);
+    defer allocator.free(runtime_path);
 
     // Transform script to use native modules instead of ucharm package
     const transformed_path = transformScript(allocator, script) catch {
@@ -69,7 +69,7 @@ pub fn run(allocator: Allocator, args: []const [:0]const u8) !void {
     var argv: std.ArrayList([]const u8) = .empty;
     defer argv.deinit(allocator);
 
-    try argv.append(allocator, mpy_path);
+    try argv.append(allocator, runtime_path);
     try argv.append(allocator, transformed_path);
 
     // Add any additional arguments
@@ -97,24 +97,24 @@ pub fn run(allocator: Allocator, args: []const [:0]const u8) !void {
     };
 
     // Use execv to replace current process - this properly inherits the terminal
-    const mpy_path_z = allocator.dupeZ(u8, mpy_path) catch {
+    const runtime_path_z = allocator.dupeZ(u8, runtime_path) catch {
         io.eprint(style.err_prefix ++ "Out of memory\n", .{});
         std.process.exit(1);
     };
 
     // execveZ never returns on success, only on error
-    _ = std.posix.execveZ(mpy_path_z, @ptrCast(argv_z.items.ptr), @ptrCast(std.os.environ.ptr)) catch {};
+    _ = std.posix.execveZ(runtime_path_z, @ptrCast(argv_z.items.ptr), @ptrCast(std.os.environ.ptr)) catch {};
 
     // If we get here, exec failed
-    io.eprint(style.err_prefix ++ "Failed to exec micropython\n", .{});
+    io.eprint(style.err_prefix ++ "Failed to exec pocketpy\n", .{});
     std.process.exit(1);
 }
 
-fn extractMicropython(allocator: Allocator) ![]const u8 {
+fn extractPocketpy(allocator: Allocator) ![]const u8 {
     // Select the right binary for this platform
-    const mpy_binary = switch (builtin.target.os.tag) {
+    const runtime_binary = switch (builtin.target.os.tag) {
         .macos => switch (builtin.target.cpu.arch) {
-            .aarch64 => micropython_macos_aarch64,
+            .aarch64 => pocketpy_macos_aarch64,
             else => return error.UnsupportedPlatform,
         },
         else => return error.UnsupportedPlatform,
@@ -122,7 +122,7 @@ fn extractMicropython(allocator: Allocator) ![]const u8 {
 
     // Create a hash-based cache directory
     var hasher = std.hash.Wyhash.init(0);
-    hasher.update(mpy_binary);
+    hasher.update(runtime_binary);
     const hash = hasher.final();
 
     var hash_str: [16]u8 = undefined;
@@ -131,27 +131,27 @@ fn extractMicropython(allocator: Allocator) ![]const u8 {
     const cache_dir = try std.fmt.allocPrint(allocator, "/tmp/ucharm-{s}", .{hash_str});
     defer allocator.free(cache_dir);
 
-    const mpy_path = try std.fmt.allocPrint(allocator, "/tmp/ucharm-{s}/micropython", .{hash_str});
+    const runtime_path = try std.fmt.allocPrint(allocator, "/tmp/ucharm-{s}/pocketpy", .{hash_str});
 
     // Check if already cached
-    if (fs.accessAbsolute(mpy_path, .{})) |_| {
-        return mpy_path;
+    if (fs.accessAbsolute(runtime_path, .{})) |_| {
+        return runtime_path;
     } else |_| {}
 
     // Create cache directory
     fs.makeDirAbsolute(cache_dir) catch |err| {
         if (err != error.PathAlreadyExists) {
-            allocator.free(mpy_path);
+            allocator.free(runtime_path);
             return err;
         }
     };
 
-    // Write micropython binary
-    const file = try fs.createFileAbsolute(mpy_path, .{ .mode = 0o755 });
+    // Write pocketpy binary
+    const file = try fs.createFileAbsolute(runtime_path, .{ .mode = 0o755 });
     defer file.close();
-    try file.writeAll(mpy_binary);
+    try file.writeAll(runtime_binary);
 
-    return mpy_path;
+    return runtime_path;
 }
 
 fn transformScript(allocator: Allocator, script_path: []const u8) ![]const u8 {
@@ -164,7 +164,7 @@ fn transformScript(allocator: Allocator, script_path: []const u8) ![]const u8 {
     defer output_buffer.deinit(allocator);
 
     // Header
-    try output_buffer.appendSlice(allocator, "#!/usr/bin/env micropython\n");
+    try output_buffer.appendSlice(allocator, "#!/usr/bin/env pocketpy-ucharm\n");
     try output_buffer.appendSlice(allocator, "# Transformed by ucharm run\n\n");
 
     // Always add native module imports (simpler and more robust)

@@ -10,7 +10,7 @@ const logo =
     style.cyan ++ "┌┬┐┌─┐┬ ┬┌─┐┬─┐┌┬┐" ++ style.reset ++ "\n" ++
     style.cyan ++ "││││  ├─┤├─┤├┬┘│││" ++ style.reset ++ "\n" ++
     style.cyan ++ "┴ ┴└─┘┴ ┴┴ ┴┴└─┴ ┴" ++ style.reset ++ "\n" ++
-    style.dim ++ "Beautiful CLIs with MicroPython" ++ style.reset ++ "\n" ++
+    style.dim ++ "Beautiful CLIs with PocketPy" ++ style.reset ++ "\n" ++
     "\n";
 
 const help_text =
