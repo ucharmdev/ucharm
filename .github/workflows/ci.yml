@@ -22,6 +22,18 @@ jobs:
         with:
           version: 0.15.2
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build PocketPy runtime
+        working-directory: pocketpy
+        run: zig build -Doptimize=ReleaseSmall
+
+      - name: Run compatibility tests
+        run: python3 tests/compat_runner.py --report --ci
+
       - name: Run CLI unit tests
         run: |
           cp VERSION cli/src/VERSION
@@ -58,6 +70,13 @@ jobs:
       - name: Check formatting (Loader)
         working-directory: loader
         run: zig fmt --check src/
+
+      - name: Check formatting (PocketPy)
+        working-directory: pocketpy
+        run: zig fmt --check src/
+
+      - name: Check formatting (Runtime)
+        run: find runtime -name "*.zig" -exec zig fmt --check {} +
 
   build-matrix:
     name: Build (${{ matrix.target }})

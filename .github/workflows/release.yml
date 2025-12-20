@@ -47,58 +47,9 @@ jobs:
           name: ${{ matrix.artifact }}
           path: ${{ matrix.artifact }}
 
-  build-runtime:
-    name: Build Runtime (${{ matrix.name }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        include:
-          - os: macos-latest
-            name: macos-aarch64
-            arch: arm64
-            artifact: micropython-ucharm-macos-aarch64
-          - os: macos-15-intel
-            name: macos-x86_64
-            arch: x86_64
-            artifact: micropython-ucharm-macos-x86_64
-          - os: ubuntu-latest
-            name: linux-x86_64
-            arch: x86_64
-            artifact: micropython-ucharm-linux-x86_64
-          - os: ubuntu-24.04-arm
-            name: linux-aarch64
-            arch: arm64
-            artifact: micropython-ucharm-linux-aarch64
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Zig
-        uses: goto-bus-stop/setup-zig@v2
-        with:
-          version: 0.15.2
-
-      - name: Install dependencies (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential libffi-dev pkg-config
-
-      - name: Build MicroPython with native modules
-        run: |
-          cd native
-          ./build.sh
-          mv dist/micropython-ucharm ../${{ matrix.artifact }}
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.artifact }}
-          path: ${{ matrix.artifact }}
-
   release:
     name: Create Release
-    needs: [build-cli, build-runtime]
+    needs: [build-cli]
     runs-on: ubuntu-latest
 
     steps:
