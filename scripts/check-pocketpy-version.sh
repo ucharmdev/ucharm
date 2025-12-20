@@ -31,24 +31,24 @@ if [ "$CURRENT_VERSION" = "$LATEST_VERSION" ]; then
 else
     echo "New version available: $LATEST_VERSION (current: $CURRENT_VERSION)"
 
-    if [ "$1" = "--update" ]; then
-        echo "Downloading PocketPy v$LATEST_VERSION..."
+	    if [ "$1" = "--update" ]; then
+	        echo "Downloading PocketPy v$LATEST_VERSION..."
 
-        curl -sL "https://github.com/pocketpy/pocketpy/releases/download/v$LATEST_VERSION/pocketpy.c" -o "$VENDOR_DIR/pocketpy.c"
-        curl -sL "https://github.com/pocketpy/pocketpy/releases/download/v$LATEST_VERSION/pocketpy.h" -o "$VENDOR_DIR/pocketpy.h"
+	        curl -sL "https://github.com/pocketpy/pocketpy/releases/download/v$LATEST_VERSION/pocketpy.c" -o "$VENDOR_DIR/pocketpy.c"
+	        curl -sL "https://github.com/pocketpy/pocketpy/releases/download/v$LATEST_VERSION/pocketpy.h" -o "$VENDOR_DIR/pocketpy.h"
 
-        echo "$LATEST_VERSION" > "$VERSION_FILE"
+	        echo "$LATEST_VERSION" > "$VERSION_FILE"
 
-        echo "Updated to v$LATEST_VERSION"
-        echo ""
-        echo "IMPORTANT: Apply the 'match' soft keyword patch to pocketpy.c:"
-        echo "  See CLAUDE.md section 'Required Patch: match Soft Keyword'"
-        echo ""
-        echo "Then rebuild and test:"
-        echo "  cd pocketpy && zig build -Doptimize=ReleaseSmall"
-        echo "  python3 tests/compat_runner.py --report"
-    else
-        echo "Run with --update to download the new version."
-        exit 1
+	        echo "Applying μcharm PocketPy patchset..."
+	        "$PROJECT_ROOT/scripts/apply-pocketpy-patches.sh"
+
+	        echo "Updated to v$LATEST_VERSION"
+	        echo ""
+	        echo "Rebuild and test:"
+	        echo "  cd pocketpy && zig build -Doptimize=ReleaseSmall"
+	        echo "  python3 tests/compat_runner.py --report"
+	    else
+	        echo "Run with --update to download the new version."
+	        exit 1
     fi
 fi

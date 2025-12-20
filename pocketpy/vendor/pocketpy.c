@@ -1913,6 +1913,8 @@ OPCODE(ADD_CLASS_ANNOTATION)
 /**************************/
 OPCODE(WITH_ENTER)
 OPCODE(WITH_EXIT)
+// ucharm patch: WITH_EXIT_EXC opcode for exception-aware __exit__
+OPCODE(WITH_EXIT_EXC)
 /**************************/
 OPCODE(BEGIN_TRY)
 OPCODE(END_TRY)
@@ -4080,7 +4082,8 @@ __NEXT_STEP:
         }
         case OP_LOAD_FUNCTION: {
             FuncDecl_ decl = c11__getitem(FuncDecl_, &frame->co->func_decls, byte.arg);
-            Function* ud = py_newobject(SP(), tp_function, 0, sizeof(Function));
+            // ucharm patch: allow function attributes (__dict__) for CPython compatibility
+            Function* ud = py_newobject(SP(), tp_function, -1, sizeof(Function));
             Function__ctor(ud, decl, frame->module, frame->globals);
             if(decl->nested) {
                 if(frame->is_locals_special) {
@@ -5009,6 +5012,24 @@ __NEXT_STEP:
             }
             if(!py_vectorcall(0, 0)) goto __ERROR;
             POP();
+            DISPATCH();
+        }
+        // ucharm patch: ensure __exit__ runs on exceptions and can suppress
+        case OP_WITH_EXIT_EXC: {
+            // [expr] -> [suppress]
+            FrameExcInfo* info = Frame__top_exc_info(frame);
+            assert(info != NULL && !py_isnil(&info->exc));
+            py_push(TOP());
+            if(!py_pushmethod(__exit__)) {
+                TypeError("'%t' object does not support the context manager protocol", TOP()->type);
+                goto __ERROR;
+            }
+            py_push(&info->exc);
+            if(!py_vectorcall(1, 0)) goto __ERROR;
+            int suppress = py_bool(py_retval());
+            if(suppress < 0) goto __ERROR;
+            POP();
+            py_newbool(SP()++, suppress != 0);
             DISPATCH();
         }
         ///////////
@@ -10331,6 +10352,8 @@ OPCODE(ADD_CLASS_ANNOTATION)
 /**************************/
 OPCODE(WITH_ENTER)
 OPCODE(WITH_EXIT)
+// ucharm patch: WITH_EXIT_EXC opcode for exception-aware __exit__
+OPCODE(WITH_EXIT_EXC)
 /**************************/
 OPCODE(BEGIN_TRY)
 OPCODE(END_TRY)
@@ -16599,10 +16622,38 @@ static bool function__doc__(int argc, py_Ref argv) {
     return true;
 }
 
+// ucharm patch: allow setting function.__doc__ for CPython compatibility
+static bool function__doc__set(int argc, py_Ref argv) {
+    PY_CHECK_ARGC(2);
+    Function* func = py_touserdata(py_arg(0));
+    py_Ref val = py_arg(1);
+    if(py_isnone(val)) {
+        func->decl->docstring = NULL;
+        py_newnone(py_retval());
+        return true;
+    }
+    PY_CHECK_ARG_TYPE(1, tp_str);
+    func->decl->docstring = c11_strdup(py_tostr(val));
+    py_newnone(py_retval());
+    return true;
+}
+
 static bool function__name__(int argc, py_Ref argv) {
     PY_CHECK_ARGC(1);
     Function* func = py_touserdata(py_arg(0));
     py_newstr(py_retval(), func->decl->code.name->data);
+    return true;
+}
+
+// ucharm patch: allow setting function.__name__ for CPython compatibility
+static bool function__name__set(int argc, py_Ref argv) {
+    PY_CHECK_ARGC(2);
+    Function* func = py_touserdata(py_arg(0));
+    PY_CHECK_ARG_TYPE(1, tp_str);
+    const char* s = py_tostr(py_arg(1));
+    c11_string__delete(func->decl->code.name);
+    func->decl->code.name = c11_string__new(s);
+    py_newnone(py_retval());
     return true;
 }
 
@@ -16624,8 +16675,8 @@ static bool function__repr__(int argc, py_Ref argv) {
 py_Type pk_function__register() {
     py_Type type =
         pk_newtype("function", tp_object, NULL, (void (*)(void*))Function__dtor, false, true);
-    py_bindproperty(type, "__doc__", function__doc__, NULL);
-    py_bindproperty(type, "__name__", function__name__, NULL);
+    py_bindproperty(type, "__doc__", function__doc__, function__doc__set);
+    py_bindproperty(type, "__name__", function__name__, function__name__set);
     py_bindmagic(type, __repr__, function__repr__);
     return type;
 }
@@ -26019,7 +26070,7 @@ static Error* exprName(Compiler* self) {
 }
 
 static Error* exprAttrib(Compiler* self) {
-    // Allow 'match' soft keyword as attribute name (for re.match, etc.)
+    // ucharm patch: allow 'match' soft keyword as attribute name (for re.match, etc.)
     if(curr()->type == TK_MATCH) {
         advance();
     } else {
@@ -27085,8 +27136,31 @@ static Error* compile_stmt(Compiler* self) {
                 // discard `__enter__()`'s return value
                 Ctx__emit_(ctx(), OP_POP_TOP, BC_NOARG, BC_KEEPLINE);
             }
+            // ucharm patch: compile 'with' to call __exit__ on exceptions (and allow suppression)
+            Ctx__enter_block(ctx(), CodeBlockType_TRY);
+            Ctx__emit_(ctx(), OP_BEGIN_TRY, BC_NOARG, prev()->line);
             check(compile_block_body(self));
+            Ctx__emit_(ctx(), OP_END_TRY, BC_NOARG, BC_KEEPLINE);
             Ctx__emit_(ctx(), OP_WITH_EXIT, BC_NOARG, prev()->line);
+            int patch_normal = Ctx__emit_(ctx(), OP_JUMP_FORWARD, BC_NOARG, BC_KEEPLINE);
+            Ctx__exit_block(ctx());
+
+            // except:
+            Ctx__emit_(ctx(), OP_LOAD_TRUE, BC_NOARG, BC_KEEPLINE);
+            int patch_no_match = Ctx__emit_(ctx(), OP_POP_JUMP_IF_FALSE, BC_NOARG, BC_KEEPLINE);
+            Ctx__emit_(ctx(), OP_HANDLE_EXCEPTION, BC_NOARG, BC_KEEPLINE);
+            Ctx__emit_(ctx(), OP_WITH_EXIT_EXC, BC_NOARG, BC_KEEPLINE);
+            int patch_reraise = Ctx__emit_(ctx(), OP_POP_JUMP_IF_FALSE, BC_NOARG, BC_KEEPLINE);
+            Ctx__emit_(ctx(), OP_END_TRY, BC_NOARG, BC_KEEPLINE);
+            int patch_handled = Ctx__emit_(ctx(), OP_JUMP_FORWARD, BC_NOARG, BC_KEEPLINE);
+
+            // re-raise
+            Ctx__patch_jump(ctx(), patch_reraise);
+            Ctx__patch_jump(ctx(), patch_no_match);
+            Ctx__emit_(ctx(), OP_RE_RAISE, BC_NOARG, BC_KEEPLINE);
+
+            Ctx__patch_jump(ctx(), patch_normal);
+            Ctx__patch_jump(ctx(), patch_handled);
             Ctx__exit_block(ctx());
         } break;
         /*************************************************/

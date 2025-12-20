@@ -1,0 +1,66 @@
+diff --git a/pocketpy/vendor/pocketpy.c b/pocketpy/vendor/pocketpy.c
+--- a/pocketpy/vendor/pocketpy.c
++++ b/pocketpy/vendor/pocketpy.c
+@@ -4080,7 +4082,8 @@ __NEXT_STEP:
+         }
+         case OP_LOAD_FUNCTION: {
+             FuncDecl_ decl = c11__getitem(FuncDecl_, &frame->co->func_decls, byte.arg);
+-            Function* ud = py_newobject(SP(), tp_function, 0, sizeof(Function));
++            // ucharm patch: allow function attributes (__dict__) for CPython compatibility
++            Function* ud = py_newobject(SP(), tp_function, -1, sizeof(Function));
+             Function__ctor(ud, decl, frame->module, frame->globals);
+             if(decl->nested) {
+                 if(frame->is_locals_special) {
+@@ -16599,6 +16622,22 @@ static bool function__doc__(int argc, py_Ref argv) {
+     return true;
+ }
+ 
++// ucharm patch: allow setting function.__doc__ for CPython compatibility
++static bool function__doc__set(int argc, py_Ref argv) {
++    PY_CHECK_ARGC(2);
++    Function* func = py_touserdata(py_arg(0));
++    py_Ref val = py_arg(1);
++    if(py_isnone(val)) {
++        func->decl->docstring = NULL;
++        py_newnone(py_retval());
++        return true;
++    }
++    PY_CHECK_ARG_TYPE(1, tp_str);
++    func->decl->docstring = c11_strdup(py_tostr(val));
++    py_newnone(py_retval());
++    return true;
++}
++
+ static bool function__name__(int argc, py_Ref argv) {
+     PY_CHECK_ARGC(1);
+     Function* func = py_touserdata(py_arg(0));
+@@ -16606,6 +16645,18 @@ static bool function__name__(int argc, py_Ref argv) {
+     return true;
+ }
+ 
++// ucharm patch: allow setting function.__name__ for CPython compatibility
++static bool function__name__set(int argc, py_Ref argv) {
++    PY_CHECK_ARGC(2);
++    Function* func = py_touserdata(py_arg(0));
++    PY_CHECK_ARG_TYPE(1, tp_str);
++    const char* s = py_tostr(py_arg(1));
++    c11_string__delete(func->decl->code.name);
++    func->decl->code.name = c11_string__new(s);
++    py_newnone(py_retval());
++    return true;
++}
++
+ static bool function__repr__(int argc, py_Ref argv) {
+     // <function f at 0x10365b9c0>
+     PY_CHECK_ARGC(1);
+@@ -16624,8 +16675,8 @@ static bool function__repr__(int argc, py_Ref argv) {
+ py_Type pk_function__register() {
+     py_Type type =
+         pk_newtype("function", tp_object, NULL, (void (*)(void*))Function__dtor, false, true);
+-    py_bindproperty(type, "__doc__", function__doc__, NULL);
+-    py_bindproperty(type, "__name__", function__name__, NULL);
++    py_bindproperty(type, "__doc__", function__doc__, function__doc__set);
++    py_bindproperty(type, "__name__", function__name__, function__name__set);
+     py_bindmagic(type, __repr__, function__repr__);
+     return type;
+ }

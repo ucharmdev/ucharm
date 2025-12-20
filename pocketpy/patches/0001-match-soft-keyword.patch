@@ -1,0 +1,17 @@
+diff --git a/pocketpy/vendor/pocketpy.c b/pocketpy/vendor/pocketpy.c
+--- a/pocketpy/vendor/pocketpy.c
++++ b/pocketpy/vendor/pocketpy.c
+@@ -26019,7 +26070,12 @@ static Error* exprName(Compiler* self) {
+ }
+ 
+ static Error* exprAttrib(Compiler* self) {
+-    consume(TK_ID);
++    // ucharm patch: allow 'match' soft keyword as attribute name (for re.match, etc.)
++    if(curr()->type == TK_MATCH) {
++        advance();
++    } else {
++        consume(TK_ID);
++    }
+     py_Name name = py_namev(Token__sv(prev()));
+     AttribExpr* e = AttribExpr__new(prev()->line, Ctx__s_popx(ctx()), name);
+     Ctx__s_push(ctx(), (Expr*)e);

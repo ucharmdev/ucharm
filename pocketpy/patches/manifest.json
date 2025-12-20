@@ -1,0 +1,32 @@
+{
+  "patchset_id": "ucharm-pocketpy-vendor-patches",
+  "patchset_version": 1,
+  "tracked_files": [
+    {
+      "path": "pocketpy/vendor/pocketpy.c",
+      "anchors": [
+        "ucharm patch: allow 'match' soft keyword as attribute name",
+        "ucharm patch: allow function attributes (__dict__) for CPython compatibility",
+        "ucharm patch: allow setting function.__doc__ for CPython compatibility",
+        "ucharm patch: allow setting function.__name__ for CPython compatibility",
+        "ucharm patch: WITH_EXIT_EXC opcode for exception-aware __exit__",
+        "ucharm patch: ensure __exit__ runs on exceptions and can suppress",
+        "ucharm patch: compile 'with' to call __exit__ on exceptions (and allow suppression)"
+      ]
+    }
+  ],
+  "patch_files": [
+    {
+      "id": "0001-match-soft-keyword",
+      "file": "pocketpy/patches/0001-match-soft-keyword.patch"
+    },
+    {
+      "id": "0002-function-attributes",
+      "file": "pocketpy/patches/0002-function-attributes.patch"
+    },
+    {
+      "id": "0003-with-exception-exit",
+      "file": "pocketpy/patches/0003-with-exception-exit.patch"
+    }
+  ]
+}
