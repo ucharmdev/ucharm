@@ -245,8 +245,9 @@ ucharm/
 
 Current compatibility summary (from `tests/compat_report_pocketpy.md`):
 
-- 1,288/1,445 tests passing (89.1%)
-- 28/36 targeted modules at 100% parity
+- 1,245/1,604 tests passing (77.6%)
+- 28/41 targeted modules at 100% parity
+- ~3ms startup, ~965KB universal binaries
 
 ## Showcase
 
