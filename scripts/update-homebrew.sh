@@ -41,7 +41,7 @@ mkdir -p "$(dirname "$FORMULA_PATH")"
 
 cat > "$FORMULA_PATH" << EOF
 class Ucharm < Formula
-  desc "Beautiful CLIs with MicroPython - fast startup, tiny binaries"
+  desc "Beautiful CLIs with PocketPy - fast startup, tiny binaries"
   homepage "https://github.com/ucharmdev/ucharm"
   version "$VERSION"
   license "MIT"

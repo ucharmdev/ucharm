@@ -9,7 +9,7 @@ Run with: ucharm run scripts/release.py
 import subprocess
 import sys
 
-# Add ucharm library to path (works for both MicroPython and CPython)
+# Add ucharm library to path (works for both PocketPy and CPython)
 # When run from repo root, this adds the ucharm package
 sys.path.insert(0, ".")
 sys.path.insert(0, "..")
@@ -200,17 +200,14 @@ def main():
     rule()
     print()
 
-    # Success message
-    box(
-        f"{style('Release v' + new_version + ' initiated!', bold=True)}\n\n"
-        f"The workflow will now:\n"
-        f"  {style('1.', fg='cyan')} Build binaries for all platforms\n"
-        f"  {style('2.', fg='cyan')} Generate AI-powered release notes\n"
-        f"  {style('3.', fg='cyan')} Create GitHub release with assets\n"
-        f"  {style('4.', fg='cyan')} Update Homebrew formula",
-        border_color="green",
-        padding=1,
-    )
+    # Success message - build string without multiline f-string (PocketPy limitation)
+    msg = style("Release v" + new_version + " initiated!", bold=True) + "\n\n"
+    msg = msg + "The workflow will now:\n"
+    msg = msg + "  " + style("1.", fg="cyan") + " Build binaries for all platforms\n"
+    msg = msg + "  " + style("2.", fg="cyan") + " Generate AI-powered release notes\n"
+    msg = msg + "  " + style("3.", fg="cyan") + " Create GitHub release with assets\n"
+    msg = msg + "  " + style("4.", fg="cyan") + " Update Homebrew formula"
+    box(msg, border_color="green", padding=1)
     print()
 
     url = "https://github.com/ucharmdev/ucharm/actions"

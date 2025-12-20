@@ -34,9 +34,9 @@ run script:
 build-app script output="app":
     ./cli/zig-out/bin/ucharm build {{ script }} -o {{ output }} --mode universal
 
-# Build custom MicroPython with native modules
-build-micropython:
-    cd native && ./build.sh
+# Build PocketPy runtime with native modules
+build-pocketpy:
+    cd pocketpy && zig build -Doptimize=ReleaseSmall
 
 # Run the demo
 demo:
@@ -49,7 +49,7 @@ demo-full:
 # Clean build artifacts
 clean:
     rm -rf cli/zig-out cli/.zig-cache
-    rm -rf native/dist
+    rm -rf pocketpy/zig-out pocketpy/.zig-cache
 
 # Format Zig code
 fmt:
@@ -70,8 +70,8 @@ size:
     @echo "CLI binary:"
     @ls -lh cli/zig-out/bin/ucharm 2>/dev/null || echo "  Not built yet. Run: just build"
     @echo ""
-    @echo "MicroPython binary:"
-    @ls -lh native/dist/micropython-ucharm 2>/dev/null || echo "  Not built yet. Run: just build-micropython"
+    @echo "PocketPy runtime:"
+    @ls -lh pocketpy/zig-out/bin/pocketpy-ucharm 2>/dev/null || echo "  Not built yet. Run: just build-pocketpy"
 
 # Run benchmarks
 bench:
@@ -94,7 +94,8 @@ uninstall:
 setup:
     @echo "Checking dependencies..."
     @which zig > /dev/null || (echo "Error: zig not found. Install from https://ziglang.org" && exit 1)
-    @which micropython > /dev/null || echo "Warning: micropython not found. Install with: brew install micropython"
+    @echo "Building PocketPy runtime..."
+    @just build-pocketpy
     @echo "Building CLI..."
     @just build
     @echo ""

@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """
-Generate Python type stubs (.pyi) from native C module source files.
+Generate Python type stubs (.pyi) from runtime legacy C module source files.
+
+Note: ucharm now prefers Zig-only runtime modules. If no legacy C modules
+exist, this script will emit no stubs and you should update stubs manually.
 
 Parses:
 - Function signatures from mp_arg_t allowed_args[] arrays
@@ -15,11 +18,11 @@ Usage:
     python scripts/generate_stubs.py [--output stubs/]
 """
 
-import re
 import os
+import re
 import sys
-from pathlib import Path
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Optional
 
 
@@ -415,7 +418,7 @@ def generate_stub(module: Module) -> str:
 def main():
     script_dir = Path(__file__).parent
     project_root = script_dir.parent
-    native_dir = project_root / "native"
+    native_dir = project_root / "runtime"
     output_dir = project_root / "stubs"
 
     # Parse command line args
@@ -428,7 +431,7 @@ def main():
 
     # Find all mod*.c files
     modules = []
-    for mod_file in native_dir.glob("*/mod*.c"):
+    for mod_file in native_dir.glob("*/legacy/mod*.c"):
         print(f"Parsing {mod_file.relative_to(project_root)}...")
         module = parse_c_module(mod_file)
         if module:
