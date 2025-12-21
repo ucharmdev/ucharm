@@ -501,21 +501,41 @@ export default function HomePage() {
               </div>
               <pre className="bg-gray-950 p-6 overflow-x-auto text-sm leading-relaxed">
                 <code className="text-gray-100 font-mono">
-                  {`\x1b[38;5;203mfrom\x1b[0m ucharm \x1b[38;5;203mimport\x1b[0m box, table, success, select
-
-\x1b[38;5;245m# Beautiful boxes\x1b[0m
-box(\x1b[38;5;186m"Deploying..."\x1b[0m, title=\x1b[38;5;186m"Release"\x1b[0m)
-
-\x1b[38;5;245m# Interactive prompts\x1b[0m
-env = select(\x1b[38;5;186m"Environment:"\x1b[0m, [\x1b[38;5;186m"dev"\x1b[0m, \x1b[38;5;186m"prod"\x1b[0m])
-
-\x1b[38;5;245m# Formatted tables\x1b[0m
-table([
-    [\x1b[38;5;186m"Artifact"\x1b[0m, \x1b[38;5;186m"Size"\x1b[0m],
-    [\x1b[38;5;186m"app"\x1b[0m, \x1b[38;5;186m"847KB"\x1b[0m],
-], headers=\x1b[38;5;141mTrue\x1b[0m)
-
-success(\x1b[38;5;186mf"Deployed to \x1b[0m{env}\x1b[38;5;186m!"\x1b[0m)`}
+                  <span className="text-rose-400">from</span>
+                  {" ucharm "}
+                  <span className="text-rose-400">import</span>
+                  {" box, table, success, select\n\n"}
+                  <span className="text-gray-500"># Beautiful boxes</span>
+                  {"\nbox("}
+                  <span className="text-amber-300">{'"Deploying..."'}</span>
+                  {", title="}
+                  <span className="text-amber-300">{'"Release"'}</span>
+                  {")\n\n"}
+                  <span className="text-gray-500"># Interactive prompts</span>
+                  {"\nenv = select("}
+                  <span className="text-amber-300">{'"Environment:"'}</span>
+                  {", ["}
+                  <span className="text-amber-300">{'"dev"'}</span>
+                  {", "}
+                  <span className="text-amber-300">{'"prod"'}</span>
+                  {"])\n\n"}
+                  <span className="text-gray-500"># Formatted tables</span>
+                  {"\ntable([\n    ["}
+                  <span className="text-amber-300">{'"Artifact"'}</span>
+                  {", "}
+                  <span className="text-amber-300">{'"Size"'}</span>
+                  {"],\n    ["}
+                  <span className="text-amber-300">{'"app"'}</span>
+                  {", "}
+                  <span className="text-amber-300">{'"2MB"'}</span>
+                  {"],\n], headers="}
+                  <span className="text-purple-400">True</span>
+                  {")\n\n"}
+                  {"success("}
+                  <span className="text-amber-300">f"Deployed to </span>
+                  <span className="text-gray-100">{"{env}"}</span>
+                  <span className="text-amber-300">!"</span>
+                  {")"}
                 </code>
               </pre>
             </div>
