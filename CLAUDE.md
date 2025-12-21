@@ -58,6 +58,10 @@ ucharm/
 │   ├── src/runtime.zig       # Module registration
 │   └── build.zig             # pocketpy-ucharm build
 ├── loader/                   # Universal binary loader (Zig)
+├── website/                  # Documentation site (Fumadocs + Next.js)
+│   ├── content/docs/         # MDX documentation files
+│   ├── src/components/       # React components (Terminal, etc.)
+│   └── src/app/              # Next.js app
 ├── scripts/
 ├── tests/
 └── README.md
@@ -257,6 +261,24 @@ When adding or modifying runtime modules, update:
 - `stubs/*.pyi` and copy to `cli/src/stubs/`.
 - `cli/src/templates/AGENTS.md`, `cli/src/templates/CLAUDE.md`, and `cli/src/templates/copilot-instructions.md`.
 - `README.md` if public APIs or workflows changed.
+- `website/content/docs/` if module APIs or features changed.
+
+## Website (ucharm.dev)
+
+The documentation website is in `website/` and deployed via Vercel.
+
+```bash
+# Run dev server
+cd website && bun run dev
+
+# Build for production
+cd website && bun run build
+```
+
+Update docs when:
+- Adding new modules → `website/content/docs/modules/`
+- Changing APIs → Update relevant MDX files
+- Adding features → Update getting started guides
 
 ## Committing Changes
 

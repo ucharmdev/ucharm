@@ -77,7 +77,16 @@ Review and update if the changes affect:
 If TUI APIs changed, update the `ucharm new` template:
 - `cli/src/new_cmd.zig` - The project template
 
-### 6. Rebuild CLI
+### 6. Update Website Documentation
+
+If APIs, modules, or features changed, update the website docs in `website/content/docs/`:
+- Module documentation in `website/content/docs/modules/`
+- Getting started guides if workflows changed
+- API examples if function signatures changed
+
+The website is deployed via Vercel from the `website/` directory.
+
+### 7. Rebuild CLI
 
 After any changes to embedded files (stubs, templates):
 
@@ -86,7 +95,7 @@ cp VERSION cli/src/VERSION
 cd cli && zig build -Doptimize=ReleaseSmall
 ```
 
-### 7. Review Changes
+### 8. Review Changes
 
 Review all staged and unstaged changes:
 
@@ -96,7 +105,7 @@ git diff
 git diff --staged
 ```
 
-### 8. Create Commits
+### 9. Create Commits
 
 Group related changes into logical commits using conventional commit format:
 
