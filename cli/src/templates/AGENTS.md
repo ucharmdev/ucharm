@@ -23,6 +23,11 @@ import input
 ## Available TUI Functions
 
 - `box(content, title=None, border="rounded", border_color=None)` - Draw a box
+- `table(rows, headers=False, border="square", border_color=None)` - Display formatted table
+- `rule(title=None, color=None, width=80)` - Horizontal divider
+- `progress(current, total, label=None, width=40, elapsed=None)` - Progress bar
+- `spinner(frame, message=None, color=None)` - Animated spinner
+- `progress_done()` - Complete progress/spinner line
 - `success(msg)`, `error(msg)`, `warning(msg)`, `info(msg)` - Status messages
 - `select(prompt, choices)` -> str - Interactive selection
 - `multiselect(prompt, choices)` -> list - Multiple selection

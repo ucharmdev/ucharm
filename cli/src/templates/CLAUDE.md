@@ -12,7 +12,7 @@ This project uses **ucharm** - a CLI toolkit for building beautiful command-line
 ## Available Modules
 
 ### TUI Components
-- `charm` - Box, rule, progress bar, status messages (success/error/warning/info)
+- `charm` - Box, table, rule, progress bar, spinner, status messages (success/error/warning/info)
 - `input` - Interactive prompts: select, multiselect, confirm, prompt, password
 - `term` - Terminal control (size, raw mode, cursor, colors)
 - `ansi` - ANSI escape codes for styling

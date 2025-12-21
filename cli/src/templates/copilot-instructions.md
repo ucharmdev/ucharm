@@ -11,7 +11,15 @@ This project uses ucharm (PocketPy + native Zig modules).
 ## Preferred Patterns
 
 ```python
-from ucharm import box, success, select, confirm
+from ucharm import box, table, success, select, confirm
+import charm
+
+# Tables
+charm.table([["Name", "Age"], ["Alice", "25"]], headers=True)
+
+# Progress with elapsed time
+charm.progress(5, 10, label="Loading", elapsed=2.5)
+charm.progress_done()
 
 # HTTP requests
 import fetch
