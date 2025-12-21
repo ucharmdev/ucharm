@@ -440,6 +440,7 @@ fn progressFn(ctx: *pk.Context) bool {
     var label_arg = ctx.arg(2);
     const width: u32 = @intCast(ctx.argInt(3) orelse 40);
     var color_arg = ctx.arg(4);
+    var elapsed_arg = ctx.arg(5);
 
     const label_c: ?[*:0]const u8 = if (label_arg != null and !label_arg.?.isNone()) blk: {
         const s = label_arg.?.toStr() orelse break :blk null;
@@ -449,6 +450,11 @@ fn progressFn(ctx: *pk.Context) bool {
     const color_c: ?[*:0]const u8 = if (color_arg != null and !color_arg.?.isNone()) blk: {
         const s = color_arg.?.toStr() orelse break :blk null;
         break :blk @ptrCast(s.ptr);
+    } else null;
+
+    // Get elapsed time (optional float in seconds)
+    const elapsed: ?f64 = if (elapsed_arg != null and !elapsed_arg.?.isNone()) blk: {
+        break :blk elapsed_arg.?.toNumber();
     } else null;
 
     var bar_buf: [256]u8 = undefined;
@@ -466,12 +472,25 @@ fn progressFn(ctx: *pk.Context) bool {
     const color_start = color_start_buf[0..color_start_len];
 
     writeOut("\r");
-    if (label_c != null) writeCStr(label_c.?);
+    if (label_c != null) {
+        writeCStr(label_c.?);
+        writeOut(" ");
+    }
     writeOut(color_start);
     writeOut(bar_buf[0..bar_len]);
     writeOut(color_end);
     writeOut(" ");
     writeOut(percent_buf[0..percent_len]);
+
+    // Write elapsed time if provided
+    if (elapsed) |e| {
+        var time_buf: [32]u8 = undefined;
+        const time_str = std.fmt.bufPrint(&time_buf, "  {d:.1}s", .{e}) catch "";
+        writeOut(time_str);
+    }
+
+    // Clear rest of line (in case previous output was longer)
+    writeOut("\x1b[K");
 
     return ctx.returnNone();
 }
@@ -480,6 +499,241 @@ fn spinnerFrameFn(ctx: *pk.Context) bool {
     const index: u32 = @intCast(ctx.argInt(0) orelse return ctx.typeError("index must be int"));
     c.py_newstr(c.py_retval(), charm_core.charm_spinner_frame(index));
     return true;
+}
+
+fn spinnerFn(ctx: *pk.Context) bool {
+    // arg 0: frame index (int)
+    // arg 1: message (optional str)
+    // arg 2: color (optional str)
+    const index: u32 = @intCast(ctx.argInt(0) orelse return ctx.typeError("index must be int"));
+
+    var msg_arg = ctx.arg(1);
+    var color_arg = ctx.arg(2);
+
+    const msg: ?[]const u8 = if (msg_arg != null and !msg_arg.?.isNone()) blk: {
+        break :blk msg_arg.?.toStr();
+    } else null;
+
+    const color_c: ?[*:0]const u8 = if (color_arg != null and !color_arg.?.isNone()) blk: {
+        const s = color_arg.?.toStr() orelse break :blk null;
+        break :blk @ptrCast(s.ptr);
+    } else null;
+
+    var color_start_buf: [64]u8 = undefined;
+    var color_start_len: usize = 0;
+    var color_end: []const u8 = "";
+    if (color_c != null) {
+        color_start_len = buildStyleCode(&color_start_buf, color_c.?, null, false, false, false, false, false);
+        if (color_start_len > 0) color_end = "\x1b[0m";
+    }
+    const color_start = color_start_buf[0..color_start_len];
+
+    writeOut("\r");
+    writeOut(color_start);
+    writeCStr(charm_core.charm_spinner_frame(index));
+    writeOut(color_end);
+    if (msg) |m| {
+        writeOut(" ");
+        writeOut(m);
+    }
+    writeOut("\x1b[K"); // Clear to end of line
+
+    return ctx.returnNone();
+}
+
+fn progressDoneFn(ctx: *pk.Context) bool {
+    // Just print a newline to finish progress/spinner output
+    writeOut("\n");
+    return ctx.returnNone();
+}
+
+// Table character position constants
+const TC_H: u8 = 0; // horizontal
+const TC_V: u8 = 1; // vertical
+const TC_TL: u8 = 2; // top-left
+const TC_TR: u8 = 3; // top-right
+const TC_BL: u8 = 4; // bottom-left
+const TC_BR: u8 = 5; // bottom-right
+const TC_TH: u8 = 6; // top horizontal junction
+const TC_BH: u8 = 7; // bottom horizontal junction
+const TC_LV: u8 = 8; // left vertical junction
+const TC_RV: u8 = 9; // right vertical junction
+const TC_CROSS: u8 = 10; // cross junction
+
+fn tableFn(ctx: *pk.Context) bool {
+    // arg 0: rows (list of lists)
+    // arg 1: headers (bool, default False) - first row is header
+    // arg 2: border (str, default "square")
+    // arg 3: border_color (str, optional)
+
+    var rows_val = ctx.arg(0) orelse return ctx.typeError("rows must be a list");
+    if (!rows_val.isList()) return ctx.typeError("rows must be a list");
+
+    var border_arg = ctx.arg(2);
+    var border_color_arg = ctx.arg(3);
+    const has_headers = ctx.argBool(1) orelse false;
+
+    // Determine border style
+    var border_style: u8 = charm_core.BORDER_SQUARE;
+    if (border_arg != null and !border_arg.?.isNone()) {
+        if (border_arg.?.toStr()) |border_str| {
+            if (std.mem.eql(u8, border_str, "rounded")) {
+                border_style = charm_core.BORDER_ROUNDED;
+            } else if (std.mem.eql(u8, border_str, "double")) {
+                border_style = charm_core.BORDER_DOUBLE;
+            } else if (std.mem.eql(u8, border_str, "heavy")) {
+                border_style = charm_core.BORDER_HEAVY;
+            } else if (std.mem.eql(u8, border_str, "none")) {
+                border_style = charm_core.BORDER_NONE;
+            }
+        }
+    }
+
+    // Get border color
+    const border_color_c: ?[*:0]const u8 = if (border_color_arg != null and !border_color_arg.?.isNone()) blk: {
+        const s = border_color_arg.?.toStr() orelse break :blk null;
+        break :blk @ptrCast(s.ptr);
+    } else null;
+
+    var color_start_buf: [64]u8 = undefined;
+    var color_start_len: usize = 0;
+    var color_end: []const u8 = "";
+    if (border_color_c != null) {
+        color_start_len = buildStyleCode(&color_start_buf, border_color_c.?, null, false, false, false, false, false);
+        if (color_start_len > 0) color_end = "\x1b[0m";
+    }
+    const color_start = color_start_buf[0..color_start_len];
+
+    // Get table characters
+    const h = std.mem.span(charm_core.charm_table_char(border_style, TC_H));
+    const v = std.mem.span(charm_core.charm_table_char(border_style, TC_V));
+    const tl = std.mem.span(charm_core.charm_table_char(border_style, TC_TL));
+    const tr = std.mem.span(charm_core.charm_table_char(border_style, TC_TR));
+    const bl = std.mem.span(charm_core.charm_table_char(border_style, TC_BL));
+    const br = std.mem.span(charm_core.charm_table_char(border_style, TC_BR));
+    const th = std.mem.span(charm_core.charm_table_char(border_style, TC_TH));
+    const bh = std.mem.span(charm_core.charm_table_char(border_style, TC_BH));
+    const lv = std.mem.span(charm_core.charm_table_char(border_style, TC_LV));
+    const rv = std.mem.span(charm_core.charm_table_char(border_style, TC_RV));
+    const cross = std.mem.span(charm_core.charm_table_char(border_style, TC_CROSS));
+
+    // Get row count - use Value.len() which works for lists
+    const num_rows: usize = rows_val.len() orelse return ctx.typeError("rows must be a list");
+    if (num_rows == 0) return ctx.returnNone();
+
+    // Calculate column count from first row
+    var first_row = rows_val.getItem(0) orelse return ctx.typeError("rows must not be empty");
+    if (!first_row.isList()) return ctx.typeError("each row must be a list");
+    const num_cols: usize = first_row.len() orelse 0;
+    if (num_cols == 0) return ctx.returnNone();
+
+    // Calculate column widths (visible width)
+    const max_cols = 32;
+    var col_widths: [max_cols]usize = [_]usize{0} ** max_cols;
+    const actual_cols = @min(num_cols, max_cols);
+
+    for (0..num_rows) |row_idx| {
+        var row = rows_val.getItem(row_idx) orelse continue;
+        if (!row.isList()) continue;
+        const row_len: usize = row.len() orelse 0;
+        for (0..@min(row_len, actual_cols)) |col_idx| {
+            var cell = row.getItem(col_idx) orelse continue;
+            const cell_str = cell.toStr() orelse "";
+            const vis_len = visibleLenSlice(cell_str);
+            if (vis_len > col_widths[col_idx]) {
+                col_widths[col_idx] = vis_len;
+            }
+        }
+    }
+
+    var repeat_buf: [512]u8 = undefined;
+
+    // Helper to write horizontal line
+    const writeHorizLine = struct {
+        fn call(
+            left: []const u8,
+            mid: []const u8,
+            right: []const u8,
+            horiz: []const u8,
+            widths: []usize,
+            cols: usize,
+            cstart: []const u8,
+            cend: []const u8,
+            rbuf: *[512]u8,
+        ) void {
+            writeOut(cstart);
+            writeOut(left);
+            for (0..cols) |i| {
+                const rep_len = charm_core.charm_repeat(@ptrCast(horiz.ptr), @intCast(widths[i] + 2), rbuf);
+                writeOut(rbuf[0..rep_len]);
+                if (i < cols - 1) {
+                    writeOut(mid);
+                }
+            }
+            writeOut(right);
+            writeOut(cend);
+            writeOut("\n");
+        }
+    }.call;
+
+    // Write top border
+    writeHorizLine(tl, th, tr, h, &col_widths, actual_cols, color_start, color_end, &repeat_buf);
+
+    // Write each row
+    for (0..num_rows) |row_idx| {
+        var row = rows_val.getItem(row_idx) orelse continue;
+        if (!row.isList()) continue;
+        const row_len: usize = row.len() orelse 0;
+
+        // Write row content
+        writeOut(color_start);
+        writeOut(v);
+        writeOut(color_end);
+
+        for (0..actual_cols) |col_idx| {
+            writeOut(" ");
+            var cell_str: []const u8 = "";
+            if (col_idx < row_len) {
+                var cell = row.getItem(col_idx) orelse continue;
+                cell_str = cell.toStr() orelse "";
+            }
+
+            // Apply bold for header row
+            if (has_headers and row_idx == 0) {
+                writeOut("\x1b[1m");
+            }
+
+            // Write cell content
+            writeOut(cell_str);
+
+            if (has_headers and row_idx == 0) {
+                writeOut("\x1b[0m");
+            }
+
+            // Pad to column width
+            const vis_len = visibleLenSlice(cell_str);
+            const pad_needed = col_widths[col_idx] - vis_len;
+            for (0..pad_needed) |_| {
+                writeOut(" ");
+            }
+            writeOut(" ");
+
+            writeOut(color_start);
+            writeOut(v);
+            writeOut(color_end);
+        }
+        writeOut("\n");
+
+        // Write separator after header row
+        if (has_headers and row_idx == 0 and num_rows > 1) {
+            writeHorizLine(lv, cross, rv, h, &col_widths, actual_cols, color_start, color_end, &repeat_buf);
+        }
+    }
+
+    // Write bottom border
+    writeHorizLine(bl, bh, br, h, &col_widths, actual_cols, color_start, color_end, &repeat_buf);
+
+    return ctx.returnNone();
 }
 
 pub fn register() void {
@@ -494,8 +748,11 @@ pub fn register() void {
         .funcWrapped("error", 1, 1, errorMsgFn)
         .funcWrapped("warning", 1, 1, warningFn)
         .funcWrapped("info", 1, 1, infoFn)
-        .funcSigWrapped("progress(current, total, label=None, width=40, color=None)", 2, 5, progressFn)
+        .funcSigWrapped("progress(current, total, label=None, width=40, color=None, elapsed=None)", 2, 6, progressFn)
+        .funcWrapped("progress_done", 0, 0, progressDoneFn)
         .funcWrapped("spinner_frame", 1, 1, spinnerFrameFn)
+        .funcSigWrapped("spinner(frame, message=None, color=None)", 1, 3, spinnerFn)
+        .funcSigWrapped("table(rows, headers=False, border='square', border_color=None)", 1, 4, tableFn)
         .constInt("BORDER_ROUNDED", charm_core.BORDER_ROUNDED)
         .constInt("BORDER_SQUARE", charm_core.BORDER_SQUARE)
         .constInt("BORDER_DOUBLE", charm_core.BORDER_DOUBLE)

@@ -56,6 +56,34 @@ const SYMBOL_BULLET = "•";
 const PROGRESS_FILL = "█";
 const PROGRESS_EMPTY = "░";
 
+// Table junction characters (for square/light box drawing)
+const TableChars = struct {
+    h: []const u8, // horizontal
+    v: []const u8, // vertical
+    tl: []const u8, // top-left corner
+    tr: []const u8, // top-right corner
+    bl: []const u8, // bottom-left corner
+    br: []const u8, // bottom-right corner
+    th: []const u8, // top horizontal junction (T pointing down)
+    bh: []const u8, // bottom horizontal junction (T pointing up)
+    lv: []const u8, // left vertical junction (T pointing right)
+    rv: []const u8, // right vertical junction (T pointing left)
+    cross: []const u8, // cross junction
+};
+
+const table_chars = [5]TableChars{
+    // rounded (use square junctions, rounded corners)
+    .{ .h = "─", .v = "│", .tl = "╭", .tr = "╮", .bl = "╰", .br = "╯", .th = "┬", .bh = "┴", .lv = "├", .rv = "┤", .cross = "┼" },
+    // square
+    .{ .h = "─", .v = "│", .tl = "┌", .tr = "┐", .bl = "└", .br = "┘", .th = "┬", .bh = "┴", .lv = "├", .rv = "┤", .cross = "┼" },
+    // double
+    .{ .h = "═", .v = "║", .tl = "╔", .tr = "╗", .bl = "╚", .br = "╝", .th = "╦", .bh = "╩", .lv = "╠", .rv = "╣", .cross = "╬" },
+    // heavy
+    .{ .h = "━", .v = "┃", .tl = "┏", .tr = "┓", .bl = "┗", .br = "┛", .th = "┳", .bh = "┻", .lv = "┣", .rv = "┫", .cross = "╋" },
+    // none (spaces)
+    .{ .h = " ", .v = " ", .tl = " ", .tr = " ", .bl = " ", .br = " ", .th = " ", .bh = " ", .lv = " ", .rv = " ", .cross = " " },
+};
+
 // Spinner frames
 const SPINNER_FRAMES = [_][]const u8{ "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" };
 
@@ -204,6 +232,27 @@ pub export fn charm_spinner_frame(index: u32) CStr {
 /// Get spinner frame count
 pub export fn charm_spinner_frame_count() u32 {
     return SPINNER_FRAMES.len;
+}
+
+/// Get table character for style and position
+/// position: 0=h, 1=v, 2=tl, 3=tr, 4=bl, 5=br, 6=th, 7=bh, 8=lv, 9=rv, 10=cross
+pub export fn charm_table_char(style: u8, position: u8) CStr {
+    const idx = if (style < 5) style else 0;
+    const chars = &table_chars[idx];
+    return switch (position) {
+        0 => @ptrCast(chars.h.ptr),
+        1 => @ptrCast(chars.v.ptr),
+        2 => @ptrCast(chars.tl.ptr),
+        3 => @ptrCast(chars.tr.ptr),
+        4 => @ptrCast(chars.bl.ptr),
+        5 => @ptrCast(chars.br.ptr),
+        6 => @ptrCast(chars.th.ptr),
+        7 => @ptrCast(chars.bh.ptr),
+        8 => @ptrCast(chars.lv.ptr),
+        9 => @ptrCast(chars.rv.ptr),
+        10 => @ptrCast(chars.cross.ptr),
+        else => @ptrCast(chars.h.ptr),
+    };
 }
 
 /// Build a progress bar string into the provided buffer
