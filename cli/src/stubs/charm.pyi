@@ -55,9 +55,24 @@ def progress(
     label: Optional[str] = None,
     width: int = 40,
     color: Optional[str] = None,
+    elapsed: Optional[float] = None,
 ) -> None:
     """
     Display an animated progress bar with percentage.
+
+    Args:
+        current: Current progress value
+        total: Total value for 100% completion
+        label: Optional label to display before the bar
+        width: Width of the progress bar in characters (default 40)
+        color: Optional color for the progress bar
+        elapsed: Optional elapsed time in seconds to display
+    """
+    ...
+
+def progress_done() -> None:
+    """
+    Print a newline after progress/spinner output to complete the line.
     """
     ...
 
@@ -91,8 +106,44 @@ def info(value: Any) -> None:
     """
     ...
 
-def spinner_frame(value: Any) -> str:
+def spinner_frame(index: int) -> str:
     """
     Get a spinner animation frame by index (cycles through frames).
+    """
+    ...
+
+def spinner(
+    frame: int,
+    message: Optional[str] = None,
+    color: Optional[str] = None,
+) -> None:
+    """
+    Display a spinner animation frame with optional message.
+
+    Args:
+        frame: Frame index (cycles through spinner frames)
+        message: Optional message to display after the spinner
+        color: Optional color for the spinner
+    """
+    ...
+
+def table(
+    rows: List[List[str]],
+    *,
+    headers: bool = False,
+    border: str = "square",
+    border_color: Optional[str] = None,
+) -> None:
+    """
+    Display a formatted table with borders.
+
+    Args:
+        rows: List of rows, where each row is a list of cell values
+        headers: If True, style the first row as headers with a separator
+        border: Border style - "square", "rounded", "double", "heavy", or "none"
+        border_color: Optional color for the border
+
+    Example:
+        table([["Name", "Age"], ["Alice", "25"]], headers=True)
     """
     ...
