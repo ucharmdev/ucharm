@@ -1,252 +1,624 @@
+"use client";
+
 import Link from "next/link";
+import { useState } from "react";
 import { Terminal } from "@/components/Terminal";
 
+// Demo outputs with ANSI codes
 const demoOutput = `\x1b[36m$\x1b[0m ucharm run deploy.py
 
 \x1b[1;34m╭─ Release ─────────────────────────────╮\x1b[0m
 \x1b[1;34m│\x1b[0m Deploying build...                    \x1b[1;34m│\x1b[0m
 \x1b[1;34m╰───────────────────────────────────────╯\x1b[0m
 
-\x1b[1;32m✓\x1b[0m Built commit a1b2c3d
+\x1b[1;32m✓\x1b[0m Built commit \x1b[33ma1b2c3d\x1b[0m
 
 \x1b[90m┌───────────┬───────┬──────┐\x1b[0m
 \x1b[90m│\x1b[0m\x1b[1m Artifact  \x1b[0m\x1b[90m│\x1b[0m\x1b[1m Size  \x1b[0m\x1b[90m│\x1b[0m\x1b[1m Time \x1b[0m\x1b[90m│\x1b[0m
 \x1b[90m├───────────┼───────┼──────┤\x1b[0m
-\x1b[90m│\x1b[0m app-linux \x1b[90m│\x1b[0m \x1b[32m900KB\x1b[0m \x1b[90m│\x1b[0m \x1b[33m6ms\x1b[0m  \x1b[90m│\x1b[0m
-\x1b[90m│\x1b[0m app-macos \x1b[90m│\x1b[0m \x1b[32m910KB\x1b[0m \x1b[90m│\x1b[0m \x1b[33m7ms\x1b[0m  \x1b[90m│\x1b[0m
+\x1b[90m│\x1b[0m app-linux \x1b[90m│\x1b[0m \x1b[32m847KB\x1b[0m \x1b[90m│\x1b[0m \x1b[33m4ms\x1b[0m  \x1b[90m│\x1b[0m
+\x1b[90m│\x1b[0m app-macos \x1b[90m│\x1b[0m \x1b[32m912KB\x1b[0m \x1b[90m│\x1b[0m \x1b[33m5ms\x1b[0m  \x1b[90m│\x1b[0m
 \x1b[90m└───────────┴───────┴──────┘\x1b[0m
 
-\x1b[1;32m✓\x1b[0m Upload complete`;
+\x1b[1;32m✓\x1b[0m Deployed to production`;
 
 const interactiveDemo = `\x1b[36m$\x1b[0m ucharm run setup.py
 
-\x1b[90m───────────────────\x1b[0m Project Setup \x1b[90m───────────────────\x1b[0m
+\x1b[90m────────────────\x1b[0m \x1b[1mProject Setup\x1b[0m \x1b[90m────────────────\x1b[0m
 
-\x1b[1;33m?\x1b[0m Project name: \x1b[36mfastship\x1b[0m
-\x1b[1;33m?\x1b[0m Select features:
-  \x1b[32m◉\x1b[0m Logging
-  \x1b[32m◉\x1b[0m HTTP
-  \x1b[90m○\x1b[0m Config
-\x1b[1;33m?\x1b[0m Create project now? \x1b[90m(Y/n)\x1b[0m \x1b[32my\x1b[0m
+\x1b[1;33m?\x1b[0m Project name: \x1b[36mmycli\x1b[0m
+\x1b[1;33m?\x1b[0m Choose a template:
+   \x1b[36m❯\x1b[0m \x1b[1mMinimal\x1b[0m - Just the basics
+     Full - Kitchen sink
+     Library - Reusable module
 
-\x1b[1;32m✓\x1b[0m Created fastship with 2 features`;
+\x1b[1;33m?\x1b[0m Enable features:
+  \x1b[32m◉\x1b[0m HTTP client
+  \x1b[32m◉\x1b[0m Config files
+  \x1b[90m○\x1b[0m Database
 
-const codeExample = `from ucharm import box, table, success, select
+\x1b[1;32m✓\x1b[0m Created \x1b[1;36mmycli\x1b[0m in \x1b[33m0.8s\x1b[0m`;
 
-# Beautiful boxes
-box("Deploying build...", title="Release", border_color="cyan")
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
 
-# Interactive prompts
-choice = select("Pick environment:", ["dev", "staging", "prod"])
+  const copy = () => {
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
-# Formatted tables
-table([
-    ["Artifact", "Size", "Time"],
-    ["app-linux", "900KB", "6ms"],
-], headers=True)
+  return (
+    <button
+      onClick={copy}
+      className="text-gray-400 hover:text-white transition-colors"
+      title="Copy to clipboard"
+    >
+      {copied ? (
+        <svg
+          className="w-4 h-4 text-green-400"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M5 13l4 4L19 7"
+          />
+        </svg>
+      ) : (
+        <svg
+          className="w-4 h-4"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+          />
+        </svg>
+      )}
+    </button>
+  );
+}
 
-success(f"Deployed to {choice}!")`;
+function StatCard({
+  value,
+  label,
+  suffix = "",
+}: {
+  value: string;
+  label: string;
+  suffix?: string;
+}) {
+  return (
+    <div className="text-center">
+      <div className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
+        {value}
+        <span className="text-2xl">{suffix}</span>
+      </div>
+      <div className="text-gray-500 dark:text-gray-400 mt-1">{label}</div>
+    </div>
+  );
+}
 
 function FeatureCard({
   icon,
   title,
   description,
+  gradient,
 }: {
-  icon: string;
+  icon: React.ReactNode;
   title: string;
   description: string;
+  gradient: string;
 }) {
   return (
-    <div className="p-6 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/50">
-      <div className="text-3xl mb-3">{icon}</div>
+    <div className="group relative p-6 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/50 hover:border-cyan-500/50 transition-all duration-300 hover:shadow-lg hover:shadow-cyan-500/10">
+      <div className={`inline-flex p-3 rounded-xl ${gradient} mb-4`}>
+        {icon}
+      </div>
       <h3 className="text-lg font-semibold mb-2">{title}</h3>
-      <p className="text-gray-600 dark:text-gray-400 text-sm">{description}</p>
+      <p className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
+        {description}
+      </p>
     </div>
+  );
+}
+
+function ComparisonRow({
+  feature,
+  ucharm,
+  python,
+  node,
+}: {
+  feature: string;
+  ucharm: string;
+  python: string;
+  node: string;
+}) {
+  return (
+    <tr className="border-b border-gray-200 dark:border-gray-800">
+      <td className="py-4 px-4 font-medium">{feature}</td>
+      <td className="py-4 px-4 text-center">
+        <span className="text-green-500 font-semibold">{ucharm}</span>
+      </td>
+      <td className="py-4 px-4 text-center text-gray-500">{python}</td>
+      <td className="py-4 px-4 text-center text-gray-500">{node}</td>
+    </tr>
   );
 }
 
 export default function HomePage() {
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col overflow-hidden">
       {/* Hero Section */}
-      <section className="py-20 px-6 text-center">
-        <div className="max-w-4xl mx-auto">
-          <h1 className="text-5xl md:text-6xl font-bold mb-6 tracking-tight">
-            Beautiful CLI apps.{" "}
-            <span className="bg-gradient-to-r from-cyan-500 to-blue-500 bg-clip-text text-transparent">
-              Tiny binaries.
+      <section className="relative py-24 md:py-32 px-6">
+        {/* Background gradient */}
+        <div className="absolute inset-0 -z-10 overflow-hidden">
+          <div className="absolute top-0 left-1/4 w-96 h-96 bg-cyan-500/20 rounded-full blur-3xl" />
+          <div className="absolute top-20 right-1/4 w-96 h-96 bg-blue-500/20 rounded-full blur-3xl" />
+          <div className="absolute -top-40 right-0 w-80 h-80 bg-purple-500/10 rounded-full blur-3xl" />
+        </div>
+
+        <div className="max-w-5xl mx-auto text-center">
+          {/* Badge */}
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-600 dark:text-cyan-400 text-sm font-medium mb-8">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-500"></span>
+            </span>
+            Now with HTTPS, SQLite, and 50+ modules
+          </div>
+
+          <h1 className="text-5xl md:text-7xl font-bold mb-6 tracking-tight leading-[1.1]">
+            Build CLI apps that
+            <br />
+            <span className="bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-500 bg-clip-text text-transparent">
+              developers love
             </span>
           </h1>
-          <p className="text-xl text-gray-600 dark:text-gray-400 mb-8 max-w-2xl mx-auto">
-            Build stunning command-line applications with Python syntax. Ship
-            them as single-file executables under 1MB that start instantly.
+
+          <p className="text-xl md:text-2xl text-gray-600 dark:text-gray-400 mb-10 max-w-3xl mx-auto leading-relaxed">
+            Python syntax. Single-file binaries under 1MB.
+            <span className="text-gray-900 dark:text-white font-medium">
+              {" "}
+              Instant startup.
+            </span>
+            <br className="hidden md:block" />
+            Ship beautiful command-line tools without the bloat.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
+
+          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
             <Link
-              href="/docs"
-              className="px-6 py-3 bg-cyan-500 hover:bg-cyan-600 text-white font-medium rounded-lg transition-colors"
+              href="/docs/getting-started/installation"
+              className="group px-8 py-4 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white font-semibold rounded-xl transition-all duration-200 shadow-lg shadow-cyan-500/25 hover:shadow-xl hover:shadow-cyan-500/30 hover:-translate-y-0.5"
             >
               Get Started
+              <span className="inline-block ml-2 group-hover:translate-x-1 transition-transform">
+                →
+              </span>
             </Link>
             <Link
               href="https://github.com/ucharmdev/ucharm"
-              className="px-6 py-3 border border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 font-medium rounded-lg transition-colors"
+              className="group px-8 py-4 border border-gray-300 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-600 font-semibold rounded-xl transition-all duration-200 hover:bg-gray-50 dark:hover:bg-gray-800/50"
             >
-              View on GitHub
+              <svg
+                className="inline-block w-5 h-5 mr-2 -mt-0.5"
+                fill="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12" />
+              </svg>
+              Star on GitHub
             </Link>
           </div>
 
           {/* Install command */}
-          <div className="inline-flex items-center gap-3 px-4 py-2 bg-gray-100 dark:bg-gray-800 rounded-lg font-mono text-sm">
-            <span className="text-gray-500">$</span>
-            <code>brew install ucharmdev/tap/ucharm</code>
-            <button
-              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-              title="Copy to clipboard"
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                />
-              </svg>
-            </button>
+          <div className="inline-flex items-center gap-4 px-5 py-3 bg-gray-900 dark:bg-gray-950 rounded-xl font-mono text-sm border border-gray-800">
+            <span className="text-cyan-400">$</span>
+            <code className="text-gray-100">
+              brew install ucharmdev/tap/ucharm
+            </code>
+            <CopyButton text="brew install ucharmdev/tap/ucharm" />
           </div>
         </div>
       </section>
 
       {/* Terminal Demo Section */}
-      <section className="py-16 px-6 bg-gray-50 dark:bg-gray-900/30">
-        <div className="max-w-5xl mx-auto">
-          <div className="grid md:grid-cols-2 gap-6">
-            <Terminal title="deploy.py">{demoOutput}</Terminal>
-            <Terminal title="setup.py">{interactiveDemo}</Terminal>
+      <section className="py-20 px-6 bg-gradient-to-b from-gray-50 to-white dark:from-gray-900/50 dark:to-gray-950">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">
+              See it in action
+            </h2>
+            <p className="text-gray-600 dark:text-gray-400 text-lg">
+              Beautiful output and interactive prompts, built-in.
+            </p>
+          </div>
+          <div className="grid lg:grid-cols-2 gap-6">
+            <Terminal title="deploy.py" className="shadow-2xl shadow-black/20">
+              {demoOutput}
+            </Terminal>
+            <Terminal title="setup.py" className="shadow-2xl shadow-black/20">
+              {interactiveDemo}
+            </Terminal>
+          </div>
+        </div>
+      </section>
+
+      {/* Stats Section */}
+      <section className="py-20 px-6">
+        <div className="max-w-4xl mx-auto">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-12">
+            <StatCard value="<5" suffix="ms" label="Cold start" />
+            <StatCard value="<1" suffix="MB" label="Binary size" />
+            <StatCard value="50" suffix="+" label="Native modules" />
+            <StatCard value="0" label="Dependencies" />
           </div>
         </div>
       </section>
 
       {/* Features Section */}
-      <section className="py-20 px-6">
-        <div className="max-w-5xl mx-auto">
-          <h2 className="text-3xl font-bold text-center mb-12">Why ucharm?</h2>
-          <div className="grid md:grid-cols-3 gap-6">
+      <section className="py-20 px-6 bg-gradient-to-b from-white to-gray-50 dark:from-gray-950 dark:to-gray-900/50">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">
+              Everything you need
+            </h2>
+            <p className="text-gray-600 dark:text-gray-400 text-lg max-w-2xl mx-auto">
+              A complete toolkit for building modern CLI applications, without
+              the complexity.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             <FeatureCard
-              icon="⚡"
+              icon={
+                <svg
+                  className="w-6 h-6 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13 10V3L4 14h7v7l9-11h-7z"
+                  />
+                </svg>
+              }
+              gradient="bg-gradient-to-br from-yellow-400 to-orange-500"
               title="Instant Startup"
-              description="< 10ms cold start. No interpreter warm-up, no virtual environment, no waiting."
+              description="Under 5ms cold start. No interpreter warm-up, no virtual environment activation, no waiting around."
             />
             <FeatureCard
-              icon="📦"
+              icon={
+                <svg
+                  className="w-6 h-6 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
+                  />
+                </svg>
+              }
+              gradient="bg-gradient-to-br from-green-400 to-emerald-500"
               title="Tiny Binaries"
-              description="Single-file executables under 1MB. Universal binaries work on any machine."
+              description="Single-file executables under 1MB. Universal binaries that run on any macOS or Linux machine."
             />
             <FeatureCard
-              icon="🐍"
+              icon={
+                <svg
+                  className="w-6 h-6 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"
+                  />
+                </svg>
+              }
+              gradient="bg-gradient-to-br from-blue-400 to-indigo-500"
               title="Python Syntax"
-              description="Write in familiar Python. No new language to learn, just better tooling."
+              description="Write in familiar Python. No new language to learn—just better, faster tooling for the CLI."
             />
             <FeatureCard
-              icon="🎨"
+              icon={
+                <svg
+                  className="w-6 h-6 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"
+                  />
+                </svg>
+              }
+              gradient="bg-gradient-to-br from-purple-400 to-pink-500"
               title="Beautiful Output"
-              description="Tables, boxes, progress bars, spinners, and colors built-in. No dependencies."
+              description="Tables, boxes, progress bars, spinners, and rich colors. All built-in, zero dependencies."
             />
             <FeatureCard
-              icon="💬"
+              icon={
+                <svg
+                  className="w-6 h-6 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                  />
+                </svg>
+              }
+              gradient="bg-gradient-to-br from-cyan-400 to-blue-500"
               title="Interactive Prompts"
-              description="Select, multiselect, confirm, password input with keyboard navigation."
+              description="Select, multiselect, confirm, and password inputs with smooth keyboard navigation."
             />
             <FeatureCard
-              icon="🔧"
-              title="50+ Modules"
-              description="JSON, HTTP, SQLite, regex, subprocess, and more. All implemented in native Zig."
+              icon={
+                <svg
+                  className="w-6 h-6 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"
+                  />
+                </svg>
+              }
+              gradient="bg-gradient-to-br from-red-400 to-rose-500"
+              title="50+ Native Modules"
+              description="HTTP, SQLite, JSON, regex, subprocess, and more. All implemented in native Zig for speed."
             />
+          </div>
+        </div>
+      </section>
+
+      {/* Comparison Section */}
+      <section className="py-20 px-6">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">
+              How it compares
+            </h2>
+            <p className="text-gray-600 dark:text-gray-400 text-lg">
+              ucharm vs traditional CLI tooling
+            </p>
+          </div>
+
+          <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-800">
+            <table className="w-full">
+              <thead className="bg-gray-50 dark:bg-gray-900">
+                <tr className="border-b border-gray-200 dark:border-gray-800">
+                  <th className="py-4 px-4 text-left font-semibold">Feature</th>
+                  <th className="py-4 px-4 text-center font-semibold text-cyan-500">
+                    ucharm
+                  </th>
+                  <th className="py-4 px-4 text-center font-semibold">
+                    Python + Click
+                  </th>
+                  <th className="py-4 px-4 text-center font-semibold">
+                    Node.js
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white dark:bg-gray-950">
+                <ComparisonRow
+                  feature="Cold start"
+                  ucharm="~5ms"
+                  python="~80ms"
+                  node="~40ms"
+                />
+                <ComparisonRow
+                  feature="Binary size"
+                  ucharm="~900KB"
+                  python="~50MB+"
+                  node="~40MB+"
+                />
+                <ComparisonRow
+                  feature="Dependencies"
+                  ucharm="None"
+                  python="pip + venv"
+                  node="node_modules"
+                />
+                <ComparisonRow
+                  feature="Distribution"
+                  ucharm="Single file"
+                  python="Complex"
+                  node="Complex"
+                />
+                <ComparisonRow
+                  feature="TUI built-in"
+                  ucharm="Yes"
+                  python="Requires Rich"
+                  node="Requires libs"
+                />
+              </tbody>
+            </table>
           </div>
         </div>
       </section>
 
       {/* Code Example Section */}
-      <section className="py-20 px-6 bg-gray-50 dark:bg-gray-900/30">
-        <div className="max-w-4xl mx-auto">
-          <h2 className="text-3xl font-bold text-center mb-4">
-            Simple, Expressive API
-          </h2>
-          <p className="text-center text-gray-600 dark:text-gray-400 mb-8">
-            Everything you need to build great CLI apps in a clean, Pythonic
-            interface.
-          </p>
-          <div className="rounded-lg overflow-hidden border border-gray-200 dark:border-gray-800 shadow-lg">
-            <div className="bg-gray-100 dark:bg-gray-800 px-4 py-2 flex items-center gap-2">
-              <div className="flex gap-1.5">
-                <div className="w-3 h-3 rounded-full bg-red-500" />
-                <div className="w-3 h-3 rounded-full bg-yellow-500" />
-                <div className="w-3 h-3 rounded-full bg-green-500" />
-              </div>
-              <span className="text-sm text-gray-600 dark:text-gray-400 ml-2">
-                app.py
-              </span>
+      <section className="py-20 px-6 bg-gradient-to-b from-gray-50 to-white dark:from-gray-900/50 dark:to-gray-950">
+        <div className="max-w-5xl mx-auto">
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
+            <div>
+              <h2 className="text-3xl md:text-4xl font-bold mb-6">
+                Simple, expressive API
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400 text-lg mb-6 leading-relaxed">
+                Everything you need to build great CLI apps in a clean, Pythonic
+                interface. No boilerplate, no configuration—just write code and
+                ship.
+              </p>
+              <ul className="space-y-3">
+                {[
+                  "Beautiful boxes and tables",
+                  "Interactive prompts with keyboard nav",
+                  "Progress bars and spinners",
+                  "Colored status messages",
+                  "HTTP requests with built-in TLS",
+                ].map((item) => (
+                  <li key={item} className="flex items-center gap-3">
+                    <svg
+                      className="w-5 h-5 text-green-500 flex-shrink-0"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 13l4 4L19 7"
+                      />
+                    </svg>
+                    <span className="text-gray-700 dark:text-gray-300">
+                      {item}
+                    </span>
+                  </li>
+                ))}
+              </ul>
             </div>
-            <pre className="bg-gray-950 p-4 overflow-x-auto">
-              <code className="text-sm text-gray-100 font-mono">
-                {codeExample}
-              </code>
-            </pre>
+            <div className="rounded-xl overflow-hidden border border-gray-200 dark:border-gray-800 shadow-2xl shadow-black/10">
+              <div className="bg-gray-900 px-4 py-3 flex items-center gap-2 border-b border-gray-800">
+                <div className="flex gap-1.5">
+                  <div className="w-3 h-3 rounded-full bg-red-500" />
+                  <div className="w-3 h-3 rounded-full bg-yellow-500" />
+                  <div className="w-3 h-3 rounded-full bg-green-500" />
+                </div>
+                <span className="text-sm text-gray-400 ml-2 font-mono">
+                  app.py
+                </span>
+              </div>
+              <pre className="bg-gray-950 p-6 overflow-x-auto text-sm leading-relaxed">
+                <code className="text-gray-100 font-mono">
+                  {`\x1b[38;5;203mfrom\x1b[0m ucharm \x1b[38;5;203mimport\x1b[0m box, table, success, select
+
+\x1b[38;5;245m# Beautiful boxes\x1b[0m
+box(\x1b[38;5;186m"Deploying..."\x1b[0m, title=\x1b[38;5;186m"Release"\x1b[0m)
+
+\x1b[38;5;245m# Interactive prompts\x1b[0m
+env = select(\x1b[38;5;186m"Environment:"\x1b[0m, [\x1b[38;5;186m"dev"\x1b[0m, \x1b[38;5;186m"prod"\x1b[0m])
+
+\x1b[38;5;245m# Formatted tables\x1b[0m
+table([
+    [\x1b[38;5;186m"Artifact"\x1b[0m, \x1b[38;5;186m"Size"\x1b[0m],
+    [\x1b[38;5;186m"app"\x1b[0m, \x1b[38;5;186m"847KB"\x1b[0m],
+], headers=\x1b[38;5;141mTrue\x1b[0m)
+
+success(\x1b[38;5;186mf"Deployed to \x1b[0m{env}\x1b[38;5;186m!"\x1b[0m)`}
+                </code>
+              </pre>
+            </div>
           </div>
         </div>
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 px-6 text-center">
-        <div className="max-w-2xl mx-auto">
-          <h2 className="text-3xl font-bold mb-4">
-            Ready to build something beautiful?
+      <section className="py-24 px-6 relative overflow-hidden">
+        {/* Background gradient */}
+        <div className="absolute inset-0 -z-10">
+          <div className="absolute bottom-0 left-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl" />
+          <div className="absolute bottom-20 right-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl" />
+        </div>
+
+        <div className="max-w-3xl mx-auto text-center">
+          <h2 className="text-4xl md:text-5xl font-bold mb-6">
+            Ready to build something
+            <br />
+            <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
+              beautiful?
+            </span>
           </h2>
-          <p className="text-gray-600 dark:text-gray-400 mb-8">
-            Get started in minutes. Ship your first CLI app today.
+          <p className="text-xl text-gray-600 dark:text-gray-400 mb-10">
+            Get started in under a minute. Ship your first CLI app today.
           </p>
-          <Link
-            href="/docs"
-            className="inline-block px-8 py-4 bg-cyan-500 hover:bg-cyan-600 text-white font-medium rounded-lg transition-colors text-lg"
-          >
-            Read the Docs
-          </Link>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Link
+              href="/docs/getting-started/installation"
+              className="group px-8 py-4 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white font-semibold rounded-xl transition-all duration-200 shadow-lg shadow-cyan-500/25 hover:shadow-xl hover:shadow-cyan-500/30 hover:-translate-y-0.5"
+            >
+              Read the Docs
+              <span className="inline-block ml-2 group-hover:translate-x-1 transition-transform">
+                →
+              </span>
+            </Link>
+            <Link
+              href="https://github.com/ucharmdev/ucharm"
+              className="px-8 py-4 border border-gray-300 dark:border-gray-700 font-semibold rounded-xl transition-all duration-200 hover:bg-gray-50 dark:hover:bg-gray-800/50"
+            >
+              View Examples
+            </Link>
+          </div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="py-8 px-6 border-t border-gray-200 dark:border-gray-800">
-        <div className="max-w-5xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
-          <div>
-            <span className="font-bold">
-              <span className="text-cyan-500">u</span>charm
-            </span>{" "}
-            &mdash; Beautiful CLI apps, tiny binaries.
+      <footer className="py-12 px-6 border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/30">
+        <div className="max-w-5xl mx-auto">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+            <div className="flex items-center gap-2">
+              <span className="text-2xl font-bold">
+                <span className="text-cyan-500">u</span>charm
+              </span>
+              <span className="text-gray-400 dark:text-gray-500">|</span>
+              <span className="text-gray-600 dark:text-gray-400">
+                Beautiful CLI apps, tiny binaries.
+              </span>
+            </div>
+            <div className="flex items-center gap-8">
+              <Link
+                href="/docs"
+                className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+              >
+                Docs
+              </Link>
+              <Link
+                href="https://github.com/ucharmdev/ucharm"
+                className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+              >
+                GitHub
+              </Link>
+              <Link
+                href="https://github.com/ucharmdev/ucharm/issues"
+                className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+              >
+                Issues
+              </Link>
+            </div>
           </div>
-          <div className="flex gap-6">
-            <Link
-              href="/docs"
-              className="hover:text-gray-900 dark:hover:text-gray-100"
-            >
-              Docs
-            </Link>
-            <Link
-              href="https://github.com/ucharmdev/ucharm"
-              className="hover:text-gray-900 dark:hover:text-gray-100"
-            >
-              GitHub
-            </Link>
-            <Link
-              href="https://github.com/ucharmdev/ucharm/issues"
-              className="hover:text-gray-900 dark:hover:text-gray-100"
-            >
-              Issues
-            </Link>
+          <div className="mt-8 pt-8 border-t border-gray-200 dark:border-gray-800 text-center text-sm text-gray-500">
+            Built with Zig and PocketPy. Open source under MIT license.
           </div>
         </div>
       </footer>
