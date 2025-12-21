@@ -6,8 +6,8 @@ This project uses **ucharm** - a CLI toolkit for building beautiful command-line
 
 - **Runtime**: PocketPy with native Zig modules (NOT CPython)
 - **No pip packages**: Cannot use packages with C extensions (no requests, numpy, pandas)
-- **Output**: Standalone binaries (~900KB)
-- **24 runtime modules**: ansi, args, base64, charm, copy, csv, datetime, fnmatch, functools, glob, heapq, input, itertools, logging, operator, random, shutil, signal, statistics, subprocess, tempfile, term, textwrap, typing
+- **Output**: Standalone binaries (~1MB)
+- **50+ runtime modules** including: ansi, args, argparse, base64, charm, collections, copy, csv, dataclasses, datetime, fetch, fnmatch, functools, glob, gzip, hashlib, heapq, hmac, http.client, input, itertools, json, logging, math, operator, os, pathlib, random, re, secrets, shutil, signal, sqlite3, statistics, struct, subprocess, tarfile, tempfile, template, term, textwrap, time, toml, typing, unittest, urllib.parse, uuid, xml.etree.ElementTree, zipfile
 
 ## Import Pattern
 
@@ -39,7 +39,7 @@ ucharm build myapp.py -o app  # Build standalone binary
 
 ## Do NOT Suggest
 
-- requests, httpx, aiohttp (use subprocess + curl)
+- requests, httpx, aiohttp (use `fetch` module instead)
 - numpy, pandas, scipy (pure Python alternatives only)
 - async/await patterns (limited PocketPy support)
 - Runtime type checking (use stubs for IDE only)

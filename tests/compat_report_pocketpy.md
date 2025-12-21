@@ -1,27 +1,25 @@
 # μcharm Compatibility Report
 
-Generated: 2025-12-20 19:13:42
+Generated: 2025-12-21 03:06:57
 
 ## Summary
 
 ### Targeted Modules
 
-- **Tests passing**: 1,606/1,600 (100.4%)
-- **Modules at 100%**: 41/41
-- **Modules partial**: 0/41
+- **Tests passing**: 1,663/1,663 (100.0%)
+- **Modules at 100%**: 51/52
+- **Modules partial**: 0/52
+- **No baseline (host CPython)**: 1/52
 
 ### CPython Stdlib Coverage
 
-- **Modules targeted**: 41/159 (25.8%)
-- **Not yet started**: 119 modules
+- **Modules targeted**: 52/160 (32.5%)
+- **Not yet started**: 109 modules
 
 ## Targeted Module Status
 
 | Module | Category | CPython | μcharm | Parity | Notes |
 |--------|----------|---------|--------|--------|-------|
-| glob | stdlib | 3/3 | 4/3 | 133% | ✅ Full |
-| shutil | stdlib | 6/6 | 8/6 | 133% | ✅ Full |
-| tempfile | stdlib | 9/9 | 12/9 | 133% | ✅ Full |
 | argparse | stdlib | 26/26 | 26/26 | 100% | ✅ Full |
 | array | stdlib | 69/69 | 69/69 | 100% | ✅ Full |
 | base64 | stdlib | 18/18 | 18/18 | 100% | ✅ Full |
@@ -32,13 +30,18 @@ Generated: 2025-12-20 19:13:42
 | contextlib | stdlib | 10/10 | 10/10 | 100% | ✅ Full |
 | copy | stdlib | 33/33 | 33/33 | 100% | ✅ Full |
 | csv | stdlib | 24/24 | 24/24 | 100% | ✅ Full |
+| dataclasses | stdlib | 8/8 | 8/8 | 100% | ✅ Full |
 | datetime | stdlib | 21/21 | 21/21 | 100% | ✅ Full |
 | enum | stdlib | 13/13 | 13/13 | 100% | ✅ Full |
 | errno | stdlib | 38/38 | 38/38 | 100% | ✅ Full |
 | fnmatch | stdlib | 55/55 | 55/55 | 100% | ✅ Full |
 | functools | stdlib | 40/40 | 40/40 | 100% | ✅ Full |
+| glob | stdlib | 3/3 | 3/3 | 100% | ✅ Full |
+| gzip | stdlib | 6/6 | 6/6 | 100% | ✅ Full |
 | hashlib | stdlib | 29/29 | 29/29 | 100% | ✅ Full |
 | heapq | stdlib | 42/42 | 42/42 | 100% | ✅ Full |
+| hmac | stdlib | 4/4 | 4/4 | 100% | ✅ Full |
+| http.client | stdlib | 8/8 | 8/8 | 100% | ✅ Full |
 | io | stdlib | 53/53 | 53/53 | 100% | ✅ Full |
 | itertools | stdlib | 33/33 | 33/33 | 100% | ✅ Full |
 | json | stdlib | 70/70 | 70/70 | 100% | ✅ Full |
@@ -49,17 +52,26 @@ Generated: 2025-12-20 19:13:42
 | pathlib | stdlib | 40/40 | 40/40 | 100% | ✅ Full |
 | random | stdlib | 46/46 | 46/46 | 100% | ✅ Full |
 | re | stdlib | 79/79 | 79/79 | 100% | ✅ Full |
+| secrets | stdlib | 8/8 | 8/8 | 100% | ✅ Full |
+| shutil | stdlib | 6/6 | 6/6 | 100% | ✅ Full |
 | signal | stdlib | 15/15 | 15/15 | 100% | ✅ Full |
+| sqlite3 | stdlib | 2/2 | 2/2 | 100% | ✅ Full |
 | statistics | stdlib | 28/28 | 28/28 | 100% | ✅ Full |
 | struct | stdlib | 68/68 | 68/68 | 100% | ✅ Full |
 | subprocess | stdlib | 14/14 | 14/14 | 100% | ✅ Full |
 | sys | stdlib | 58/58 | 58/58 | 100% | ✅ Full |
+| tarfile | stdlib | 7/7 | 7/7 | 100% | ✅ Full |
+| tempfile | stdlib | 9/9 | 9/9 | 100% | ✅ Full |
 | textwrap | stdlib | 24/24 | 24/24 | 100% | ✅ Full |
 | time | stdlib | 42/42 | 42/42 | 100% | ✅ Full |
+| toml | stdlib | - | - | - | ✅ Full |
+| tomllib | stdlib | 0/1 | 1/1 | 100% | ✅ Full |
 | typing | stdlib | 43/43 | 43/43 | 100% | ✅ Full |
 | unittest | stdlib | 40/40 | 40/40 | 100% | ✅ Full |
 | urllib_parse | stdlib | 24/24 | 24/24 | 100% | ✅ Full |
 | uuid | stdlib | 18/18 | 18/18 | 100% | ✅ Full |
+| xml.etree.ElementTree | stdlib | 12/12 | 12/12 | 100% | ✅ Full |
+| zipfile | stdlib | 7/7 | 7/7 | 100% | ✅ Full |
 
 ## Skipped Tests
 
@@ -88,7 +100,7 @@ These tests require features not available in pocketpy-ucharm:
 
 ## Not Yet Started Modules
 
-The following 119 CPython stdlib modules are not yet targeted:
+The following 109 CPython stdlib modules are not yet targeted:
 
 ### Text Processing
 
@@ -136,27 +148,17 @@ The following 119 CPython stdlib modules are not yet targeted:
 - `marshal` - Internal Python object serialization
 - `pickle` - Python object serialization
 - `shelve` - Python object persistence
-- `sqlite3` - DB-API 2.0 interface for SQLite
 
 ### Data Compression
 
 - `bz2` - Support for bzip2 compression
-- `gzip` - Support for gzip files
 - `lzma` - Compression using LZMA algorithm
-- `tarfile` - Read and write tar archives
-- `zipfile` - Work with ZIP archives
 - `zlib` - Compression compatible with gzip
 
 ### File Formats
 
 - `netrc` - netrc file processing
 - `plistlib` - Generate and parse Apple plist files
-- `tomllib` - Parse TOML files
-
-### Cryptographic
-
-- `hmac` - Keyed-hashing for message auth
-- `secrets` - Generate secure random numbers
 
 ### OS Services
 
@@ -204,14 +206,12 @@ The following 119 CPython stdlib modules are not yet targeted:
 - `html.parser` - Simple HTML and XHTML parser
 - `xml.dom` - Document Object Model API
 - `xml.dom.minidom` - Minimal DOM implementation
-- `xml.etree.ElementTree` - ElementTree XML API
 - `xml.sax` - SAX2 parser support
 
 ### Internet Protocols
 
 - `ftplib` - FTP protocol client
 - `http` - HTTP modules
-- `http.client` - HTTP protocol client
 - `http.cookies` - HTTP cookie handling
 - `http.server` - HTTP servers
 - `imaplib` - IMAP4 protocol client
@@ -246,7 +246,6 @@ The following 119 CPython stdlib modules are not yet targeted:
 - `abc` - Abstract base classes
 - `atexit` - Exit handlers
 - `builtins` - Built-in objects
-- `dataclasses` - Data class decorator
 - `gc` - Garbage collector interface
 - `inspect` - Inspect live objects
 - `site` - Site-specific configuration hook
@@ -275,4 +274,4 @@ The following 119 CPython stdlib modules are not yet targeted:
 - Tests are adapted from CPython's test suite
 - Some tests require features not available in PocketPy (threading, gc introspection)
 - μcharm-specific modules (ansi, charm, input, term, args) have custom tests
-- Report generated by `ucharm test --compat`
+- Report generated by `python3 tests/compat_runner.py --report`

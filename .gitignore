@@ -45,5 +45,9 @@ native/dist/
 # temporary files
 _tmp*
 
+# Test artifacts
+tests/cpython/__ucharm_*
+tests/vision/vision_report.md
+
 # Claude Code local settings (user-specific)
 .claude/settings.local.json

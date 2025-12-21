@@ -193,13 +193,13 @@ It is not a drop-in replacement for CPython or pip.
 We are choosing PocketPy as the runtime base for ucharm.
 
 Why:
-- Velocity: in ~2 hours we reached 18/18 Vision tests and ~89% pass rate (1,288/1,445) on the CPython compatibility suite for targeted modules; MicroPython took multiple days for less coverage.
+- Velocity: we reached 22/22 Vision tests quickly and maintain a curated CPython-compatibility suite for targeted stdlib modules (see `tests/compat_report_pocketpy.md`).
 - Extension workflow: PocketPy is easier to extend in Zig without macro-heavy friction, so missing modules are faster to implement and maintain.
 - Product fit: binaries remain small (sub‑1MB in current builds) with startup ~2ms; this fits the <10ms startup target and keeps headroom for curated stdlib.
 
 Decision implications:
 - Continue investing in Zig-native modules on PocketPy.
-- Keep MicroPython as a reference baseline, not the primary runtime.
+- MicroPython is not part of the repo anymore; keep historical comparisons for context only.
 
 ## Reference TUI Tooling (inspiration)
 

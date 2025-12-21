@@ -138,6 +138,24 @@ result = subprocess.run(["echo", "Fast!"], capture_output=True)
 print(result["stdout"].decode().strip())
 ```
 
+### Templating
+
+```python
+import template
+
+src = "{% for p in posts %}- {{p.title}}\\n{% end %}"
+print(template.render(src, {"posts": [{"title": "a"}, {"title": "b"}]}))
+```
+
+### HTTP (fetch)
+
+```python
+import fetch
+
+r = fetch.get("https://example.com/", verify=True)
+print(r["status"], len(r["body"]))
+```
+
 ---
 
 ## Standard Library Support
@@ -152,9 +170,10 @@ logging, datetime, textwrap, tempfile, shutil, re, hashlib.
 configparser, enum, uuid, urllib.parse, contextlib, typing, statistics,
 functools, itertools, heapq.
 
-**Nice to have (WIP; partial/stubbed):**
-toml, http.client (no TLS), secrets, hmac, dataclasses, xml.etree (very small subset),
-gzip/zipfile/tarfile/sqlite3 (stubs with clear errors).
+**Nice to have:**
+toml/tomllib, http.client (no TLS), secrets, hmac, dataclasses,
+xml.etree (fromstring + basic iteration), sqlite3 (basic DB-API subset),
+gzip (read), zipfile (read-only), tarfile (read-only).
 
 ---
 
@@ -251,9 +270,9 @@ ucharm/
 
 Current compatibility summary (from `tests/compat_report_pocketpy.md`):
 
-- 1,606/1,584 tests passing (100% targeted modules)
-- 41/41 targeted modules at 100% parity
-- ~3ms startup, ~965KB universal binaries
+- 1,646/1,646 tests passing (CLI-focused targeted modules)
+- 52 targeted modules (50/52 at 100% on host CPython; 2 have no baseline on older CPython versions)
+- ~3ms startup, ~1-2MB universal binaries (sqlite enabled)
 
 ## Showcase
 
@@ -285,11 +304,11 @@ Built something with μcharm? Open a PR to add it here.
 <details>
 <summary>Why is the binary so small?</summary>
 
-~965KB universal binaries because:
+~1-2MB universal binaries (sqlite enabled) because:
 
 1. PocketPy core is small
 2. Zig modules compile small
-3. Curated stdlib surface (no bloat)
+3. Curated stdlib surface (no bloat) while still bundling useful extras like `sqlite3`
 4. `-Doptimize=ReleaseSmall` strips unused code
 </details>
 

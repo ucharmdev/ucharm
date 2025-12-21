@@ -1,5 +1,8 @@
 # Vision A/B
 
+> Historical note: this captured an early PocketPy vs MicroPython comparison.
+> μcharm now uses PocketPy only; the current Vision suite is tracked in `tests/vision/vision_report.md`.
+
 ## Runtime Sizes
 
 | Runtime | Size (bytes) |
@@ -32,8 +35,8 @@
 
 ## Test Summary
 
-- PocketPy passes: 18/18
-- MicroPython passes: 6/18
+- PocketPy (historical snapshot) passes: 18/18
+- MicroPython (historical snapshot) passes: 6/18
 
 
 ## Test Failures

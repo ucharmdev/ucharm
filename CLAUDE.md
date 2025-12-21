@@ -72,8 +72,11 @@ cd pocketpy && zig build -Doptimize=ReleaseSmall
 # Build CLI
 cd cli && zig build -Doptimize=ReleaseSmall
 
+# Run Vision tests
+python3 tests/vision/run_vision.py --timeout 20 --runtime ./pocketpy/zig-out/bin/pocketpy-ucharm
+
 # Run compatibility tests (defaults to pocketpy-ucharm)
-python3 tests/compat_runner.py --report
+python3 tests/compat_runner.py --report --runtime ./pocketpy/zig-out/bin/pocketpy-ucharm
 
 # Run a script
 ./cli/zig-out/bin/ucharm run examples/demo.py
@@ -90,7 +93,7 @@ This ensures:
 
 ## PocketPy Vendor Policy
 
-**NEVER modify `pocketpy/vendor/pocketpy.c` or `pocketpy.h`** unless absolutely necessary.
+Avoid direct edits to `pocketpy/vendor/pocketpy.c` / `pocketpy.h`. If a vendor change is necessary, capture it as a patch in `pocketpy/patches/` and update `pocketpy/patches/manifest.json` so `scripts/apply-pocketpy-patches.sh` stays idempotent.
 
 PocketPy is vendored from upstream releases. Any patches become a maintenance burden that must be re-applied on every update. Instead:
 
@@ -203,12 +206,13 @@ pub fn register() void {
 // CORRECT: Use argStr which accesses argv directly
 const s = ctx.argStr(0) orelse return ctx.typeError("expected string");
 
-// WRONG: Copying Value then calling toStr can cause corruption
+// OK (but prefer argStr for simple args): Value.toStr() returns a slice into the
+// Python string data. Keep the Value alive for as long as you need the slice.
 var v = ctx.arg(0) orelse return false;
-const s = v.toStr(); // May point to invalid memory after register clobbering!
+const s = v.toStr() orelse return ctx.typeError("expected string");
 ```
 
-**Register clobbering:** The PocketPy C API uses global registers (`py_r0()`, `py_r1()`, etc.) that get overwritten by many API calls. The pk.zig `Value` type copies values to local storage, but `toStr()` returns a pointer into the original Python string - if the source Value was from a clobbered register, corruption occurs. Always use `ctx.argStr()` for string arguments.
+**Register clobbering:** The PocketPy C API uses global registers (`py_r0()`, `py_r1()`, etc.) that get overwritten by many API calls. The `pk.Value` type copies values to local storage; prefer `ctx.argStr()` for direct argv access when extracting string arguments.
 
 ### Kwargs Support
 

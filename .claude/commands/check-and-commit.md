@@ -21,10 +21,14 @@ cd cli && zig build -Doptimize=ReleaseSmall
 cd cli && ./test_e2e.sh
 
 # Run CPython compatibility tests (PocketPy runtime)
-python3 tests/compat_runner.py --report
+python3 tests/compat_runner.py --report --runtime ./pocketpy/zig-out/bin/pocketpy-ucharm
+
+# Run Vision tests
+python3 tests/vision/run_vision.py --timeout 20 --runtime ./pocketpy/zig-out/bin/pocketpy-ucharm
 
 # Verify PocketPy vendor patchset (if PocketPy was updated)
-python3 scripts/verify-pocketpy-patches.py --check-upstream
+python3 scripts/verify-pocketpy-patches.py
+# Optional (requires network): python3 scripts/verify-pocketpy-patches.py --check-upstream
 ```
 
 If tests fail, fix the issues before continuing.
