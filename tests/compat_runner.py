@@ -79,6 +79,15 @@ class ModuleResult:
         return self.cpython_passed + self.cpython_failed
 
     @property
+    def ucharm_compared_passed(self) -> int:
+        # When running this suite on an older CPython (e.g. 3.9),
+        # μcharm may legitimately exercise more tests than CPython.
+        # Cap to the CPython baseline so totals/parity remain meaningful.
+        if self.cpython_total == 0:
+            return 0
+        return min(self.ucharm_passed, self.cpython_total)
+
+    @property
     def ucharm_total(self) -> int:
         return self.ucharm_passed + self.ucharm_failed
 
@@ -86,7 +95,7 @@ class ModuleResult:
     def parity_percent(self) -> float:
         if self.cpython_total == 0:
             return 100.0
-        return (self.ucharm_passed / self.cpython_total) * 100
+        return (self.ucharm_compared_passed / self.cpython_total) * 100
 
 
 # All modules available in pocketpy-ucharm
@@ -103,6 +112,7 @@ STDLIB_MODULES = [
     "collections",
     "configparser",
     "contextlib",
+    "dataclasses",
     "enum",
     "errno",
     "hashlib",
@@ -127,17 +137,27 @@ STDLIB_MODULES = [
     "fnmatch",
     "functools",
     "glob",
+    "gzip",
+    "hmac",
+    "http.client",
     "itertools",
     "logging",
     "pathlib",
+    "secrets",
     "shutil",
     "signal",
+    "sqlite3",
     "statistics",
     "subprocess",
+    "tarfile",
     "tempfile",
     "textwrap",
+    "tomllib",
+    "toml",
     "typing",
     "unittest",
+    "xml.etree.ElementTree",
+    "zipfile",
 ]
 
 # Complete list of CPython standard library modules (Python 3.11+)
@@ -213,6 +233,7 @@ CPYTHON_STDLIB_ALL = {
     "csv": "CSV file reading and writing",
     "configparser": "Configuration file parser",
     "tomllib": "Parse TOML files",
+    "toml": "TOML parse/serialize (compat)",
     "netrc": "netrc file processing",
     "plistlib": "Generate and parse Apple plist files",
     # Cryptographic
@@ -352,17 +373,17 @@ SKIP_MODULES = [
 
 def get_runtime_path() -> str:
     """Find pocketpy-ucharm binary."""
-    script_dir = Path(__file__).parent.parent
+    script_dir = Path(__file__).resolve().parent.parent
 
     # Try pocketpy development path (primary)
     dev_path = script_dir / "pocketpy" / "zig-out" / "bin" / "pocketpy-ucharm"
     if dev_path.exists():
-        return str(dev_path)
+        return str(dev_path.resolve())
 
     # Try CLI output path
     cli_path = script_dir / "cli" / "zig-out" / "bin" / "pocketpy-ucharm"
     if cli_path.exists():
-        return str(cli_path)
+        return str(cli_path.resolve())
 
     # Fallback to PATH
     return "pocketpy-ucharm"
@@ -494,12 +515,13 @@ def parse_test_output(
 
     # Fallback: count PASS/FAIL lines
     for line in stdout.split("\n"):
-        if "PASS" in line:
+        stripped = line.strip()
+        if stripped.startswith("PASS:"):
             passed += 1
-        elif "FAIL" in line:
+        elif stripped.startswith("FAIL:"):
             failed += 1
             failures.append(line.strip())
-        elif "SKIP" in line:
+        elif stripped.startswith("SKIP:"):
             skipped += 1
 
     # If still nothing, use return code
@@ -521,7 +543,8 @@ def test_module(
     result = ModuleResult(name=module, category=category)
 
     # Find test file
-    test_file = test_dir / f"test_{module}.py"
+    test_stem = module.replace(".", "_").lower()
+    test_file = test_dir / f"test_{test_stem}.py"
     if not test_file.exists():
         result.error = "Test file not found"
         return result
@@ -550,10 +573,10 @@ def test_module(
 
     # Print result
     cpython_str = f"{result.cpython_passed}/{result.cpython_total}"
-    ucharm_str = f"{result.ucharm_passed}/{result.cpython_total}"
+    ucharm_str = f"{result.ucharm_compared_passed}/{result.cpython_total}"
     parity = result.parity_percent
 
-    bar = progress_bar(result.ucharm_passed, result.cpython_total, 20)
+    bar = progress_bar(result.ucharm_compared_passed, result.cpython_total, 20)
 
     if parity >= 100:
         status = f"{GREEN}✓{RESET}"
@@ -610,10 +633,14 @@ def run_all_tests(
 
 def print_summary(results: list[ModuleResult]):
     """Print test summary."""
-    total_cpython = sum(r.cpython_passed + r.cpython_failed for r in results)
-    total_ucharm_passed = sum(r.ucharm_passed for r in results)
-    total_ucharm_failed = sum(r.ucharm_failed for r in results)
-    total_skipped = sum(r.ucharm_skipped for r in results)
+    baseline = [r for r in results if r.cpython_total > 0]
+    total_cpython = sum(r.cpython_total for r in baseline)
+    total_ucharm_passed = sum(r.ucharm_compared_passed for r in baseline)
+    total_ucharm_failed = sum(r.ucharm_failed for r in baseline)
+    total_skipped = sum(r.ucharm_skipped for r in baseline)
+    no_baseline = sum(
+        1 for r in results if r.cpython_total == 0 and r.category == "stdlib"
+    )
 
     overall_parity = (
         (total_ucharm_passed / total_cpython * 100) if total_cpython > 0 else 0
@@ -661,6 +688,8 @@ def print_summary(results: list[ModuleResult]):
         print(f"  {RED}✗ {failed_modules} failing{RESET}")
     if missing_modules:
         print(f"  {DIM}? {missing_modules} missing tests{RESET}")
+    if no_baseline:
+        print(f"  {DIM}({no_baseline} modules not in this CPython version){RESET}")
 
     if total_skipped:
         print(f"\n  {DIM}({total_skipped} tests skipped - missing dependencies){RESET}")
@@ -680,8 +709,9 @@ def print_summary(results: list[ModuleResult]):
 
 def generate_report(results: list[ModuleResult], output_path: Path):
     """Generate markdown compatibility report."""
-    total_cpython = sum(r.cpython_passed + r.cpython_failed for r in results)
-    total_ucharm_passed = sum(r.ucharm_passed for r in results)
+    baseline = [r for r in results if r.cpython_total > 0]
+    total_cpython = sum(r.cpython_total for r in baseline)
+    total_ucharm_passed = sum(r.ucharm_compared_passed for r in baseline)
     overall_parity = (
         (total_ucharm_passed / total_cpython * 100) if total_cpython > 0 else 0
     )
@@ -690,6 +720,9 @@ def generate_report(results: list[ModuleResult], output_path: Path):
         1 for r in results if r.parity_percent >= 100 and r.cpython_total > 0
     )
     partial_modules = sum(1 for r in results if 0 < r.parity_percent < 100)
+    no_baseline = sum(
+        1 for r in results if r.cpython_total == 0 and r.category == "stdlib"
+    )
 
     stdlib_coverage = (len(STDLIB_MODULES) / len(CPYTHON_STDLIB_ALL)) * 100
     not_started_modules = set(CPYTHON_STDLIB_ALL.keys()) - set(STDLIB_MODULES)
@@ -708,6 +741,11 @@ def generate_report(results: list[ModuleResult], output_path: Path):
         f"- **Tests passing**: {total_ucharm_passed:,}/{total_cpython:,} ({overall_parity:.1f}%)",
         f"- **Modules at 100%**: {passed_modules}/{len(STDLIB_MODULES)}",
         f"- **Modules partial**: {partial_modules}/{len(STDLIB_MODULES)}",
+        (
+            f"- **No baseline (host CPython)**: {no_baseline}/{len(STDLIB_MODULES)}"
+            if no_baseline
+            else ""
+        ),
         "",
         "### CPython Stdlib Coverage",
         "",
@@ -736,7 +774,9 @@ def generate_report(results: list[ModuleResult], output_path: Path):
             f"{r.cpython_passed}/{r.cpython_total}" if r.cpython_total > 0 else "-"
         )
         ucharm_str = (
-            f"{r.ucharm_passed}/{r.cpython_total}" if r.cpython_total > 0 else "-"
+            f"{r.ucharm_compared_passed}/{r.cpython_total}"
+            if r.cpython_total > 0
+            else "-"
         )
         parity_str = f"{r.parity_percent:.0f}%" if r.cpython_total > 0 else "-"
 
@@ -854,7 +894,7 @@ def generate_report(results: list[ModuleResult], output_path: Path):
                 "sqlite3",
             ],
             "Data Compression": ["zlib", "gzip", "bz2", "lzma", "zipfile", "tarfile"],
-            "File Formats": ["configparser", "tomllib", "netrc", "plistlib"],
+            "File Formats": ["configparser", "tomllib", "toml", "netrc", "plistlib"],
             "Cryptographic": ["hmac", "secrets"],
             "OS Services": [
                 "argparse",
@@ -968,7 +1008,7 @@ def generate_report(results: list[ModuleResult], output_path: Path):
             "- Tests are adapted from CPython's test suite",
             "- Some tests require features not available in PocketPy (threading, gc introspection)",
             "- μcharm-specific modules (ansi, charm, input, term, args) have custom tests",
-            "- Report generated by `ucharm test --compat`",
+            "- Report generated by `python3 tests/compat_runner.py --report`",
         ]
     )
 
@@ -1014,7 +1054,18 @@ def main():
     # Check pocketpy-ucharm exists
     mpy_path = args.runtime or get_runtime_path()
     try:
-        subprocess.run([mpy_path, "-c", "print('ok')"], capture_output=True, timeout=5)
+        mpy_path = str(Path(mpy_path).expanduser().resolve())
+    except Exception:
+        # If it's not a filesystem path, treat it as a PATH lookup.
+        pass
+    try:
+        # Validate runtime with a tiny temp script (works across all builds).
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            smoke = Path(tmpdir) / "smoke.py"
+            smoke.write_text("print('ok')\n")
+            subprocess.run([mpy_path, str(smoke)], capture_output=True, timeout=5)
     except Exception as e:
         print(f"{RED}Error: pocketpy-ucharm not found at {mpy_path}{RESET}")
         print(f"{DIM}Build it with: cd pocketpy && zig build{RESET}")

@@ -27,6 +27,10 @@ TEST_SCRIPTS = [
     "t_signal.py",
     "t_io.py",
     "t_errno.py",
+    "t_template.py",
+    "t_toml.py",
+    "t_fetch_https.py",
+    "t_sqlite3.py",
 ]
 
 BENCH_SCRIPTS = [

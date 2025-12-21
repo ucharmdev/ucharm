@@ -237,8 +237,7 @@ test("dumps indent structure", '  "a":' in result and "    1" in result)
 # separators - not supported in pocketpy
 try:
     result = json.dumps([1, 2], separators=(",", ":"))
-    # With compact separators, should not have spaces after : or ,
-    test("dumps with separators", "1" in result and "2" in result)
+    test("dumps with separators", result == "[1,2]")
 except TypeError:
     skip("dumps with separators", "separators not supported")
 
