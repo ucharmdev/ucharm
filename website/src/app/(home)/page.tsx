@@ -1,43 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useState } from "react";
-import { Terminal } from "@/components/Terminal";
-
-// Demo outputs with ANSI codes
-const demoOutput = `\x1b[36m$\x1b[0m ucharm run deploy.py
-
-\x1b[1;34m╭─ Release ─────────────────────────────╮\x1b[0m
-\x1b[1;34m│\x1b[0m Deploying build...                    \x1b[1;34m│\x1b[0m
-\x1b[1;34m╰───────────────────────────────────────╯\x1b[0m
-
-\x1b[1;32m✓\x1b[0m Built commit \x1b[33ma1b2c3d\x1b[0m
-
-\x1b[90m┌───────────┬───────┬──────┐\x1b[0m
-\x1b[90m│\x1b[0m\x1b[1m Artifact  \x1b[0m\x1b[90m│\x1b[0m\x1b[1m Size  \x1b[0m\x1b[90m│\x1b[0m\x1b[1m Time \x1b[0m\x1b[90m│\x1b[0m
-\x1b[90m├───────────┼───────┼──────┤\x1b[0m
-\x1b[90m│\x1b[0m app-linux \x1b[90m│\x1b[0m \x1b[32m847KB\x1b[0m \x1b[90m│\x1b[0m \x1b[33m4ms\x1b[0m  \x1b[90m│\x1b[0m
-\x1b[90m│\x1b[0m app-macos \x1b[90m│\x1b[0m \x1b[32m912KB\x1b[0m \x1b[90m│\x1b[0m \x1b[33m5ms\x1b[0m  \x1b[90m│\x1b[0m
-\x1b[90m└───────────┴───────┴──────┘\x1b[0m
-
-\x1b[1;32m✓\x1b[0m Deployed to production`;
-
-const interactiveDemo = `\x1b[36m$\x1b[0m ucharm run setup.py
-
-\x1b[90m────────────────\x1b[0m \x1b[1mProject Setup\x1b[0m \x1b[90m────────────────\x1b[0m
-
-\x1b[1;33m?\x1b[0m Project name: \x1b[36mmycli\x1b[0m
-\x1b[1;33m?\x1b[0m Choose a template:
-   \x1b[36m❯\x1b[0m \x1b[1mMinimal\x1b[0m - Just the basics
-     Full - Kitchen sink
-     Library - Reusable module
-
-\x1b[1;33m?\x1b[0m Enable features:
-  \x1b[32m◉\x1b[0m HTTP client
-  \x1b[32m◉\x1b[0m Config files
-  \x1b[90m○\x1b[0m Database
-
-\x1b[1;32m✓\x1b[0m Created \x1b[1;36mmycli\x1b[0m in \x1b[33m0.8s\x1b[0m`;
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
@@ -167,6 +132,18 @@ export default function HomePage() {
         </div>
 
         <div className="max-w-5xl mx-auto text-center">
+          {/* Logo */}
+          <div className="mb-8">
+            <Image
+              src="/logo.svg"
+              alt="ucharm logo"
+              width={80}
+              height={80}
+              className="mx-auto"
+              priority
+            />
+          </div>
+
           {/* Badge */}
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-600 dark:text-cyan-400 text-sm font-medium mb-8">
             <span className="relative flex h-2 w-2">
@@ -185,7 +162,7 @@ export default function HomePage() {
           </h1>
 
           <p className="text-xl md:text-2xl text-gray-600 dark:text-gray-400 mb-10 max-w-3xl mx-auto leading-relaxed">
-            Python syntax. Single-file binaries under 1MB.
+            Python syntax. Single-file binaries around 2MB.
             <span className="text-gray-900 dark:text-white font-medium">
               {" "}
               Instant startup.
@@ -230,9 +207,9 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Terminal Demo Section */}
+      {/* Demo GIF Section */}
       <section className="py-20 px-6 bg-gradient-to-b from-gray-50 to-white dark:from-gray-900/50 dark:to-gray-950">
-        <div className="max-w-6xl mx-auto">
+        <div className="max-w-4xl mx-auto">
           <div className="text-center mb-12">
             <h2 className="text-3xl md:text-4xl font-bold mb-4">
               See it in action
@@ -241,13 +218,15 @@ export default function HomePage() {
               Beautiful output and interactive prompts, built-in.
             </p>
           </div>
-          <div className="grid lg:grid-cols-2 gap-6">
-            <Terminal title="deploy.py" className="shadow-2xl shadow-black/20">
-              {demoOutput}
-            </Terminal>
-            <Terminal title="setup.py" className="shadow-2xl shadow-black/20">
-              {interactiveDemo}
-            </Terminal>
+          <div className="rounded-xl overflow-hidden border border-gray-200 dark:border-gray-800 shadow-2xl shadow-black/20">
+            <Image
+              src="/demo.gif"
+              alt="ucharm demo showing CLI app with interactive prompts and beautiful output"
+              width={720}
+              height={520}
+              className="w-full"
+              unoptimized
+            />
           </div>
         </div>
       </section>
@@ -256,8 +235,8 @@ export default function HomePage() {
       <section className="py-20 px-6">
         <div className="max-w-4xl mx-auto">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-12">
-            <StatCard value="<5" suffix="ms" label="Cold start" />
-            <StatCard value="<1" suffix="MB" label="Binary size" />
+            <StatCard value="~3" suffix="ms" label="Cold start" />
+            <StatCard value="~2" suffix="MB" label="Binary size" />
             <StatCard value="50" suffix="+" label="Native modules" />
             <StatCard value="0" label="Dependencies" />
           </div>
@@ -316,7 +295,7 @@ export default function HomePage() {
               }
               gradient="bg-gradient-to-br from-green-400 to-emerald-500"
               title="Tiny Binaries"
-              description="Single-file executables under 1MB. Universal binaries that run on any macOS or Linux machine."
+              description="Single-file executables around 2MB. Universal binaries that run on any macOS or Linux machine."
             />
             <FeatureCard
               icon={
@@ -433,13 +412,13 @@ export default function HomePage() {
               <tbody className="bg-white dark:bg-gray-950">
                 <ComparisonRow
                   feature="Cold start"
-                  ucharm="~5ms"
+                  ucharm="~3ms"
                   python="~80ms"
                   node="~40ms"
                 />
                 <ComparisonRow
                   feature="Binary size"
-                  ucharm="~900KB"
+                  ucharm="~2MB"
                   python="~50MB+"
                   node="~40MB+"
                 />
