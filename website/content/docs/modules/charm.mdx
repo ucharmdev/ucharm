@@ -1,0 +1,205 @@
+---
+title: charm
+description: Beautiful terminal output - boxes, tables, progress bars, and more
+---
+
+# charm
+
+The `charm` module provides high-level UI components for beautiful terminal output.
+
+```python
+import charm
+# or
+from ucharm import box, table, success, error, warning, info
+```
+
+## Status Messages
+
+Display styled status messages with icons:
+
+```python
+charm.success("Build completed!")    # ✓ Build completed!
+charm.error("Build failed")          # ✗ Build failed
+charm.warning("Deprecated API")      # ⚠ Deprecated API
+charm.info("Starting server...")     # ℹ Starting server...
+```
+
+## Boxes
+
+Draw bordered boxes around content:
+
+```python
+charm.box("Hello, World!", title="Greeting", border_color="cyan")
+```
+
+Output:
+```
+╭─ Greeting ────────╮
+│ Hello, World!     │
+╰───────────────────╯
+```
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `content` | str | required | Text to display inside the box |
+| `title` | str | None | Optional title in the top border |
+| `border` | str | "rounded" | Border style: "rounded", "square", "double", "heavy", "none" |
+| `border_color` | str | None | Border color (see colors below) |
+| `padding` | int | 1 | Padding inside the box |
+
+## Tables
+
+Display formatted tables with optional headers:
+
+```python
+charm.table([
+    ["Name", "Age", "Role"],
+    ["Alice", "28", "Engineer"],
+    ["Bob", "34", "Designer"],
+], headers=True)
+```
+
+Output:
+```
+┌───────┬─────┬──────────┐
+│ Name  │ Age │ Role     │
+├───────┼─────┼──────────┤
+│ Alice │ 28  │ Engineer │
+│ Bob   │ 34  │ Designer │
+└───────┴─────┴──────────┘
+```
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `rows` | list | required | List of rows, each row is a list of cell values |
+| `headers` | bool | False | If True, first row is styled as header with separator |
+| `border` | str | "square" | Border style: "square", "rounded", "double", "heavy", "none" |
+| `border_color` | str | None | Border color |
+
+## Rules
+
+Draw horizontal dividers:
+
+```python
+charm.rule("Section Title", color="cyan")
+```
+
+Output:
+```
+──────────────── Section Title ────────────────
+```
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `title` | str | None | Optional centered title |
+| `char` | str | "─" | Character to use for the rule |
+| `color` | str | None | Color for the rule |
+| `width` | int | 80 | Total width of the rule |
+
+## Progress Bars
+
+Display progress with optional elapsed time:
+
+```python
+import time
+
+start = time.time()
+for i in range(101):
+    elapsed = time.time() - start
+    charm.progress(i, 100, label="Downloading", width=30, elapsed=elapsed)
+    time.sleep(0.05)
+charm.progress_done()
+```
+
+Output:
+```
+Downloading ████████████████░░░░░░░░░░░░░░ 53%  2.6s
+```
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `current` | int | required | Current progress value |
+| `total` | int | required | Total value (100%) |
+| `label` | str | None | Label before the progress bar |
+| `width` | int | 40 | Width of the progress bar |
+| `color` | str | None | Color for the filled portion |
+| `elapsed` | float | None | Elapsed time in seconds to display |
+
+## Spinners
+
+Display animated spinners for indeterminate progress:
+
+```python
+import time
+
+for i in range(30):
+    charm.spinner(i, "Loading data...", color="cyan")
+    time.sleep(0.1)
+charm.progress_done()
+charm.success("Done!")
+```
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `frame` | int | required | Frame index (cycles through 10 frames) |
+| `message` | str | None | Message to display after spinner |
+| `color` | str | None | Color for the spinner |
+
+## Text Styling
+
+Apply ANSI styles to text:
+
+```python
+styled = charm.style("Important!", fg="red", bold=True)
+print(styled)
+```
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `text` | str | required | Text to style |
+| `fg` | str | None | Foreground color |
+| `bg` | str | None | Background color |
+| `bold` | bool | False | Bold text |
+| `dim` | bool | False | Dim/faint text |
+| `italic` | bool | False | Italic text |
+| `underline` | bool | False | Underlined text |
+| `strikethrough` | bool | False | Strikethrough text |
+
+## Colors
+
+Available color names:
+- Basic: `black`, `red`, `green`, `yellow`, `blue`, `magenta`, `cyan`, `white`, `gray`/`grey`
+- Hex: `#ff5500`, `#abc`
+- RGB values via `ansi.rgb(r, g, b)`
+
+## Utility Functions
+
+### visible_len
+
+Get the visible length of text (excluding ANSI escape codes):
+
+```python
+styled = charm.style("Hello", fg="red", bold=True)
+print(len(styled))              # 19 (includes escape codes)
+print(charm.visible_len(styled)) # 5 (visible characters only)
+```
+
+### spinner_frame
+
+Get a single spinner frame character:
+
+```python
+frame = charm.spinner_frame(0)  # Returns "⠋"
+```

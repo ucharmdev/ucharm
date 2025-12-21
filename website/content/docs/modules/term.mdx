@@ -1,0 +1,175 @@
+---
+title: term
+description: Low-level terminal control - cursor, screen, raw mode
+---
+
+# term
+
+The `term` module provides low-level terminal control functions.
+
+```python
+import term
+```
+
+## Terminal Size
+
+Get the current terminal dimensions:
+
+```python
+width, height = term.size()
+print(f"Terminal is {width}x{height}")
+```
+
+## TTY Detection
+
+Check if stdout is connected to a terminal:
+
+```python
+if term.is_tty():
+    # Interactive mode - show colors and prompts
+    print("\x1b[32mGreen text\x1b[0m")
+else:
+    # Piped/redirected - plain text
+    print("Plain text")
+```
+
+## Raw Mode
+
+Enable raw mode for character-by-character input:
+
+```python
+term.raw_mode(True)
+try:
+    key = term.read_key()
+    print(f"You pressed: {key}")
+finally:
+    term.raw_mode(False)
+```
+
+<Callout type="warn">
+Always restore normal mode in a `finally` block to avoid leaving the terminal in a broken state.
+</Callout>
+
+## Reading Keys
+
+Read a single keypress (works best in raw mode):
+
+```python
+term.raw_mode(True)
+try:
+    while True:
+        key = term.read_key()
+        if key == "escape":
+            break
+        print(f"Key: {key}")
+finally:
+    term.raw_mode(False)
+```
+
+### Key Names
+
+Special keys return named strings:
+
+| Key | Return Value |
+|-----|--------------|
+| Arrow Up | `"up"` |
+| Arrow Down | `"down"` |
+| Arrow Left | `"left"` |
+| Arrow Right | `"right"` |
+| Enter | `"enter"` |
+| Escape | `"escape"` |
+| Backspace | `"backspace"` |
+| Tab | `"tab"` |
+| Page Up | `"pageup"` |
+| Page Down | `"pagedown"` |
+| Home | `"home"` |
+| End | `"end"` |
+| Delete | `"delete"` |
+| Ctrl+C | `"ctrl-c"` |
+
+Regular characters return as single-character strings.
+
+## Cursor Control
+
+Move the cursor around the terminal:
+
+```python
+# Absolute positioning (1-based)
+term.cursor_pos(10, 5)  # Column 10, Row 5
+
+# Relative movement
+term.cursor_up(2)       # Move up 2 lines
+term.cursor_down(1)     # Move down 1 line
+term.cursor_left(5)     # Move left 5 columns
+term.cursor_right(3)    # Move right 3 columns
+```
+
+## Cursor Visibility
+
+Show or hide the cursor:
+
+```python
+term.hide_cursor()
+# ... do animation or progress ...
+term.show_cursor()
+```
+
+## Screen Control
+
+Clear the screen or current line:
+
+```python
+term.clear()        # Clear entire screen, cursor to home
+term.clear_line()   # Clear current line, cursor to start
+```
+
+## Direct Output
+
+Write directly to stdout:
+
+```python
+term.write("Hello")  # No newline
+term.write("\n")     # Manual newline
+```
+
+## Example: Simple Animation
+
+```python
+import term
+import time
+
+term.hide_cursor()
+try:
+    frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+    for i in range(30):
+        term.write(f"\r{frames[i % len(frames)]} Loading...")
+        time.sleep(0.1)
+    term.write("\r✓ Done!      \n")
+finally:
+    term.show_cursor()
+```
+
+## Example: Full-Screen App
+
+```python
+import term
+
+width, height = term.size()
+term.clear()
+term.cursor_pos(1, 1)
+
+# Draw header
+term.write("=" * width)
+term.cursor_pos(1, 2)
+term.write("My App".center(width))
+term.cursor_pos(1, 3)
+term.write("=" * width)
+
+# Draw footer
+term.cursor_pos(1, height)
+term.write("Press 'q' to quit".center(width))
+
+# Main content area
+term.cursor_pos(1, 5)
+term.write("Content goes here...")
+```

@@ -1,0 +1,165 @@
+---
+title: ansi
+description: Low-level ANSI escape codes for colors and styles
+---
+
+# ansi
+
+The `ansi` module provides low-level ANSI escape code generation for terminal styling.
+
+```python
+import ansi
+```
+
+<Callout>
+For most use cases, prefer the higher-level `charm.style()` function. Use `ansi` when you need fine-grained control or are building custom components.
+</Callout>
+
+## Colors
+
+### Foreground Colors
+
+```python
+print(ansi.fg("red") + "Red text" + ansi.reset())
+print(ansi.fg("green") + "Green text" + ansi.reset())
+print(ansi.fg("#ff5500") + "Orange text" + ansi.reset())
+```
+
+### Background Colors
+
+```python
+print(ansi.bg("blue") + "Blue background" + ansi.reset())
+print(ansi.bg("#333") + "Dark background" + ansi.reset())
+```
+
+### RGB Colors
+
+```python
+# Foreground
+print(ansi.rgb(255, 128, 0) + "Orange" + ansi.reset())
+
+# Background
+print(ansi.rgb(50, 50, 50, bg=True) + "Dark bg" + ansi.reset())
+```
+
+## Available Colors
+
+### Named Colors
+
+| Name | Code |
+|------|------|
+| `black` | 30 |
+| `red` | 31 |
+| `green` | 32 |
+| `yellow` | 33 |
+| `blue` | 34 |
+| `magenta` | 35 |
+| `cyan` | 36 |
+| `white` | 37 |
+| `gray` / `grey` | 90 |
+| `bright_red` | 91 |
+| `bright_green` | 92 |
+| `bright_yellow` | 93 |
+| `bright_blue` | 94 |
+| `bright_magenta` | 95 |
+| `bright_cyan` | 96 |
+| `bright_white` | 97 |
+
+### Hex Colors
+
+Both 3-digit and 6-digit hex codes are supported:
+
+```python
+ansi.fg("#f00")      # Red
+ansi.fg("#ff0000")   # Red
+ansi.fg("#abc")      # Light blue-ish
+ansi.fg("#aabbcc")   # Same color
+```
+
+### 256-Color Palette
+
+Pass a number 0-255 for the extended color palette:
+
+```python
+ansi.fg(196)   # Bright red
+ansi.fg(46)    # Bright green
+ansi.bg(236)   # Dark gray
+```
+
+## Text Styles
+
+```python
+print(ansi.bold() + "Bold text" + ansi.reset())
+print(ansi.dim() + "Dim text" + ansi.reset())
+print(ansi.italic() + "Italic text" + ansi.reset())
+print(ansi.underline() + "Underlined" + ansi.reset())
+print(ansi.blink() + "Blinking" + ansi.reset())
+print(ansi.reverse() + "Reversed" + ansi.reset())
+print(ansi.hidden() + "Hidden" + ansi.reset())
+print(ansi.strikethrough() + "Strikethrough" + ansi.reset())
+```
+
+## Reset
+
+Always reset styles after applying them:
+
+```python
+print(ansi.fg("red") + ansi.bold() + "Error!" + ansi.reset())
+```
+
+The `reset()` function returns `\x1b[0m` which clears all formatting.
+
+## Combining Styles
+
+Concatenate multiple style codes:
+
+```python
+style = ansi.fg("red") + ansi.bold() + ansi.underline()
+print(style + "Important!" + ansi.reset())
+```
+
+## Example: Custom Logger
+
+```python
+import ansi
+
+def log_error(msg):
+    prefix = ansi.fg("red") + ansi.bold() + "[ERROR]" + ansi.reset()
+    print(f"{prefix} {msg}")
+
+def log_warn(msg):
+    prefix = ansi.fg("yellow") + "[WARN]" + ansi.reset()
+    print(f"{prefix} {msg}")
+
+def log_info(msg):
+    prefix = ansi.fg("blue") + "[INFO]" + ansi.reset()
+    print(f"{prefix} {msg}")
+
+def log_debug(msg):
+    prefix = ansi.dim() + "[DEBUG]" + ansi.reset()
+    text = ansi.dim() + msg + ansi.reset()
+    print(f"{prefix} {text}")
+
+log_error("Something went wrong")
+log_warn("Deprecated function used")
+log_info("Server started on port 8080")
+log_debug("Processing request...")
+```
+
+## Example: Syntax Highlighting
+
+```python
+import ansi
+
+def highlight_python(code):
+    keywords = ["def", "return", "if", "else", "for", "in", "import", "from"]
+    
+    for kw in keywords:
+        styled = ansi.fg("magenta") + ansi.bold() + kw + ansi.reset()
+        code = code.replace(f" {kw} ", f" {styled} ")
+    
+    return code
+
+code = " def hello(): return 42 "
+print(highlight_python(code))
+```

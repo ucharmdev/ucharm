@@ -1,0 +1,76 @@
+---
+title: Quick Start
+description: Create your first ucharm app in 5 minutes
+---
+
+# Quick Start
+
+Let's build a simple CLI app that demonstrates ucharm's key features.
+
+## Create a Project
+
+```bash
+mkdir hello-cli && cd hello-cli
+ucharm init
+```
+
+## Write Your App
+
+Create `app.py`:
+
+```python
+from ucharm import box, success, error, select, confirm
+import charm
+
+# Show a welcome box
+box("Welcome to Hello CLI!", title="Hello", border_color="cyan")
+
+# Interactive selection
+action = select("What would you like to do?", [
+    "Say hello",
+    "Show a table", 
+    "Exit"
+])
+
+if action == "Say hello":
+    name = input("What's your name? ")
+    success(f"Hello, {name}!")
+    
+elif action == "Show a table":
+    charm.table([
+        ["Language", "Status"],
+        ["Python", "Supported"],
+        ["Zig", "Native"],
+    ], headers=True, border="rounded")
+    
+elif action == "Exit":
+    if confirm("Are you sure?"):
+        error("Goodbye!")
+```
+
+## Run It
+
+```bash
+ucharm run app.py
+```
+
+## Build a Binary
+
+```bash
+# Build for current platform
+ucharm build app.py -o hello
+
+# Build universal binary (works on any machine)
+ucharm build app.py -o hello --mode universal
+
+# Run the binary
+./hello
+```
+
+## What's Next?
+
+<Cards>
+  <Card title="charm Module" href="/docs/modules/charm" />
+  <Card title="input Module" href="/docs/modules/input" />
+  <Card title="All Modules" href="/docs/modules" />
+</Cards>

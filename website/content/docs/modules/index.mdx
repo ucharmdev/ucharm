@@ -1,0 +1,100 @@
+---
+title: Modules
+description: Overview of all ucharm runtime modules
+---
+
+# Modules
+
+ucharm includes 50+ native modules implemented in Zig for maximum performance and minimal binary size.
+
+## TUI Components
+
+| Module | Description |
+|--------|-------------|
+| [charm](/docs/modules/charm) | Boxes, tables, progress bars, spinners, status messages |
+| [input](/docs/modules/input) | Interactive prompts: select, multiselect, confirm, password |
+| [term](/docs/modules/term) | Terminal control: size, cursor, raw mode |
+| [ansi](/docs/modules/ansi) | ANSI escape codes for colors and styles |
+
+## Networking
+
+| Module | Description |
+|--------|-------------|
+| [fetch](/docs/modules/fetch) | HTTP/HTTPS client with built-in TLS |
+| http.client | Low-level HTTP client |
+
+## Data Formats
+
+| Module | Description |
+|--------|-------------|
+| json | JSON encoding/decoding |
+| csv | CSV reading/writing |
+| toml / tomllib | TOML parsing |
+| xml.etree.ElementTree | XML parsing |
+
+## File System
+
+| Module | Description |
+|--------|-------------|
+| os | OS interface (environ, path operations) |
+| pathlib | Object-oriented paths |
+| glob | Pathname pattern expansion |
+| shutil | Shell utilities (copy, move, rmtree) |
+| tempfile | Temporary files and directories |
+| zipfile | ZIP archive handling |
+| tarfile | TAR archive handling |
+| gzip | GZIP compression |
+
+## Text Processing
+
+| Module | Description |
+|--------|-------------|
+| re | Regular expressions |
+| textwrap | Text wrapping and filling |
+| string | String constants |
+
+## System
+
+| Module | Description |
+|--------|-------------|
+| subprocess | Process spawning |
+| signal | Signal handling |
+| argparse | Argument parsing |
+| logging | Logging framework |
+| datetime | Date and time |
+| time | Time functions |
+
+## Data Structures
+
+| Module | Description |
+|--------|-------------|
+| collections | Specialized containers |
+| heapq | Heap queue |
+| itertools | Iterator tools |
+| functools | Functional utilities |
+
+## Security
+
+| Module | Description |
+|--------|-------------|
+| hashlib | Secure hashes (md5, sha1, sha256) |
+| hmac | HMAC message authentication |
+| secrets | Secure random generation |
+| base64 | Base64 encoding |
+
+## Database
+
+| Module | Description |
+|--------|-------------|
+| sqlite3 | SQLite database |
+
+## Other
+
+| Module | Description |
+|--------|-------------|
+| math | Mathematical functions |
+| random | Random number generation |
+| statistics | Statistical functions |
+| uuid | UUID generation |
+| dataclasses | Data classes |
+| typing | Type hints (stubs only) |

@@ -1,0 +1,18 @@
+{
+  "title": "Documentation",
+  "pages": [
+    "index",
+    "---Getting Started---",
+    "getting-started/installation",
+    "getting-started/quick-start",
+    "---Modules---",
+    "modules/index",
+    "modules/charm",
+    "modules/input",
+    "modules/term",
+    "modules/ansi",
+    "modules/fetch",
+    "---Guides---",
+    "guides/index"
+  ]
+}

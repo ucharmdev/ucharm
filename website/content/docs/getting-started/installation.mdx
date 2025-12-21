@@ -1,0 +1,69 @@
+---
+title: Installation
+description: Install ucharm on macOS or Linux
+---
+
+# Installation
+
+ucharm is available as a single binary for macOS and Linux.
+
+## macOS (Homebrew)
+
+The easiest way to install on macOS:
+
+```bash
+brew install ucharmdev/tap/ucharm
+```
+
+## Linux / macOS (Direct Download)
+
+Download the latest release from GitHub:
+
+```bash
+# Linux (x86_64)
+curl -L https://github.com/ucharmdev/ucharm/releases/latest/download/ucharm-linux-x86_64 -o ucharm
+chmod +x ucharm
+sudo mv ucharm /usr/local/bin/
+
+# Linux (ARM64)
+curl -L https://github.com/ucharmdev/ucharm/releases/latest/download/ucharm-linux-aarch64 -o ucharm
+chmod +x ucharm
+sudo mv ucharm /usr/local/bin/
+
+# macOS (Universal)
+curl -L https://github.com/ucharmdev/ucharm/releases/latest/download/ucharm-macos-universal -o ucharm
+chmod +x ucharm
+sudo mv ucharm /usr/local/bin/
+```
+
+## Verify Installation
+
+```bash
+ucharm --version
+```
+
+You should see output like:
+
+```
+μcharm v0.4.0
+```
+
+## Editor Setup
+
+For the best development experience, run `ucharm init` in your project directory:
+
+```bash
+mkdir my-cli && cd my-cli
+ucharm init
+```
+
+This creates:
+- **Type stubs** for IDE autocomplete
+- **AI instructions** for Claude Code, Cursor, Copilot, etc.
+
+## Next Steps
+
+<Cards>
+  <Card title="Quick Start" href="/docs/getting-started/quick-start" />
+  <Card title="Your First App" href="/docs/getting-started/first-app" />
+</Cards>

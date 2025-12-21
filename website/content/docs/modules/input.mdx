@@ -1,0 +1,216 @@
+---
+title: input
+description: Interactive prompts - select, multiselect, confirm, password
+---
+
+# input
+
+The `input` module provides interactive command-line prompts with keyboard navigation.
+
+```python
+import input
+# or
+from ucharm import select, multiselect, confirm, prompt, password
+```
+
+## Select
+
+Single-choice selection with arrow key navigation:
+
+```python
+choice = input.select("Choose a color:", ["Red", "Green", "Blue"])
+print(f"You chose: {choice}")
+```
+
+Output:
+```
+? Choose a color:
+  > Red
+    Green
+    Blue
+```
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `prompt` | str | required | Question to display |
+| `choices` | list | required | List of options to choose from |
+| `default` | int | 0 | Index of default selection |
+
+### Returns
+
+- `str` - The selected choice
+- `None` - If cancelled (Escape or Ctrl+C)
+
+### Navigation
+
+- `↑` / `k` - Move up
+- `↓` / `j` - Move down
+- `Enter` - Confirm selection
+- `Escape` - Cancel
+
+## Multiselect
+
+Multiple-choice selection with space to toggle:
+
+```python
+features = input.multiselect("Select features:", [
+    "Logging",
+    "HTTP Client", 
+    "Database",
+    "Config File"
+])
+print(f"Selected: {features}")
+```
+
+Output:
+```
+? Select features:
+  ◉ Logging
+  ○ HTTP Client
+  ◉ Database
+  ○ Config File
+```
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `prompt` | str | required | Question to display |
+| `choices` | list | required | List of options |
+| `defaults` | list | None | List of indices to pre-select |
+
+### Returns
+
+- `list` - List of selected choices
+- Empty list `[]` - If cancelled
+
+### Navigation
+
+- `↑` / `k` - Move up
+- `↓` / `j` - Move down
+- `Space` - Toggle selection
+- `Enter` - Confirm
+- `Escape` - Cancel
+
+## Confirm
+
+Yes/No confirmation prompt:
+
+```python
+if input.confirm("Deploy to production?", default=False):
+    print("Deploying...")
+else:
+    print("Cancelled")
+```
+
+Output:
+```
+? Deploy to production? (y/N) 
+```
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `prompt` | str | required | Question to display |
+| `default` | bool | True | Default value (affects Y/N capitalization) |
+
+### Returns
+
+- `bool` - True for yes, False for no
+
+### Input
+
+- `y` / `Y` - Yes
+- `n` / `N` - No
+- `Enter` - Use default
+
+## Prompt
+
+Text input with optional default:
+
+```python
+name = input.prompt("Project name:", default="my-app")
+print(f"Creating {name}...")
+```
+
+Output:
+```
+? Project name: my-app
+```
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `message` | str | required | Prompt message |
+| `default` | str | None | Default value (shown and used if Enter pressed) |
+
+### Returns
+
+- `str` - The entered text
+
+## Password
+
+Hidden password input:
+
+```python
+secret = input.password("API Key:")
+# Input is hidden as user types
+```
+
+Output:
+```
+? API Key: ********
+```
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `message` | str | required | Prompt message |
+
+### Returns
+
+- `str` - The entered password
+
+## Example: Full Setup Flow
+
+```python
+import input
+import charm
+
+charm.rule("Project Setup", color="cyan")
+
+# Text input
+name = input.prompt("Project name:", default="my-cli")
+
+# Single select
+template = input.select("Template:", [
+    "Minimal",
+    "Full-featured",
+    "Library"
+])
+
+# Multi-select
+features = input.multiselect("Features:", [
+    "Logging",
+    "Config file",
+    "HTTP client",
+    "Database"
+], defaults=[0])  # Pre-select first option
+
+# Confirmation
+if input.confirm(f"Create '{name}' with {len(features)} features?"):
+    charm.success(f"Created {name}!")
+    charm.table([
+        ["Setting", "Value"],
+        ["Name", name],
+        ["Template", template],
+        ["Features", ", ".join(features) or "None"],
+    ], headers=True)
+else:
+    charm.warning("Cancelled")
+```
