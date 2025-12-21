@@ -57,7 +57,7 @@ fn wrapImpl(alloc: std.mem.Allocator, text: []const u8, width_in: i64) ![][]cons
 
 fn wrapFn(ctx: *pk.Context) bool {
     const text = ctx.argStr(0) orelse return ctx.typeError("text must be a string");
-    const width_arg = ctx.argInt(1) orelse return ctx.typeError("width must be an int");
+    const width_arg = ctx.argInt(1) orelse 70;
     const width: usize = if (width_arg > 0) @intCast(width_arg) else 70;
 
     // Empty text returns empty list
@@ -152,7 +152,7 @@ fn wrapFn(ctx: *pk.Context) bool {
 
 fn fillFn(ctx: *pk.Context) bool {
     const text = ctx.argStr(0) orelse return ctx.typeError("text must be a string");
-    const width = ctx.argInt(1) orelse return ctx.typeError("width must be an int");
+    const width = ctx.argInt(1) orelse 70;
 
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
@@ -292,8 +292,8 @@ fn shortenFn(ctx: *pk.Context) bool {
 pub fn register() void {
     var builder = pk.ModuleBuilder.new("textwrap");
     _ = builder
-        .funcWrapped("wrap", 2, 2, wrapFn)
-        .funcWrapped("fill", 2, 2, fillFn)
+        .funcSigWrapped("wrap(text, width=70)", 1, 2, wrapFn)
+        .funcSigWrapped("fill(text, width=70)", 1, 2, fillFn)
         .funcWrapped("dedent", 1, 1, dedentFn)
         .funcWrapped("indent", 2, 2, indentFn)
         .funcWrapped("shorten", 2, 2, shortenFn);

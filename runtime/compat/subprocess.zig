@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 const pk = @import("pk");
 const c = pk.c;
 
@@ -10,6 +11,12 @@ const PIPE: i32 = -1;
 const DEVNULL: i32 = -2;
 
 var tp_popen: c.py_Type = 0;
+
+const PopenObj = struct {
+    child: std.process.Child,
+    started: bool,
+    text_mode: bool,
+};
 
 const RunResult = struct {
     stdout: []u8,
@@ -213,20 +220,24 @@ fn getoutputFn(ctx: *pk.Context) bool {
 fn popenNew(argc: c_int, argv: c.py_StackRef) callconv(.c) bool {
     _ = argc;
     _ = argv;
-    _ = c.py_newobject(c.py_retval(), tp_popen, -1, 0);
+    _ = c.py_newobject(c.py_retval(), tp_popen, -1, @sizeOf(PopenObj));
     return true;
 }
 
+fn getPopen(self: c.py_Ref) ?*PopenObj {
+    if (!c.py_istype(self, tp_popen)) return null;
+    return @ptrCast(@alignCast(c.py_touserdata(self)));
+}
+
 fn popenInit(argc: c_int, argv: c.py_StackRef) callconv(.c) bool {
-    if (argc != 2 and argc != 3) return c.py_exception(c.tp_TypeError, "Popen() takes args and optional stdout");
+    if (argc < 2 or argc > 6) return c.py_exception(c.tp_TypeError, "Popen(args, stdout=None, stderr=None, shell=False, text=False)");
     const self = pk.argRef(argv, 0);
     const args_val = pk.argRef(argv, 1);
 
-    var capture = false;
-    if (argc == 3) {
-        const v = pk.argRef(argv, 2);
-        if (c.py_isint(v) and @as(i32, @intCast(c.py_toint(v))) == PIPE) capture = true;
-    }
+    const stdout_val = if (argc >= 3) pk.argRef(argv, 2) else c.py_None();
+    const stderr_val = if (argc >= 4) pk.argRef(argv, 3) else c.py_None();
+    const shell = if (argc >= 5) c.py_tobool(pk.argRef(argv, 4)) else false;
+    const text_mode = if (argc >= 6) c.py_tobool(pk.argRef(argv, 5)) else false;
 
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
@@ -234,43 +245,162 @@ fn popenInit(argc: c_int, argv: c.py_StackRef) callconv(.c) bool {
 
     var argv_list: std.ArrayList([]const u8) = .empty;
     defer argv_list.deinit(alloc);
-    if (!buildArgvFromList(alloc, args_val, &argv_list)) return false;
 
-    const result = runChild(alloc, argv_list.items, capture) catch return c.py_exception(c.tp_RuntimeError, "failed to spawn process");
-
-    if (capture) {
-        const out_buf = c.py_newstrn(c.py_r0(), @intCast(result.stdout.len));
-        if (result.stdout.len > 0) @memcpy(@as([*]u8, @ptrCast(out_buf))[0..result.stdout.len], result.stdout);
-        c.py_setdict(self, c.py_name("stdout"), c.py_r0());
+    if (shell) {
+        const cmd_c = c.py_tostr(args_val) orelse return c.py_exception(c.tp_TypeError, "args must be a string when shell=True");
+        argv_list.append(alloc, "sh") catch return c.py_exception(c.tp_RuntimeError, "out of memory");
+        argv_list.append(alloc, "-c") catch return c.py_exception(c.tp_RuntimeError, "out of memory");
+        argv_list.append(alloc, std.mem.span(cmd_c)) catch return c.py_exception(c.tp_RuntimeError, "out of memory");
     } else {
-        c.py_newnone(c.py_r0());
-        c.py_setdict(self, c.py_name("stdout"), c.py_r0());
+        if (!buildArgvFromList(alloc, args_val, &argv_list)) return false;
     }
+
+    const ud = getPopen(self) orelse return c.py_exception(c.tp_RuntimeError, "invalid Popen");
+    ud.started = false;
+    ud.text_mode = text_mode;
+    ud.child = std.process.Child.init(argv_list.items, std.heap.c_allocator);
+    ud.child.stdin_behavior = .Ignore;
+
+    const stdout_pipe = c.py_isint(stdout_val) and @as(i32, @intCast(c.py_toint(stdout_val))) == PIPE;
+    const stderr_pipe = c.py_isint(stderr_val) and @as(i32, @intCast(c.py_toint(stderr_val))) == PIPE;
+
+    ud.child.stdout_behavior = if (stdout_pipe) .Pipe else .Ignore;
+    ud.child.stderr_behavior = if (stderr_pipe) .Pipe else .Ignore;
+
+    ud.child.spawn() catch return c.py_exception(c.tp_RuntimeError, "failed to spawn process");
+    ud.started = true;
+    // The argv memory is arena-owned; clear the slice to avoid dangling references.
+    ud.child.argv = &.{};
+
+    c.py_newint(c.py_r0(), @intCast(ud.child.id));
+    c.py_setdict(self, c.py_name("pid"), c.py_r0());
+    c.py_newnone(c.py_r0());
+    c.py_setdict(self, c.py_name("returncode"), c.py_r0());
+
+    // stdout/stderr are exposed via methods; keep fields for compat.
+    c.py_newnone(c.py_r0());
+    c.py_setdict(self, c.py_name("stdout"), c.py_r0());
     c.py_newnone(c.py_r0());
     c.py_setdict(self, c.py_name("stderr"), c.py_r0());
-    c.py_newint(c.py_r0(), result.returncode);
-    c.py_setdict(self, c.py_name("returncode"), c.py_r0());
 
     c.py_newnone(c.py_retval());
     return true;
 }
 
 fn popenCommunicate(argc: c_int, argv: c.py_StackRef) callconv(.c) bool {
-    if (argc != 1) return c.py_exception(c.tp_TypeError, "communicate() takes no arguments");
+    _ = argc;
     const self = pk.argRef(argv, 0);
-    const out_val = c.py_getdict(self, c.py_name("stdout")) orelse return c.py_exception(c.tp_RuntimeError, "stdout missing");
-    const err_val = c.py_getdict(self, c.py_name("stderr")) orelse return c.py_exception(c.tp_RuntimeError, "stderr missing");
+    const ud = getPopen(self) orelse return c.py_exception(c.tp_RuntimeError, "invalid Popen");
+    if (!ud.started) return c.py_exception(c.tp_RuntimeError, "process not started");
+
+    var out_bytes: []u8 = &[_]u8{};
+    var err_bytes: []u8 = &[_]u8{};
+
+    if (ud.child.stdout) |file| out_bytes = readAll(std.heap.c_allocator, file);
+    if (ud.child.stderr) |file| err_bytes = readAll(std.heap.c_allocator, file);
+
+    const term = ud.child.wait() catch return c.py_exception(c.tp_RuntimeError, "wait failed");
+    var returncode: i64 = -1;
+    switch (term) {
+        .Exited => |code| returncode = code,
+        else => returncode = -1,
+    }
+
+    // Store returncode on object
+    c.py_newint(c.py_r0(), returncode);
+    c.py_setdict(self, c.py_name("returncode"), c.py_r0());
+
     _ = c.py_newtuple(c.py_retval(), 2);
-    c.py_tuple_setitem(c.py_retval(), 0, out_val.?);
-    c.py_tuple_setitem(c.py_retval(), 1, err_val.?);
+
+    if (ud.text_mode) {
+        const out_str = c.py_newstrn(c.py_r0(), @intCast(out_bytes.len));
+        if (out_bytes.len > 0) @memcpy(@as([*]u8, @ptrCast(out_str))[0..out_bytes.len], out_bytes);
+        c.py_tuple_setitem(c.py_retval(), 0, c.py_r0());
+
+        const err_str = c.py_newstrn(c.py_r1(), @intCast(err_bytes.len));
+        if (err_bytes.len > 0) @memcpy(@as([*]u8, @ptrCast(err_str))[0..err_bytes.len], err_bytes);
+        c.py_tuple_setitem(c.py_retval(), 1, c.py_r1());
+    } else {
+        const out_buf = c.py_newbytes(c.py_r0(), @intCast(out_bytes.len));
+        if (out_bytes.len > 0) @memcpy(@as([*]u8, @ptrCast(out_buf))[0..out_bytes.len], out_bytes);
+        c.py_tuple_setitem(c.py_retval(), 0, c.py_r0());
+
+        const err_buf = c.py_newbytes(c.py_r1(), @intCast(err_bytes.len));
+        if (err_bytes.len > 0) @memcpy(@as([*]u8, @ptrCast(err_buf))[0..err_bytes.len], err_bytes);
+        c.py_tuple_setitem(c.py_retval(), 1, c.py_r1());
+    }
+
+    if (out_bytes.len > 0) std.heap.c_allocator.free(out_bytes);
+    if (err_bytes.len > 0) std.heap.c_allocator.free(err_bytes);
     return true;
 }
 
 fn popenWait(argc: c_int, argv: c.py_StackRef) callconv(.c) bool {
-    if (argc != 1) return c.py_exception(c.tp_TypeError, "wait() takes no arguments");
+    _ = argc;
     const self = pk.argRef(argv, 0);
-    const rc_val = c.py_getdict(self, c.py_name("returncode")) orelse return c.py_exception(c.tp_RuntimeError, "returncode missing");
-    pk.setRetval(rc_val.?);
+    const ud = getPopen(self) orelse return c.py_exception(c.tp_RuntimeError, "invalid Popen");
+    if (!ud.started) return c.py_exception(c.tp_RuntimeError, "process not started");
+
+    const term = ud.child.wait() catch return c.py_exception(c.tp_RuntimeError, "wait failed");
+    var returncode: i64 = -1;
+    switch (term) {
+        .Exited => |code| returncode = code,
+        else => returncode = -1,
+    }
+    c.py_newint(c.py_retval(), returncode);
+    c.py_setdict(self, c.py_name("returncode"), c.py_retval());
+    return true;
+}
+
+fn popenTerminate(argc: c_int, argv: c.py_StackRef) callconv(.c) bool {
+    if (argc != 1) return c.py_exception(c.tp_TypeError, "terminate(self)");
+    const self = pk.argRef(argv, 0);
+    const ud = getPopen(self) orelse return c.py_exception(c.tp_RuntimeError, "invalid Popen");
+    if (!ud.started) return c.py_exception(c.tp_RuntimeError, "process not started");
+    if (builtin.os.tag != .windows and builtin.os.tag != .wasi) {
+        _ = std.posix.kill(ud.child.id, std.posix.SIG.TERM) catch {};
+    }
+    c.py_newnone(c.py_retval());
+    return true;
+}
+
+fn popenKill(argc: c_int, argv: c.py_StackRef) callconv(.c) bool {
+    if (argc != 1) return c.py_exception(c.tp_TypeError, "kill(self)");
+    const self = pk.argRef(argv, 0);
+    const ud = getPopen(self) orelse return c.py_exception(c.tp_RuntimeError, "invalid Popen");
+    if (!ud.started) return c.py_exception(c.tp_RuntimeError, "process not started");
+    if (builtin.os.tag != .windows and builtin.os.tag != .wasi) {
+        _ = std.posix.kill(ud.child.id, std.posix.SIG.KILL) catch {};
+    }
+    c.py_newnone(c.py_retval());
+    return true;
+}
+
+fn popenReadline(argc: c_int, argv: c.py_StackRef) callconv(.c) bool {
+    if (argc != 1) return c.py_exception(c.tp_TypeError, "readline(self)");
+    const self = pk.argRef(argv, 0);
+    const ud = getPopen(self) orelse return c.py_exception(c.tp_RuntimeError, "invalid Popen");
+    if (!ud.started) return c.py_exception(c.tp_RuntimeError, "process not started");
+    const file = ud.child.stdout orelse return c.py_exception(c.tp_RuntimeError, "stdout is not piped");
+
+    var buf = std.ArrayList(u8).empty;
+    defer buf.deinit(std.heap.c_allocator);
+
+    var tmp: [1]u8 = undefined;
+    while (buf.items.len < 8192) {
+        const n = file.read(&tmp) catch break;
+        if (n == 0) break;
+        buf.append(std.heap.c_allocator, tmp[0]) catch break;
+        if (tmp[0] == '\n') break;
+    }
+
+    if (ud.text_mode) {
+        const out_str = c.py_newstrn(c.py_retval(), @intCast(buf.items.len));
+        if (buf.items.len > 0) @memcpy(@as([*]u8, @ptrCast(out_str))[0..buf.items.len], buf.items);
+        return true;
+    }
+    const outb = c.py_newbytes(c.py_retval(), @intCast(buf.items.len));
+    if (buf.items.len > 0) @memcpy(outb[0..buf.items.len], buf.items);
     return true;
 }
 
@@ -286,10 +416,13 @@ pub fn register() void {
 
     // Popen
     tp_popen = c.py_newtype("Popen", c.tp_object, module, null);
-    c.py_bind(c.py_tpobject(tp_popen), "__new__(cls, args, stdout=None)", popenNew);
-    c.py_bind(c.py_tpobject(tp_popen), "__init__(self, args, stdout=None)", popenInit);
+    c.py_bind(c.py_tpobject(tp_popen), "__new__(cls, args, stdout=None, stderr=None, shell=False, text=False)", popenNew);
+    c.py_bind(c.py_tpobject(tp_popen), "__init__(self, args, stdout=None, stderr=None, shell=False, text=False)", popenInit);
     c.py_bindmethod(tp_popen, "communicate", popenCommunicate);
     c.py_bindmethod(tp_popen, "wait", popenWait);
+    c.py_bindmethod(tp_popen, "terminate", popenTerminate);
+    c.py_bindmethod(tp_popen, "kill", popenKill);
+    c.py_bindmethod(tp_popen, "readline", popenReadline);
     c.py_setdict(module, c.py_name("Popen"), c.py_tpobject(tp_popen));
 
     c.py_bind(module, "run(args, capture_output=False, shell=False)", run);

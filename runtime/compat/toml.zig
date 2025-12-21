@@ -102,8 +102,12 @@ fn parseArray(ctx: *pk.Context, s: []const u8) ?pk.Value {
     if (s.len < 2 or s[0] != '[' or s[s.len - 1] != ']') return null;
     const inner = trim(s[1 .. s.len - 1]);
     c.py_newlist(c.py_retval());
-    const list = c.py_retval();
-    if (inner.len == 0) return pk.Value.from(list);
+    var list_tv: c.py_TValue = c.py_retval().*;
+    const list: c.py_Ref = &list_tv;
+    if (inner.len == 0) {
+        c.py_retval().* = list_tv;
+        return pk.Value.from(c.py_retval());
+    }
 
     var i: usize = 0;
     var start: usize = 0;
@@ -131,7 +135,8 @@ fn parseArray(ctx: *pk.Context, s: []const u8) ?pk.Value {
             }
         }
     }
-    return pk.Value.from(list);
+    c.py_retval().* = list_tv;
+    return pk.Value.from(c.py_retval());
 }
 
 fn parseValue(ctx: *pk.Context, raw: []const u8) ?pk.Value {
@@ -163,8 +168,20 @@ fn parseValue(ctx: *pk.Context, raw: []const u8) ?pk.Value {
 }
 
 fn loadsFn(ctx: *pk.Context) bool {
-    const input = ctx.argStr(0) orelse return ctx.typeError("expected str");
+    var v = ctx.arg(0) orelse return ctx.typeError("expected str or bytes");
+    if (v.isType(c.tp_bytes)) {
+        var n: c_int = 0;
+        const ptr = c.py_tobytes(v.refConst(), &n);
+        return loadsFromSlice(ctx, ptr[0..@intCast(n)]);
+    }
+    if (v.isStr()) {
+        const s = v.toStr() orelse return ctx.typeError("expected str");
+        return loadsFromSlice(ctx, s);
+    }
+    return ctx.typeError("expected str or bytes");
+}
 
+fn loadsFromSlice(ctx: *pk.Context, input: []const u8) bool {
     c.py_newdict(c.py_retval());
     const root_tv: c.py_TValue = c.py_retval().*;
     var current_tv: c.py_TValue = root_tv;
@@ -220,6 +237,56 @@ fn loadsFn(ctx: *pk.Context) bool {
 
     c.py_retval().* = root_tv;
     return true;
+}
+
+fn tomllibLoadsFn(ctx: *pk.Context) bool {
+    var v = ctx.arg(0) orelse return ctx.typeError("expected str or bytes");
+    if (v.isType(c.tp_bytes)) {
+        var n: c_int = 0;
+        const ptr = c.py_tobytes(v.refConst(), &n);
+        return loadsFromSlice(ctx, ptr[0..@intCast(n)]);
+    }
+    if (v.isStr()) {
+        const s = v.toStr() orelse return ctx.typeError("expected str");
+        return loadsFromSlice(ctx, s);
+    }
+    return ctx.typeError("expected str or bytes");
+}
+
+fn loadFromFileObj(ctx: *pk.Context, file_obj: *pk.Value) bool {
+    if (!c.py_getattr(file_obj.refConst(), c.py_name("read"))) return ctx.typeError("expected file-like object");
+    var read_fn: c.py_TValue = c.py_retval().*;
+    if (!c.py_call(&read_fn, 0, null)) return false;
+
+    c.py_r0().* = c.py_retval().*;
+    var content = pk.Value.from(c.py_r0());
+    if (content.isType(c.tp_bytes)) {
+        var n: c_int = 0;
+        const ptr = c.py_tobytes(content.refConst(), &n);
+        return loadsFromSlice(ctx, ptr[0..@intCast(n)]);
+    }
+    if (content.isStr()) {
+        const s = content.toStr() orelse return ctx.typeError("read() must return str or bytes");
+        return loadsFromSlice(ctx, s);
+    }
+    return ctx.typeError("read() must return str or bytes");
+}
+
+fn tomlLoadFn(ctx: *pk.Context) bool {
+    var v = ctx.arg(0) orelse return ctx.typeError("expected path str or file-like");
+    if (v.isStr()) {
+        const path = v.toStr() orelse return ctx.typeError("expected path str");
+        const data = std.fs.cwd().readFileAlloc(std.heap.page_allocator, path, 1024 * 1024) catch
+            return ctx.runtimeError("failed to read file");
+        defer std.heap.page_allocator.free(data);
+        return loadsFromSlice(ctx, data);
+    }
+    return loadFromFileObj(ctx, &v);
+}
+
+fn tomllibLoadFn(ctx: *pk.Context) bool {
+    // CPython expects a binary file object; we accept file-like or path for convenience.
+    return tomlLoadFn(ctx);
 }
 
 fn dumpScalar(writer: anytype, v: c.py_Ref) bool {
@@ -338,15 +405,14 @@ fn dumpsFn(ctx: *pk.Context) bool {
     var arg = ctx.arg(0) orelse return ctx.typeError("expected dict");
     if (!arg.isDict()) return ctx.typeError("expected dict");
 
-    var buf: [16384]u8 = undefined;
-    var fbs = std.io.fixedBufferStream(&buf);
-    const writer = fbs.writer();
+    var aw = std.Io.Writer.Allocating.init(std.heap.page_allocator);
+    defer aw.deinit();
 
-    if (!dumpsDict(writer, arg.refConst(), "")) return ctx.valueError("failed to serialize toml");
+    if (!dumpsDict(&aw.writer, arg.refConst(), "")) return ctx.valueError("failed to serialize toml");
 
-    const written = fbs.getWritten();
+    const written = aw.written();
     const out = c.py_newstrn(c.py_retval(), @intCast(written.len));
-    @memcpy(out[0..written.len], written);
+    if (written.len > 0) @memcpy(out[0..written.len], written);
     return true;
 }
 
@@ -354,5 +420,11 @@ pub fn register() void {
     var builder = pk.ModuleBuilder.new("toml");
     _ = builder
         .funcWrapped("loads", 1, 1, loadsFn)
+        .funcWrapped("load", 1, 1, tomlLoadFn)
         .funcWrapped("dumps", 1, 1, dumpsFn);
+
+    var tomllib_builder = pk.ModuleBuilder.new("tomllib");
+    _ = tomllib_builder
+        .funcWrapped("loads", 1, 1, tomllibLoadsFn)
+        .funcWrapped("load", 1, 1, tomllibLoadFn);
 }

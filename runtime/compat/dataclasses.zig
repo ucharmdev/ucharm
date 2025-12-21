@@ -17,7 +17,8 @@ var tp_decorator: c.py_Type = 0;
 const Opts = struct { init: bool, repr: bool, eq: bool };
 
 fn collectFieldFn(key: c.py_Ref, _: c.py_Ref, ctx_ptr: ?*anyopaque) callconv(.c) bool {
-    const list: *std.ArrayList(c.py_TValue) = @ptrCast(@alignCast(ctx_ptr));
+    const ctx = ctx_ptr orelse return false;
+    const list: *std.ArrayList(c.py_TValue) = @ptrCast(@alignCast(ctx));
     if (!c.py_isstr(key)) return true;
     list.append(std.heap.c_allocator, key.*) catch return false;
     return true;
@@ -43,16 +44,20 @@ fn dataclassInit(argc: c_int, argv: c.py_StackRef) callconv(.c) bool {
     }
     const fields = fields_ptr;
     const n = c.py_list_len(fields);
-    if (argc - 1 != n) {
-        return c.py_exception(c.tp_TypeError, "wrong number of arguments");
-    }
+    if (argc - 1 > n) return c.py_exception(c.tp_TypeError, "wrong number of arguments");
     var i: c_int = 0;
     while (i < n) : (i += 1) {
         const name_obj = c.py_list_getitem(fields, i);
         if (!c.py_isstr(name_obj)) continue;
         const key = c.py_name(c.py_tostr(name_obj));
         const idx: usize = @intCast(i + 1);
-        c.py_setdict(self, key, pk.argRef(argv, idx));
+        if (@as(c_int, @intCast(idx)) < argc) {
+            c.py_setdict(self, key, pk.argRef(argv, idx));
+        } else {
+            const def_ptr = c.py_getdict(cls, key);
+            if (def_ptr == null) return c.py_exception(c.tp_TypeError, "missing required field");
+            c.py_setdict(self, key, def_ptr.?);
+        }
     }
     c.py_newnone(c.py_retval());
     return true;
@@ -137,6 +142,14 @@ fn dataclassEq(argc: c_int, argv: c.py_StackRef) callconv(.c) bool {
     return true;
 }
 
+fn dataclassNe(argc: c_int, argv: c.py_StackRef) callconv(.c) bool {
+    if (!dataclassEq(argc, argv)) return false;
+    if (!c.py_isbool(c.py_retval())) return true;
+    const eq = c.py_tobool(c.py_retval());
+    c.py_newbool(c.py_retval(), !eq);
+    return true;
+}
+
 fn applyDataclass(cls: c.py_Ref, opts: Opts) bool {
     if (!c.py_istype(cls, c.tp_type)) return c.py_exception(c.tp_TypeError, "expected class");
 
@@ -144,7 +157,11 @@ fn applyDataclass(cls: c.py_Ref, opts: Opts) bool {
     var fields: std.ArrayList(c.py_TValue) = .empty;
     defer fields.deinit(std.heap.c_allocator);
 
-    const ann_ptr = c.py_getdict(cls, c.py_name("__annotations__"));
+    var ann_ptr = c.py_getdict(cls, c.py_name("__annotations__"));
+    if (ann_ptr == null) {
+        if (!c.py_getattr(cls, c.py_name("__annotations__"))) return false;
+        ann_ptr = c.py_retval();
+    }
     if (ann_ptr != null and c.py_isdict(ann_ptr.?)) {
         if (!c.py_dict_apply(ann_ptr.?, collectFieldFn, &fields)) return false;
     }
@@ -168,6 +185,36 @@ fn applyDataclass(cls: c.py_Ref, opts: Opts) bool {
             const name_bytes: []const u8 = @as([*]const u8, @ptrCast(sv.data))[0..@intCast(sv.size)];
             w.writeAll(", ") catch return c.py_exception(c.tp_RuntimeError, "sig too long");
             w.writeAll(name_bytes) catch return c.py_exception(c.tp_RuntimeError, "sig too long");
+
+            // If the class defines a simple default for this field, include it in the signature
+            // so PocketPy's argument binder can treat it as optional.
+            var name_buf: [256]u8 = undefined;
+            if (name_bytes.len + 1 <= name_buf.len) {
+                @memcpy(name_buf[0..name_bytes.len], name_bytes);
+                name_buf[name_bytes.len] = 0;
+                const name_z: [:0]const u8 = name_buf[0..name_bytes.len :0];
+                const def_ptr = c.py_getdict(cls, c.py_name(name_z.ptr));
+                if (def_ptr != null) {
+                    if (c.py_isnone(def_ptr.?)) {
+                        w.writeAll("=None") catch return c.py_exception(c.tp_RuntimeError, "sig too long");
+                    } else if (c.py_isint(def_ptr.?) or c.py_isfloat(def_ptr.?) or c.py_isbool(def_ptr.?)) {
+                        if (!c.py_repr(def_ptr.?)) return false;
+                        const s = c.py_tostr(c.py_retval());
+                        w.writeAll("=") catch return c.py_exception(c.tp_RuntimeError, "sig too long");
+                        w.writeAll(s[0..std.mem.len(s)]) catch return c.py_exception(c.tp_RuntimeError, "sig too long");
+                    } else if (c.py_isstr(def_ptr.?)) {
+                        const s = c.py_tostr(def_ptr.?);
+                        w.writeAll("='") catch return c.py_exception(c.tp_RuntimeError, "sig too long");
+                        for (s[0..std.mem.len(s)]) |ch| {
+                            if (ch == '\\' or ch == '\'') {
+                                w.writeByte('\\') catch return c.py_exception(c.tp_RuntimeError, "sig too long");
+                            }
+                            w.writeByte(ch) catch return c.py_exception(c.tp_RuntimeError, "sig too long");
+                        }
+                        w.writeAll("'") catch return c.py_exception(c.tp_RuntimeError, "sig too long");
+                    }
+                }
+            }
         }
         w.writeAll(")") catch return c.py_exception(c.tp_RuntimeError, "sig too long");
         const sig_written = fbs.getWritten();
@@ -178,7 +225,10 @@ fn applyDataclass(cls: c.py_Ref, opts: Opts) bool {
         _ = setFuncOnClass(cls, "__init__", sig_z, dataclassInit);
     }
     if (opts.repr) _ = setFuncOnClass(cls, "__repr__", "__repr__(self)", dataclassRepr);
-    if (opts.eq) _ = setFuncOnClass(cls, "__eq__", "__eq__(self, other)", dataclassEq);
+    if (opts.eq) {
+        _ = setFuncOnClass(cls, "__eq__", "__eq__(self, other)", dataclassEq);
+        _ = setFuncOnClass(cls, "__ne__", "__ne__(self, other)", dataclassNe);
+    }
 
     c.py_retval().* = cls.*;
     return true;
@@ -230,9 +280,15 @@ fn dataclassFn(ctx: *pk.Context) bool {
 }
 
 fn isDataclassFn(ctx: *pk.Context) bool {
-    const obj = ctx.arg(0) orelse return ctx.typeError("expected object");
-    const cls = c.py_tpobject(c.py_typeof(obj.refConst()));
-    const fields_ptr = c.py_getdict(cls, c.py_name("__dataclass_fields__"));
+    var obj = ctx.arg(0) orelse return ctx.typeError("expected object");
+
+    // is_dataclass(cls) should work for both the dataclass *type* and instances.
+    const target = if (c.py_istype(obj.refConst(), c.tp_type))
+        obj.refConst()
+    else
+        c.py_tpobject(c.py_typeof(obj.refConst()));
+
+    const fields_ptr = c.py_getdict(target, c.py_name("__dataclass_fields__"));
     return ctx.returnBool(fields_ptr != null and c.py_islist(fields_ptr.?));
 }
 

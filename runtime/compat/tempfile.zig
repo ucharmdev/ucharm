@@ -67,11 +67,9 @@ fn mkstempFn(ctx: *pk.Context) bool {
 
 fn mkdtempFn(ctx: *pk.Context) bool {
     var prefix: []const u8 = "tmp";
-    if (ctx.argCount() >= 1) {
-        var arg = ctx.arg(0);
-        if (arg != null and !arg.?.isNone()) {
-            prefix = arg.?.toStr() orelse return ctx.typeError("prefix must be a string");
-        }
+    if (ctx.argOptional(0)) |arg_const| {
+        var arg = arg_const;
+        prefix = arg.toStr() orelse return ctx.typeError("prefix must be a string");
     }
 
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
@@ -103,5 +101,5 @@ pub fn register() void {
         .funcWrapped("gettempdir", 0, 0, gettempdirFn)
         .funcWrapped("mktemp", 0, 0, mktempFn)
         .funcWrapped("mkstemp", 0, 0, mkstempFn)
-        .funcWrapped("mkdtemp", 0, 1, mkdtempFn);
+        .funcSigWrapped("mkdtemp(prefix=None)", 0, 1, mkdtempFn);
 }

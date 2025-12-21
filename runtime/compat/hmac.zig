@@ -17,10 +17,19 @@ const HmacState = union(Algo) {
 };
 
 const HmacObj = struct {
-    state: HmacState,
+    algo: Algo = .sha256,
+    state: ?*HmacState = null,
 };
 
 var tp_hmac: c.py_Type = 0;
+
+fn hmacDtor(ptr: ?*anyopaque) callconv(.c) void {
+    const ud: *HmacObj = @ptrCast(@alignCast(ptr orelse return));
+    if (ud.state) |st| {
+        std.heap.c_allocator.destroy(st);
+        ud.state = null;
+    }
+}
 
 fn getBytesLike(v: c.py_Ref, out_size: *c_int) ?[]const u8 {
     if (c.py_istype(v, c.tp_bytes)) {
@@ -49,6 +58,8 @@ fn parseAlgo(v: ?c.py_Ref) ?Algo {
 
 fn hmacNew(_: c_int, _: c.py_StackRef) callconv(.c) bool {
     _ = c.py_newobject(c.py_retval(), tp_hmac, -1, @sizeOf(HmacObj));
+    const ud: *HmacObj = @ptrCast(@alignCast(c.py_touserdata(c.py_retval())));
+    ud.* = .{};
     return true;
 }
 
@@ -67,18 +78,29 @@ fn hmacInit(argc: c_int, argv: c.py_StackRef) callconv(.c) bool {
         return c.py_exception(c.tp_ValueError, "unsupported digestmod");
     };
 
-    ud.state = switch (algo) {
+    if (ud.state) |st| {
+        std.heap.c_allocator.destroy(st);
+        ud.state = null;
+    }
+
+    const state_box = std.heap.c_allocator.create(HmacState) catch {
+        return c.py_exception(c.tp_RuntimeError, "out of memory");
+    };
+    state_box.* = switch (algo) {
         .md5 => .{ .md5 = std.crypto.auth.hmac.HmacMd5.init(key) },
         .sha1 => .{ .sha1 = std.crypto.auth.hmac.HmacSha1.init(key) },
         .sha256 => .{ .sha256 = std.crypto.auth.hmac.sha2.HmacSha256.init(key) },
     };
+    ud.algo = algo;
+    ud.state = state_box;
 
     if (argc >= 3 and !c.py_isnone(pk.argRef(argv, 2))) {
         var msg_sz: c_int = 0;
         const msg = getBytesLike(pk.argRef(argv, 2), &msg_sz) orelse {
             return c.py_exception(c.tp_TypeError, "msg must be bytes or str");
         };
-        switch (ud.state) {
+        const state_ptr = ud.state orelse return c.py_exception(c.tp_RuntimeError, "HMAC not initialized");
+        switch (state_ptr.*) {
             inline else => |*st| st.update(msg),
         }
     }
@@ -94,7 +116,8 @@ fn hmacUpdate(argc: c_int, argv: c.py_StackRef) callconv(.c) bool {
     const msg = getBytesLike(pk.argRef(argv, 1), &msg_sz) orelse {
         return c.py_exception(c.tp_TypeError, "msg must be bytes or str");
     };
-    switch (ud.state) {
+    const state_ptr = ud.state orelse return c.py_exception(c.tp_RuntimeError, "HMAC not initialized");
+    switch (state_ptr.*) {
         inline else => |*st| st.update(msg),
     }
     c.py_newnone(c.py_retval());
@@ -106,9 +129,10 @@ fn hmacDigest(argc: c_int, argv: c.py_StackRef) callconv(.c) bool {
     const self = pk.argRef(argv, 0);
     const ud: *HmacObj = @ptrCast(@alignCast(c.py_touserdata(self)));
 
-    switch (ud.state) {
+    const state_ptr = ud.state orelse return c.py_exception(c.tp_RuntimeError, "HMAC not initialized");
+    switch (state_ptr.*) {
         .md5 => {
-            var st = ud.state.md5;
+            var st = state_ptr.*.md5;
             var out: [std.crypto.auth.hmac.HmacMd5.mac_length]u8 = undefined;
             st.final(&out);
             const bytes = c.py_newbytes(c.py_retval(), out.len);
@@ -116,7 +140,7 @@ fn hmacDigest(argc: c_int, argv: c.py_StackRef) callconv(.c) bool {
             return true;
         },
         .sha1 => {
-            var st = ud.state.sha1;
+            var st = state_ptr.*.sha1;
             var out: [std.crypto.auth.hmac.HmacSha1.mac_length]u8 = undefined;
             st.final(&out);
             const bytes = c.py_newbytes(c.py_retval(), out.len);
@@ -124,7 +148,7 @@ fn hmacDigest(argc: c_int, argv: c.py_StackRef) callconv(.c) bool {
             return true;
         },
         .sha256 => {
-            var st = ud.state.sha256;
+            var st = state_ptr.*.sha256;
             var out: [std.crypto.auth.hmac.sha2.HmacSha256.mac_length]u8 = undefined;
             st.final(&out);
             const bytes = c.py_newbytes(c.py_retval(), out.len);
@@ -197,7 +221,7 @@ fn newFn(ctx: *pk.Context) bool {
 pub fn register() void {
     var builder = pk.ModuleBuilder.new("hmac");
 
-    var type_builder = pk.TypeBuilder.new("HMAC", c.tp_object, builder.module, null);
+    var type_builder = pk.TypeBuilder.new("HMAC", c.tp_object, builder.module, hmacDtor);
     tp_hmac = type_builder
         .magic("__new__", hmacNew)
         .magic("__init__", hmacInit)
