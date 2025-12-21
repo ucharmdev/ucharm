@@ -260,7 +260,7 @@ echo ""
 echo "--- Test: Interactive Select ---"
 run_test
 # Test select: down, down, enter -> should select "Blue"
-if echo -e "down\ndown\nenter" | $MCHARM run examples/test_select.py 3<&0 2>&1 | grep -q "SELECTED: Blue"; then
+if MCHARM_TEST_KEYS="down,down,enter" $MCHARM run examples/test_select.py 2>&1 | grep -q "SELECTED: Blue"; then
     pass "Select works"
 else
     fail "Select failed" "Expected 'SELECTED: Blue'"
@@ -269,7 +269,7 @@ fi
 echo ""
 echo "--- Test: Interactive Confirm (yes) ---"
 run_test
-if echo "y" | $MCHARM run examples/test_confirm.py 3<&0 2>&1 | grep -q "CONFIRMED: yes"; then
+if MCHARM_TEST_KEYS="y" $MCHARM run examples/test_confirm.py 2>&1 | grep -q "CONFIRMED: yes"; then
     pass "Confirm 'y' works"
 else
     fail "Confirm 'y' failed" "Expected 'CONFIRMED: yes'"
@@ -278,7 +278,7 @@ fi
 echo ""
 echo "--- Test: Interactive Confirm (no) ---"
 run_test
-if echo "n" | $MCHARM run examples/test_confirm.py 3<&0 2>&1 | grep -q "CONFIRMED: no"; then
+if MCHARM_TEST_KEYS="n" $MCHARM run examples/test_confirm.py 2>&1 | grep -q "CONFIRMED: no"; then
     pass "Confirm 'n' works"
 else
     fail "Confirm 'n' failed" "Expected 'CONFIRMED: no'"
@@ -287,7 +287,7 @@ fi
 echo ""
 echo "--- Test: Interactive Confirm (default) ---"
 run_test
-if echo "enter" | $MCHARM run examples/test_confirm.py 3<&0 2>&1 | grep -q "CONFIRMED: yes"; then
+if MCHARM_TEST_KEYS="enter" $MCHARM run examples/test_confirm.py 2>&1 | grep -q "CONFIRMED: yes"; then
     pass "Confirm default (enter) works"
 else
     fail "Confirm default failed" "Expected 'CONFIRMED: yes'"
@@ -297,7 +297,7 @@ echo ""
 echo "--- Test: Interactive Multiselect ---"
 run_test
 # Select first and third items: space (toggle), down, down, space (toggle), enter
-if echo -e "space\ndown\ndown\nspace\nenter" | $MCHARM run examples/test_multiselect.py 3<&0 2>&1 | grep -q "SELECTED: Cheese,Mushrooms"; then
+if MCHARM_TEST_KEYS="space,down,down,space,enter" $MCHARM run examples/test_multiselect.py 2>&1 | grep -q "SELECTED: Cheese,Mushrooms"; then
     pass "Multiselect works"
 else
     fail "Multiselect failed" "Expected 'SELECTED: Cheese,Mushrooms'"
@@ -306,8 +306,8 @@ fi
 echo ""
 echo "--- Test: Interactive Prompt ---"
 run_test
-# Type "Alice" then enter (prompt reads actual characters, not key names)
-if printf "Alice\nenter" | $MCHARM run examples/test_prompt.py 3<&0 2>&1 | grep -q "NAME: Alice"; then
+# Type "Alice" then enter using MCHARM_TEST_KEYS (comma-separated chars)
+if MCHARM_TEST_KEYS="A,l,i,c,e,enter" $MCHARM run examples/test_prompt.py 2>&1 | grep -q "NAME: Alice"; then
     pass "Prompt text input works"
 else
     fail "Prompt failed" "Expected 'NAME: Alice'"

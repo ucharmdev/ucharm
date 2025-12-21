@@ -171,6 +171,56 @@ fn mapKeyName(name: []const u8) u8 {
     return 0;
 }
 
+/// Map key name to raw character for prompt/password input (not control codes).
+fn mapRawKeyName(name: []const u8) u8 {
+    if (name.len == 0) return 0;
+    if (std.mem.eql(u8, name, "enter")) return '\r';
+    if (std.mem.eql(u8, name, "space")) return ' ';
+    if (std.mem.eql(u8, name, "escape")) return 0x1b;
+    if (std.mem.eql(u8, name, "backspace")) return 0x7f;
+    if (name.len == 1) return name[0];
+    return 0;
+}
+
+/// Read next raw character from test input (for prompt/password).
+fn readRawTestChar() u8 {
+    initTestMode();
+    if (test_keys_buf == null) return 0;
+    const buf = test_keys_buf.?;
+    var pos = test_keys_pos;
+    while (pos < buf.len and (buf[pos] == ',' or buf[pos] == ' ' or buf[pos] == '\t')) {
+        pos += 1;
+    }
+    if (pos >= buf.len) {
+        test_keys_pos = pos;
+        return 0;
+    }
+    var end = pos;
+    while (end < buf.len and buf[end] != ',') {
+        end += 1;
+    }
+    var trimmed_end = end;
+    while (trimmed_end > pos and (buf[trimmed_end - 1] == ' ' or buf[trimmed_end - 1] == '\t')) {
+        trimmed_end -= 1;
+    }
+    const key = mapRawKeyName(buf[pos..trimmed_end]);
+    test_keys_pos = if (end < buf.len) end + 1 else end;
+    return key;
+}
+
+/// Read a raw character, using test mode if available.
+fn readRawChar() u8 {
+    initTestMode();
+    if (test_keys_buf != null) {
+        return readRawTestChar();
+    }
+    var ch: [1]u8 = undefined;
+    const fd = getTtyFd();
+    const n = std.posix.read(fd, ch[0..]) catch 0;
+    if (n <= 0) return 0;
+    return ch[0];
+}
+
 fn readTestKey() u8 {
     initTestMode();
     if (test_keys_buf == null) return 0;
@@ -518,13 +568,10 @@ fn promptFn(ctx: *pk.Context) bool {
     var input_len: usize = 0;
 
     enableRawMode();
-    const fd = getTtyFd();
 
     while (input_len < input_buf.len - 1) {
-        var ch: [1]u8 = undefined;
-        const n = std.posix.read(fd, ch[0..]) catch 0;
-        if (n <= 0) continue;
-        const cch = ch[0];
+        const cch = readRawChar();
+        if (cch == 0) continue;
         if (cch == '\r' or cch == '\n') {
             break;
         } else if (cch == 0x1b or cch == 0x03) {
@@ -544,7 +591,7 @@ fn promptFn(ctx: *pk.Context) bool {
         } else if (cch >= 32 and cch < 127) {
             input_buf[input_len] = cch;
             input_len += 1;
-            writeOut(ch[0..1]);
+            writeOut(&[_]u8{cch});
         }
     }
 
@@ -571,13 +618,10 @@ fn passwordFn(ctx: *pk.Context) bool {
     var input_len: usize = 0;
 
     enableRawMode();
-    const fd = getTtyFd();
 
     while (input_len < input_buf.len - 1) {
-        var ch: [1]u8 = undefined;
-        const n = std.posix.read(fd, ch[0..]) catch 0;
-        if (n <= 0) continue;
-        const cch = ch[0];
+        const cch = readRawChar();
+        if (cch == 0) continue;
         if (cch == '\r' or cch == '\n') {
             break;
         } else if (cch == 0x1b or cch == 0x03) {
