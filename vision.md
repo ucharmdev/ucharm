@@ -201,6 +201,65 @@ Decision implications:
 - Continue investing in Zig-native modules on PocketPy.
 - MicroPython is not part of the repo anymore; keep historical comparisons for context only.
 
+## Future Features (Wishlist)
+
+Features inspired by popular CLI frameworks (Rich, Inquirer, BubbleTea, listr2) that would enhance ucharm.
+
+### High Priority
+
+| Feature | Description | Inspiration |
+|---------|-------------|-------------|
+| `charm.tree()` | Hierarchical tree display for file structures, dependencies, nested data | Rich Tree |
+| Fuzzy select | Filter choices by typing in `input.select()` | Inquirer/Questionary |
+| Task list | Show multiple tasks with status (pending/running/done/failed) | listr2 |
+
+### Medium Priority
+
+| Feature | Description | Inspiration |
+|---------|-------------|-------------|
+| Column layout | Display content in multiple columns | Rich Columns |
+| Autocomplete prompt | Text input with tab-completion suggestions | Inquirer |
+| Multiple progress bars | Show several concurrent progress bars | Rich Progress |
+| Table enhancements | Cell alignment, row highlighting, alternating colors | Rich Table |
+
+### Lower Priority
+
+| Feature | Description | Inspiration |
+|---------|-------------|-------------|
+| File picker | Interactive directory navigation and file selection | BubbleTea filepicker |
+| Syntax highlighting | Language-aware code coloring | Rich Syntax |
+| Markdown rendering | Render markdown in terminal | Rich Markdown |
+| Paginated output | Page through long output with scrolling | Rich Pager |
+
+### Example: Tree Output
+
+```
+📁 project/
+├── 📄 main.py
+├── 📁 src/
+│   ├── 📄 utils.py
+│   └── 📄 config.py
+└── 📄 README.md
+```
+
+### Example: Task List
+
+```
+  ◉ Installing dependencies
+  ◉ Running tests
+  ◐ Building artifacts...
+  ○ Deploying to production
+```
+
+### Example: Fuzzy Select
+
+```
+? Choose a file: py
+  > main.py
+    utils.py
+    config.py
+```
+
 ## Reference TUI Tooling (inspiration)
 
 - Bubble Tea (Go): https://github.com/charmbracelet/bubbletea
