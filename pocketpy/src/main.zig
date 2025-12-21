@@ -6,7 +6,11 @@ const runtime = @import("runtime.zig");
 fn execSource(source: [:0]const u8, filename: [:0]const u8) !void {
     if (!c.py_exec(source, filename, c.EXEC_MODE, null)) {
         if (c.py_matchexc(c.tp_SystemExit)) {
-            c.py_r0().* = c.py_retval().*;
+            const exc_tv: c.py_TValue = c.py_retval().*;
+            // Clear the pending exception before calling back into PocketPy APIs.
+            // In debug builds, PocketPy aborts if any VM call is made while an exception is set.
+            c.py_clearexc(null);
+            c.py_r0().* = exc_tv;
 
             var exit_code: i32 = 0;
 
@@ -33,7 +37,6 @@ fn execSource(source: [:0]const u8, filename: [:0]const u8) !void {
                 }
             }
 
-            c.py_clearexc(null);
             const exit_u8: u8 = if (exit_code >= 0 and exit_code <= 255) @intCast(exit_code) else 1;
             std.process.exit(exit_u8);
         }

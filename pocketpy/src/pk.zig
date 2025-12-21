@@ -110,8 +110,8 @@ pub const Value = struct {
 
     pub fn toStr(self: *Value) ?[]const u8 {
         if (!self.isStr()) return null;
-        const ptr = c.py_tostr(self.ref());
-        return ptr[0..std.mem.len(ptr)];
+        const sv = c.py_tosv(self.ref());
+        return @as([*]const u8, @ptrCast(sv.data))[0..@intCast(sv.size)];
     }
 
     pub fn toStrSv(self: *Value) ?c.c11_sv {
@@ -245,8 +245,8 @@ pub const Context = struct {
         if (index >= self.argCount()) return null;
         const arg_ref = argRef(self.argv, index);
         if (!c.py_isstr(arg_ref)) return null;
-        const ptr = c.py_tostr(arg_ref);
-        return ptr[0..std.mem.len(ptr)];
+        const sv = c.py_tosv(arg_ref);
+        return @as([*]const u8, @ptrCast(sv.data))[0..@intCast(sv.size)];
     }
 
     /// Get argument at index as bool

@@ -4,6 +4,8 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
+    const sqlite_amalgamation = b.dependency("sqlite_amalgamation", .{});
+
     const exe_mod = b.createModule(.{
         .root_source_file = b.path("src/main.zig"),
         .target = target,
@@ -14,6 +16,12 @@ pub fn build(b: *std.Build) void {
         .name = "pocketpy-ucharm",
         .root_module = exe_mod,
     });
+
+    // Strip in release builds to keep the runtime small.
+    if (optimize != .Debug) {
+        exe.root_module.strip = true;
+        exe.link_gc_sections = true;
+    }
 
     const pk_mod = b.createModule(.{
         .root_source_file = b.path("src/pk.zig"),
@@ -105,6 +113,22 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     mod_term.addImport("pk", pk_mod);
+
+    const mod_template = b.createModule(.{
+        .root_source_file = b.path("../runtime/ucharm/template.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    mod_template.addImport("pk", pk_mod);
+    mod_template.addIncludePath(b.path("vendor"));
+
+    const mod_fetch = b.createModule(.{
+        .root_source_file = b.path("../runtime/compat/fetch.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    mod_fetch.addImport("pk", pk_mod);
+    mod_fetch.addIncludePath(b.path("vendor/bearssl/inc"));
 
     // Compat modules (CPython-compatible stdlib)
     const mod_sys = b.createModule(.{
@@ -449,6 +473,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     mod_sqlite3.addImport("pk", pk_mod);
+    mod_sqlite3.addIncludePath(sqlite_amalgamation.path("."));
 
     const mod_http_client = b.createModule(.{
         .root_source_file = b.path("../runtime/compat/http_client.zig"),
@@ -515,12 +540,16 @@ pub fn build(b: *std.Build) void {
     exe.root_module.addImport("mod_xml_etree_elementtree", mod_xml_etree_elementtree);
     exe.root_module.addImport("mod_sqlite3", mod_sqlite3);
     exe.root_module.addImport("mod_http_client", mod_http_client);
+    exe.root_module.addImport("mod_template", mod_template);
+    exe.root_module.addImport("mod_fetch", mod_fetch);
 
     // PocketPy is C11 and expects libc.
     exe.linkLibC();
 
     // PocketPy amalgamated sources live in `vendor/`.
     exe.root_module.addIncludePath(b.path("vendor"));
+    exe.root_module.addIncludePath(sqlite_amalgamation.path("."));
+    exe.root_module.addIncludePath(b.path("vendor/bearssl/inc"));
 
     var c_flags: std.ArrayList([]const u8) = .empty;
     defer c_flags.deinit(b.allocator);
@@ -540,6 +569,61 @@ pub fn build(b: *std.Build) void {
         .file = b.path("vendor/pocketpy.c"),
         .flags = c_flags.items,
     });
+
+    // SQLite amalgamation (statically embedded) for sqlite3 module support.
+    var sqlite_flags: std.ArrayList([]const u8) = .empty;
+    defer sqlite_flags.deinit(b.allocator);
+    sqlite_flags.append(b.allocator, "-std=c11") catch @panic("OOM");
+    if (optimize != .Debug) sqlite_flags.append(b.allocator, "-DNDEBUG") catch @panic("OOM");
+    sqlite_flags.append(b.allocator, "-DSQLITE_THREADSAFE=0") catch @panic("OOM");
+    sqlite_flags.append(b.allocator, "-DSQLITE_DEFAULT_MEMSTATUS=0") catch @panic("OOM");
+    sqlite_flags.append(b.allocator, "-DSQLITE_OMIT_LOAD_EXTENSION") catch @panic("OOM");
+    sqlite_flags.append(b.allocator, "-DSQLITE_OMIT_SHARED_CACHE") catch @panic("OOM");
+    sqlite_flags.append(b.allocator, "-DSQLITE_OMIT_DEPRECATED") catch @panic("OOM");
+    sqlite_flags.append(b.allocator, "-DSQLITE_DQS=0") catch @panic("OOM");
+    sqlite_flags.append(b.allocator, "-DSQLITE_OMIT_UTF16") catch @panic("OOM");
+    sqlite_flags.append(b.allocator, "-fno-strict-aliasing") catch @panic("OOM");
+    exe.addCSourceFile(.{
+        .file = sqlite_amalgamation.path("sqlite3.c"),
+        .flags = sqlite_flags.items,
+    });
+
+    // TinyTemplate (single-file C templating engine).
+    var tinytemplate_flags: std.ArrayList([]const u8) = .empty;
+    defer tinytemplate_flags.deinit(b.allocator);
+    tinytemplate_flags.append(b.allocator, "-std=c11") catch @panic("OOM");
+    if (optimize != .Debug) tinytemplate_flags.append(b.allocator, "-DNDEBUG") catch @panic("OOM");
+    tinytemplate_flags.append(b.allocator, "-fno-strict-aliasing") catch @panic("OOM");
+    exe.addCSourceFile(.{
+        .file = b.path("vendor/tinytemplate.c"),
+        .flags = tinytemplate_flags.items,
+    });
+
+    // BearSSL (TLS 1.2 client) for HTTPS support in fetch/http modules.
+    var bearssl_flags: std.ArrayList([]const u8) = .empty;
+    defer bearssl_flags.deinit(b.allocator);
+    bearssl_flags.append(b.allocator, "-std=c11") catch @panic("OOM");
+    if (optimize != .Debug) bearssl_flags.append(b.allocator, "-DNDEBUG") catch @panic("OOM");
+    bearssl_flags.append(b.allocator, "-Ivendor/bearssl/inc") catch @panic("OOM");
+    bearssl_flags.append(b.allocator, "-Ivendor/bearssl/src") catch @panic("OOM");
+    bearssl_flags.append(b.allocator, "-fno-strict-aliasing") catch @panic("OOM");
+    bearssl_flags.append(b.allocator, "-ffunction-sections") catch @panic("OOM");
+    bearssl_flags.append(b.allocator, "-fdata-sections") catch @panic("OOM");
+
+    const bearssl_src_dir = std.fs.cwd().openDir("vendor/bearssl/src", .{ .iterate = true }) catch @panic("missing vendor/bearssl/src");
+    var walker = bearssl_src_dir.walk(b.allocator) catch @panic("OOM");
+    defer walker.deinit();
+    while (walker.next() catch @panic("walk failed")) |entry| {
+        if (entry.kind != .file) continue;
+        if (!std.mem.endsWith(u8, entry.path, ".c")) continue;
+        // These files depend on obsolete types (#if 0 in inner.h) and are not
+        // part of the upstream library build.
+        if (std.mem.indexOf(u8, entry.path, "ec_prime_i31_secp") != null) continue;
+        exe.addCSourceFile(.{
+            .file = b.path(b.fmt("vendor/bearssl/src/{s}", .{entry.path})),
+            .flags = bearssl_flags.items,
+        });
+    }
 
     // Install + `zig build run` convenience.
     b.installArtifact(exe);

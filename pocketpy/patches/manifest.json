@@ -1,6 +1,6 @@
 {
   "patchset_id": "ucharm-pocketpy-vendor-patches",
-  "patchset_version": 1,
+  "patchset_version": 2,
   "tracked_files": [
     {
       "path": "pocketpy/vendor/pocketpy.c",
@@ -9,6 +9,7 @@
         "ucharm patch: allow function attributes (__dict__) for CPython compatibility",
         "ucharm patch: allow setting function.__doc__ for CPython compatibility",
         "ucharm patch: allow setting function.__name__ for CPython compatibility",
+        "ucharm patch: bytes.decode accepts encoding/errors args for CPython compatibility",
         "ucharm patch: WITH_EXIT_EXC opcode for exception-aware __exit__",
         "ucharm patch: ensure __exit__ runs on exceptions and can suppress",
         "ucharm patch: compile 'with' to call __exit__ on exceptions (and allow suppression)"
@@ -27,6 +28,10 @@
     {
       "id": "0003-with-exception-exit",
       "file": "pocketpy/patches/0003-with-exception-exit.patch"
+    },
+    {
+      "id": "0004-bytes-decode",
+      "file": "pocketpy/patches/0004-bytes-decode.patch"
     }
   ]
 }

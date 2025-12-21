@@ -1,0 +1,27 @@
+diff --git a/pocketpy/vendor/pocketpy.c b/pocketpy/vendor/pocketpy.c
+index d5f8802..31597a3 100644
+--- a/pocketpy/vendor/pocketpy.c
++++ b/pocketpy/vendor/pocketpy.c
+@@ -15320,7 +15320,21 @@ static bool bytes__add__(int argc, py_Ref argv) {
+ }
+ 
+ static bool bytes_decode(int argc, py_Ref argv) {
+-    PY_CHECK_ARGC(1);
++    // ucharm patch: bytes.decode accepts encoding/errors args for CPython compatibility
++    if(argc > 3) return TypeError("decode() takes at most 2 arguments (%d given)", argc - 1);
++    if(argc >= 2 && !py_isnone(argv + 1)) {
++        PY_CHECK_ARG_TYPE(1, tp_str);
++        const char* enc = py_tostr(argv + 1);
++        // PocketPy only supports UTF-8 strings.
++        if(strcmp(enc, "utf-8") != 0 && strcmp(enc, "utf8") != 0 && strcmp(enc, "UTF-8") != 0 &&
++           strcmp(enc, "UTF8") != 0) {
++            return TypeError("unsupported encoding: %s", enc);
++        }
++    }
++    if(argc >= 3 && !py_isnone(argv + 2)) {
++        PY_CHECK_ARG_TYPE(2, tp_str);
++        // errors is accepted for compatibility but currently ignored
++    }
+     int size;
+     unsigned char* data = py_tobytes(&argv[0], &size);
+     py_newstrv(py_retval(), (c11_sv){(const char*)data, size});

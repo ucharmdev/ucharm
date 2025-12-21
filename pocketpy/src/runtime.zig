@@ -52,10 +52,12 @@ pub fn registerAll() void {
     @import("mod_xml_etree_elementtree").register();
     @import("mod_sqlite3").register();
     @import("mod_http_client").register();
+    @import("mod_fetch").register();
     @import("mod_ansi").register();
     @import("mod_term").register();
     @import("mod_args").register();
     @import("mod_charm").register();
     @import("mod_input").register();
+    @import("mod_template").register();
     @import("mod_sys").register();
 }
