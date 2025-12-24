@@ -94,7 +94,7 @@ Uploading  [███████████░░░░░░] 68%  3.2s
 
 | | Python + Rich | Go + Charm | Rust + Ratatui | **μcharm** |
 |---|:---:|:---:|:---:|:---:|
-| **Startup time** | 100ms+ | ~10-20ms | ~2-10ms | **<= 10ms** |
+| **Startup time** | 100ms+ | ~10-20ms | ~2-10ms | **~ 3ms** |
 | **Binary size** | 80MB+ | 2-3MB | 2-5MB | **< 2MB** |
 | **Easy to write** | Yes | Medium | Hard | **Yes** |
 | **Beautiful TUI** | Yes | Yes | Yes | **Yes** |
